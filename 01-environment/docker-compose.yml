@@ -2,7 +2,6 @@
 # Docker Compose with the following services:
 #  zookeeper
 #  kafka broker 1-3
-#  kafkacat
 #  schema registry
 #  kafka connect
 #  kafka rest proxy
@@ -98,13 +97,6 @@ services:
       CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 1
       CONFLUENT_METRICS_ENABLE: 'true'
       CONFLUENT_SUPPORT_CUSTOMER_ID: 'anonymous'
-
-  kafkacat:
-    image: confluentinc/cp-kafkacat:5.0.0-beta1-1
-    hostname: kafkacat
-    depends_on:
-      - zookeeper
-      - broker-1
       
   schema_registry:
     image: confluentinc/cp-schema-registry:5.0.0-beta1-1
