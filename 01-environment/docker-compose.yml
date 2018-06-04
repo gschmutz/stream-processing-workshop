@@ -109,7 +109,9 @@ services:
     environment:
       SCHEMA_REGISTRY_HOST_NAME: schema_registry
       SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: 'zookeeper:2181'
-
+      SCHEMA_REGISTRY_ACCESS_CONTROL_ALLOW_ORIGIN: '*'
+      SCHEMA_REGISTRY_ACCESS_CONTROL_ALLOW_METHODS: 'GET,POST,PUT,OPTIONS'
+      
   connect:
     image: confluentinc/cp-kafka-connect:5.0.0-beta1-1
     hostname: connect
@@ -221,7 +223,7 @@ services:
     ports:
       - "8002:8000"
     environment:
-      SCHEMAREGISTRY_URL: 'http://${DOCKER_HOST_IP}:8081'
+      SCHEMAREGISTRY_URL: 'http://${PUBLIC_IP}:8081'
 
   kafka-manager:
     image: trivadisbds/kafka-manager
@@ -229,7 +231,7 @@ services:
     depends_on:
       - zookeeper
     ports:
-      - "9000:9000"
+      - "39000:9000"
     environment:
       ZK_HOSTS: 'zookeeper:2181'
       APPLICATION_SECRET: 'letmein'
@@ -240,6 +242,9 @@ services:
     hostname: streamsets
     ports:
       - "18630:18630"
+    volumes:
+      - ./streamsets/user-libs:/opt/streamsets-datacollector-user-libs
+      - ./streamsets/data:/data      
     restart: always
 
   nifi:
@@ -262,5 +267,5 @@ services:
       MASTER: local[*]
     volumes:
       - ./data:/usr/zeppelin/data
-      - ./notebooks:/usr/zeppelin/notebook
+      - ./  :/usr/zeppelin/notebook
     restart: always

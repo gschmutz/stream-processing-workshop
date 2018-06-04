@@ -338,7 +338,7 @@ kafkacat -b 10.0.1.4 -t test-topic -P -K , -X topic.partitioner=murmur2_random
 
 ### Send realistic test mesages to Kafka using Mockaroo and Kafkacat
 
-In his [blog article](https://rmoff.net/2018/05/10/quick-n-easy-population-of-realistic-test-data-into-kafka-with-mockaroo-and-kafkacat/) Robin Moffatt shows an interesting and easy approach to send realistic mock data to Kafka. 
+In his [blog article](https://rmoff.net/2018/05/10/quick-n-easy-population-of-realistic-test-data-into-kafka-with-mockaroo-and-kafkacat/) Robin Moffatt shows an interesting and easy approach to send realistic mock data to Kafka. He is using [Mockaroo](https://mockaroo.com/), a free test data generator and API mocking tool, together with [Kafkacat](https://github.com/edenhill/kafkacat) to produce mock messages. 
 
 Taking his example, you can send 10 orders to test-topic.
 
