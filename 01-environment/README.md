@@ -1,4 +1,4 @@
-# Setup the Streaming Platform
+# Setup of the Streaming Platform
 The environment for this course is completly based on docker containers. 
 
 Either use the Virtual Machine image made available in the course, containing a docker installation or provisiong your own Docker environemnt including Docker Compose. Find the information for installing [Docker](https://docs.docker.com/install/#supported-platforms) and [Docker Compose](https://docs.docker.com/compose/install/).
