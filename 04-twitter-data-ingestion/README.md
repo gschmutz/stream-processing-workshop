@@ -45,7 +45,7 @@ Click on the **HTTP** tab and enter `https://stream.twitter.com/1.1/statuses/fil
 
 ![Alt Image Text](./images/streamsets-http-client-config-http1.png "Schema Registry UI")
 
-Now click on **Credentials** tab and enter the values fro the Twitter application into the **Consumer Key**, **Consumer Secret**, **Token** and **Token Secret**.
+Now click on **Credentials** tab and enter the values for the Twitter application into the **Consumer Key**, **Consumer Secret**, **Token** and **Token Secret**. You can find the steps for creating a new Twitter Application [here](../99-misc/99-twitter-app/README.md). 
 
 ![Alt Image Text](./images/streamsets-http-client-config-http2.png "Schema Registry UI")
 
