@@ -80,16 +80,33 @@ Now let's start a `kafkacat` consumer on the new topic:
 ```
 kafkacat -b 10.0.1.4:9092 -t tweet-json-topic
 ```
+Now let's run the pipeline. There are two ways you can run a pipeline in StreamSets, either in **Preview** mode with no/minimal side-effects or in **Execution** mode, where the pipeline runs until stopped. 
+ 
+### Preview the pipeline
+The Preview mode allows you to check your pipeline before executing it. 
 
-### Preview the pipeline 
-
+Click on the **Preview** icon on the menu-bar, as shown on the following screenhot:
+ 
 ![Alt Image Text](./images/streamsets-preview-pipeline.png "Schema Registry UI")
+
+On the **Preview Configuration** pop-up window you can configure how side-effect free your preview should be (option **Write to Destinations and Executors** and **Execute pipeline lifecylce events**). Additionally you define from where the source sould read the events for the preview. From **Configured Source** will use "live" data but you could also take data from a snapshot captured in an earlier run. 
 
 Click on **Run Preview**.
 
 ![Alt Image Text](./images/streamsets-preview-pipeline-options.png "Schema Registry UI")
 
+The Preview mode will get the configured number of events (**Preview Batch Size** setting on previous screen) from the source or stop after the timeout (**Preview Timeout** setting on previous screen). 
+
+You can see that the component **HTTP Client 1** is selected and you can see both the input and the output of that component below. 
+
 ![Alt Image Text](./images/streamsets-previewing-pipeline-1.png "Schema Registry UI")
+
+You can drill-down into each record as shown below.
+
+![Alt Image Text](./images/streamsets-previewing-pipeline-2.png "Schema Registry UI")
+
+Preview mode will be even more helpful if a Processor component is used between an Origin and a Destination, and you will be able to view the change between the Input Data and the Output Data done by the Processor.
+
 ### Run the pipeline 
 Now let's run the pipeline. Click on the Start icon in the menu bar in the top right corner. 
 
@@ -101,4 +118,4 @@ The pipeline should change in the **RUNNING** state and the tweets should start 
 You can drill down to each component, by just selecting one of the components. 
 
 ### Stop the pipeline 
-Just click on the stop button on the top right. 
+To stop a running pipeline, click on the stop button on the top right. 
