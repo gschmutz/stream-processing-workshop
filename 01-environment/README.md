@@ -5,10 +5,38 @@ Either use the Virtual Machine image made available in the course, containing a 
  
 [Here](../00-setup/README.md) you can find the installation of an Virtual Machine in Azure. 
 
+In order to simplify the provisioning, a single docker-compose configuration is used. All the necessary software will be provisioned using Docker. 
+
+## What is this Streaming Platform?
+
+The following services are provisioned as part of the Streaming Platform: 
+
+ * Apache Zookeeper
+ * Kafka Broker 1-3
+ * Confluent Schema Registry
+ * kafka connect
+ * kafka rest proxy
+ * ksql server
+ * ksql cli
+ * Confluent control center
+ * schema registry UI
+ * kafka manager
+ * apache zeppelin
+ * Streamets Data Collector
+ * Apache NiFi
+
+For Kafka we will be using the Docker images provided by Confluent and available under the following GitHub project: <https://github.com/confluentinc/cp-docker-images>. In this project, there is an example folder with a few different docker compose configuration for various Confluent Platform configurations. 
+
 ## Prepare the Docker Compose configuration
 
-In order to simplify the provisioning, a single docker-compose configuration is used. All the necessary software will be provisioned using Docker. We will be using the Docker images provided by Confluent and available under the following GitHub project: <https://github.com/confluentinc/cp-docker-images>. In this project, there is an example folder with a few different docker compose configuration for various Confluent Platform configurations. 
+On your Docker Machine, create a folder `streamingplatform`. 
 
+```
+mkdir streamingplaform
+cd streamingplatform
+```
+
+Copy the following code fragment into a file named `docker-compose.yml`.
 
 ```
 #
@@ -284,7 +312,7 @@ services:
     restart: always
 ```
 
-## Start the enviroinemnt
+## Start the environment
 
 Before we can start the environment, we have to set the environment variable DOCKER_HOST_IP to contain the IP-address of the Docker Host and environment variable PUBLIC_IP to the public IP address (not the same if you are using Azure). 
 You can find the IP-Address of the Docker host using the `ifconfig` config from the linux shell. The public IP address of the VM in Azure can be found in the Azure portal.
