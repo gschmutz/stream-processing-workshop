@@ -1,5 +1,6 @@
-# Data Ingestion
+# Data Ingestion with StreamSets Data Collector
 
+### Create a new pipeline
 In a browser, navigate to <http://streamingplatform:18630>. The Streamsets authentication page should be shown.
 
 ![Alt Image Text](./images/streamsets-login.png "Schema Registry UI")
@@ -49,6 +50,7 @@ Now click on **Credentials** tab and enter the values fro the Twitter applicatio
 ![Alt Image Text](./images/streamsets-http-client-config-http2.png "Schema Registry UI")
 
 Click on the **Data Format** tab and make sure that `JSON` is selected for the **Data Format** drop down. 
+Increase the value of **Max Object Length (chars)** to `409600`.
 
 ![Alt Image Text](./images/streamsets-http-client-config-http3.png "Schema Registry UI")
 
@@ -58,8 +60,7 @@ Now let's configure the Kafka Producer. Click on the **Kafka Producer 1** compon
 Enter `broker-1:9092,broker-2:9093` into the **Broker URI** edit field and `tweet-json-topic` into the **Topic** field.
 
 ![Alt Image Text](./images/streamsets-kafka-producer-config-kafka.png "Schema Registry UI")
-
-Click on the **Data Format** tab and make sure that `JSON` is selected for the **Data Format**. Increase the value of **Max Object Length (chars)** to `409600`.
+Click on the **Data Format** tab and make sure that `JSON` is selected for the **Data Format**. 
 
 ### Create the topic in Kafka
 
@@ -81,4 +82,11 @@ kafkacat -b 10.0.1.4:9092 -t tweet-json-topic
 ```
 
 ### Run the pipeline in StreamSets
+Now let's run the pipeline. Click on the Start icon in the menu bar in the top right corner. 
 
+![Alt Image Text](./images/streamsets-start-pipeline.png "Schema Registry UI")
+
+The pipeline should change in the **RUNNING** state and the tweets should start to show up on the kafkacat terminal. You can see the that StreamSets also switches into the montioring view, where you can find statistics about the data flow you run (such as number of rows processed, bot successfullly and error as well as throughput). 
+
+![Alt Image Text](./images/streamsets-running-pipeline.png "Schema Registry UI")
+You can drill down to each component, by just selecting one of the components. 

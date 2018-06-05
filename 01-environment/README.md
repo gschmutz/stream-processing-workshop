@@ -244,7 +244,7 @@ services:
     depends_on:
       - zookeeper
     ports:
-      - "9000:9000"
+      - "39000:9000"
     environment:
       ZK_HOSTS: 'zookeeper:2181'
       APPLICATION_SECRET: 'letmein'
@@ -255,6 +255,9 @@ services:
     hostname: streamsets
     ports:
       - "18630:18630"
+    volumes:
+      - ./streamsets/user-libs:/opt/streamsets-datacollector-user-libs
+      - ./streamsets/data:/data      
     restart: always
 
   nifi:
