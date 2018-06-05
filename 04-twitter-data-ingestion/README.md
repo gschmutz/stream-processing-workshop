@@ -81,7 +81,16 @@ Now let's start a `kafkacat` consumer on the new topic:
 kafkacat -b 10.0.1.4:9092 -t tweet-json-topic
 ```
 
-### Run the pipeline in StreamSets
+### Preview the pipeline 
+
+![Alt Image Text](./images/streamsets-preview-pipeline.png "Schema Registry UI")
+
+Click on **Run Preview**.
+
+![Alt Image Text](./images/streamsets-preview-pipeline-options.png "Schema Registry UI")
+
+![Alt Image Text](./images/streamsets-previewing-pipeline-1.png "Schema Registry UI")
+### Run the pipeline 
 Now let's run the pipeline. Click on the Start icon in the menu bar in the top right corner. 
 
 ![Alt Image Text](./images/streamsets-start-pipeline.png "Schema Registry UI")
@@ -90,3 +99,6 @@ The pipeline should change in the **RUNNING** state and the tweets should start 
 
 ![Alt Image Text](./images/streamsets-running-pipeline.png "Schema Registry UI")
 You can drill down to each component, by just selecting one of the components. 
+
+### Stop the pipeline 
+Just click on the stop button on the top right. 
