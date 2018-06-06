@@ -18,16 +18,17 @@
 version: '2'
 services:
   zookeeper:
-    image: confluentinc/cp-zookeeper:5.0.0-beta1-1
+    image: confluentinc/cp-zookeeper:5.0.0-beta30-1
     hostname: zookeeper
     ports:
       - "2181:2181"
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+    restart: always
 
   broker-1:
-    image: confluentinc/cp-enterprise-kafka:5.0.0-beta1-1
+    image: confluentinc/cp-enterprise-kafka:5.0.0-beta30-1
     hostname: broker-1
     depends_on:
       - zookeeper
@@ -49,9 +50,10 @@ services:
       CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 1
       CONFLUENT_METRICS_ENABLE: 'true'
       CONFLUENT_SUPPORT_CUSTOMER_ID: 'anonymous'
+    restart: always
 
   broker-2:
-    image: confluentinc/cp-enterprise-kafka:5.0.0-beta1-1
+    image: confluentinc/cp-enterprise-kafka:5.0.0-beta30-1
     hostname: broker-2
     depends_on:
       - zookeeper
@@ -73,9 +75,10 @@ services:
       CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 1
       CONFLUENT_METRICS_ENABLE: 'true'
       CONFLUENT_SUPPORT_CUSTOMER_ID: 'anonymous'
+    restart: always
 
   broker-3:
-    image: confluentinc/cp-enterprise-kafka:5.0.0-beta1-1
+    image: confluentinc/cp-enterprise-kafka:5.0.0-beta30-1
     hostname: broker-3
     depends_on:
       - zookeeper
@@ -97,9 +100,10 @@ services:
       CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 1
       CONFLUENT_METRICS_ENABLE: 'true'
       CONFLUENT_SUPPORT_CUSTOMER_ID: 'anonymous'
+    restart: always
       
   schema_registry:
-    image: confluentinc/cp-schema-registry:5.0.0-beta1-1
+    image: confluentinc/cp-schema-registry:5.0.0-beta30-1
     hostname: schema_registry
     depends_on:
       - zookeeper
@@ -111,9 +115,10 @@ services:
       SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: 'zookeeper:2181'
       SCHEMA_REGISTRY_ACCESS_CONTROL_ALLOW_ORIGIN: '*'
       SCHEMA_REGISTRY_ACCESS_CONTROL_ALLOW_METHODS: 'GET,POST,PUT,OPTIONS'
+    restart: always
       
   connect:
-    image: confluentinc/cp-kafka-connect:5.0.0-beta1-1
+    image: confluentinc/cp-kafka-connect:5.0.0-beta30-1
     hostname: connect
     depends_on:
       - zookeeper
@@ -140,9 +145,10 @@ services:
       CONNECT_INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       CONNECT_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+    restart: always
 
   rest-proxy:
-    image: confluentinc/cp-kafka-rest:5.0.0-beta1-1
+    image: confluentinc/cp-kafka-rest:5.0.0-beta30-1
     hostname: rest-proxy
     depends_on:
       - broker-1
@@ -154,48 +160,26 @@ services:
       KAFKA_REST_LISTENERS: 'http://0.0.0.0:8084'
       KAFKA_REST_SCHEMA_REGISTRY_URL: 'http://schema_registry:8081'
       KAFKA_REST_HOST_NAME: 'rest-proxy'
+    restart: always
 
   ksql-server:
-    image: confluentinc/ksql-cli:5.0.0-beta1
+    image: confluentinc/cp-ksql-server:5.0.0-beta30-1
     hostname: ksql-server
     ports:
       - '8088:8088'
     depends_on:
       - broker-1
       - schema_registry
-    # Note: The container's `run` script will perform the same readiness checks
-    # for Kafka and Confluent Schema Registry, but that's ok because they complete fast.
-    # The reason we check for readiness here is that we can insert a sleep time
-    # for topic creation before we start the application.
-    command: "bash -c 'echo Waiting for Kafka to be ready... && \
-                       cub kafka-ready -b broker-1:9092 1 20 && \
-                       echo Waiting for Confluent Schema Registry to be ready... && \
-                       cub sr-ready schema-registry 8081 20 && \
-                       echo Waiting a few seconds for topic creation to finish... && \
-                       sleep 2 && \
-                       /usr/bin/ksql-server-start /etc/ksql/ksql-server.properties'"
     environment:
-      KSQL_CONFIG_DIR: "/etc/ksql"
-      KSQL_OPTS: "-Dbootstrap.servers=broker-1:9092 -Dksql.schema.registry.url=http://schema_registry:8081 -Dlisteners=http://0.0.0.0:8088"
-      KSQL_LOG4J_OPTS: "-Dlog4j.configuration=file:/etc/ksql/log4j-rolling.properties"
-
-  ksql-cli:
-    image: confluentinc/ksql-cli:5.0.0-beta1
-    hostname: ksql-cli
-    depends_on:
-      - broker-1
-      - schema_registry
-      - ksql-server
-    command: "perl -e 'while(1){ sleep 99999 }'"
-    environment:
-      KSQL_CONFIG_DIR: "/etc/ksql"
-      KSQL_LOG4J_OPTS: "-Dlog4j.configuration=file:/etc/ksql/log4j-rolling.properties"
-      STREAMS_BOOTSTRAP_SERVERS: broker-1:9092
-      STREAMS_SCHEMA_REGISTRY_HOST: schema_registry
-      STREAMS_SCHEMA_REGISTRY_PORT: 8081
+      KSQL_BOOTSTRAP_SERVERS: "broker-1:9092"
+      KSQL_LISTENERS: "http://0.0.0.0:8088"
+      KSQL_KSQL_SERVICE_ID: "test-2"
+      KSQL_PRODUCER_INTERCEPTOR_CLASSES: io.confluent.monitoring.clients.interceptor.MonitoringProducerInterceptor
+      KSQL_CONSUMER_INTERCEPTOR_CLASSES: io.confluent.monitoring.clients.interceptor.MonitoringConsumerInterceptor
+    restart: always
 
   control-center:
-    image: confluentinc/cp-enterprise-control-center:5.0.0-beta1-1
+    image: confluentinc/cp-enterprise-control-center:5.0.0-beta30-1
     hostname: control-center
     depends_on:
       - zookeeper
@@ -213,6 +197,7 @@ services:
       CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS: 1
       CONFLUENT_METRICS_TOPIC_REPLICATION: 1
       PORT: 9021
+    restart: always
 
   schema-registry-ui:
     image: landoop/schema-registry-ui
@@ -224,6 +209,7 @@ services:
       - "8002:8000"
     environment:
       SCHEMAREGISTRY_URL: 'http://${PUBLIC_IP}:8081'
+    restart: always
 
   kafka-manager:
     image: trivadisbds/kafka-manager
