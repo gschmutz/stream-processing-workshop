@@ -163,7 +163,7 @@ services:
     restart: always
 
   ksql-server:
-    image: confluentinc/cp-ksql-server:5.0.0-beta30-1
+    image: confluentinc/cp-ksql-server:5.0.0-beta30
     hostname: ksql-server
     ports:
       - '8088:8088'
