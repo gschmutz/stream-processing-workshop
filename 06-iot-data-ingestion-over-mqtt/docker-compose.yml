@@ -145,8 +145,6 @@ services:
       CONNECT_INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       CONNECT_ZOOKEEPER_CONNECT: 'zookeeper:2181'
-    volumes:
-      - $PWD/kafka-connect:/etc/kafka-connect/custom-plugins
     restart: always
 
   rest-proxy:
@@ -272,3 +270,13 @@ services:
       - ./data:/usr/zeppelin/data
       - ./  :/usr/zeppelin/notebook
     restart: always
+    
+  mosquitto-1:
+    image: eclipse-mosquitto:latest
+    hostname: mosquitto-1
+    ports: 
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto/mosquitto-1.conf:/mosquitto/config/mosquitto.conf
+
