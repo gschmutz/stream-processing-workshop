@@ -5,8 +5,8 @@ The following diagram shows the setup of the data flow we will be implementing. 
 
 ![Alt Image Text](./images/iot-ingestion-overview.png "Schema Registry UI")
 
-### Adding a MQTT broker
-Our streaming platform does not yet contain an MQTT broker. 
+### Adding a MQTT broker to Streaming Platform
+Our streaming platform does not yet provide an MQTT broker.
 
 So let's add a new serice to the docker-compose.yml file we have created in [Setup of the Streaming Platform](../01-environment/README.md).
 
@@ -44,12 +44,15 @@ In order to be able to see what we are producing into MQTT, we need something si
 
 There are multiple tools available, some with a Web-UI and some with Rich-Client UI. 
 
-TODO
+One of the tools is the mosquitto-sub, which can be easly started using a docker container. 
+
+```
+docker run -it --rm efrecon/mqtt-client sub -h test.mosquitto.org -t "#" -v
+```
 
 ### Running the Truck Simulator
 
 Now with the MQTT broker and the MQTT client in place, let's produce some messages to the MQTT topics. 
-TODO
 
 ```
 docker run -E gschmutz/truck-simulator:1.0.0
@@ -60,6 +63,57 @@ mvn exec:java -Dexec.args="-s MQTT -f CSV -p 1883"
 ### Adding Kafka Connect to bridge between MQTT and Kafka
 
 In order to get the messages from MQTT into Kafka, we will be using Kafka Connect. Luckily, there are multiple Kafka Connectors available for MQTT. We will be using the one availble from Landoop. (TODO)
+
+Connect via SSH to the docker host and create a `kafka-connect` folder below the `streamingplatform` folder. Navigate into the `kafka-connect` folder and download the `kafka-connect-mqtt-1.0.0-1.0.0-all.tar.gz` file:
+
+```
+wget https://github.com/Landoop/stream-reactor/releases/download/1.0.0/kafka-connect-mqtt-1.0.0-1.0.0-all.tar.gz
+```
+
+Once it is successfully downloaded, untar it using the `tar` command. 
+
+```
+tar xvf kafka-connect-mqtt-1.0.0-1.0.0-all.tar.gz
+```
+
+Change the defintion of the `connect` service in the `docker-compose.yml` to the following: 
+
+```
+  connect:
+    image: confluentinc/cp-kafka-connect:5.0.0-beta30-1
+    hostname: connect
+    depends_on:
+      - zookeeper
+      - broker-1
+      - schema_registry
+    ports:
+      - "8083:8083"
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: 'broker-1:9092'
+      CONNECT_REST_ADVERTISED_HOST_NAME: connect
+      CONNECT_REST_PORT: 8083
+      CONNECT_GROUP_ID: compose-connect-group
+      CONNECT_CONFIG_STORAGE_TOPIC: docker-connect-configs
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_FLUSH_INTERVAL_MS: 10000
+      CONNECT_OFFSET_STORAGE_TOPIC: docker-connect-offsets
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_TOPIC: docker-connect-status
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_KEY_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: 'http://schema_registry:8081'
+      CONNECT_VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: 'http://schema_registry:8081'
+      CONNECT_INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      CONNECT_PLUGIN_PATH: "/usr/share/java,/etc/kafka-connect/custom-plugins"
+      CONNECT_LOG4J_ROOT_LOGLEVEL: INFO
+      CLASSPATH: /usr/share/java/monitoring-interceptors/monitoring-interceptors-4.0.0.jar
+    volumes:
+      - $PWD/kafka-connect:/etc/kafka-connect/custom-plugins
+    restart: always
+```
 
 Kafka Connect is already started as a service of the Streaming Platform and it exposes a REST API on Port 8083. 
 
@@ -94,23 +148,38 @@ curl -X "POST" "$DOCKER_HOST_IP:8083/connectors" \
   }'
 ```
 
-Make sure it is executable by running `sudo chmod +X configure-mqtt.sh` and then run it. It will first remove the MQTT connector, if it already exists and then create it (again). 
+The script first removes the MQTT connector, if it already exists and then creates it (again). 
+
+
+Make sure it is executable by running `sudo chmod +X configure-mqtt.sh`. Before we can run the connector, we need to create the Kafka topic `truck_position`. 
 
 ### Create necessary Kafka Topic
+
+Connect into one of the broker containers using the `docker exec` command. 
 
 ```
 docker exec -ti streamingplatform_broker-1_1 bash
 ```
 
+Now using the `kafka-topics` command, create the truck_position topic. 
+
 ```
 kafka-topics --zookeeper zookeeper:2181 --create --topic truck_position --partitions 8 --replication-factor 2
 ```
 
+After successful creation, start a kafka-console-consumer to listen on messages on the truck_position topic. 
 
 ```
 kafka-console-consumer --bootstrap-server broker-1:9092 --topic truck_position
 ```
 
+### Start the connector
 
+Now let's start the connector by running the configure-mqtt script.
 
+```
+./scripts/configure-mqtt.sh
+```
+
+The messages should start flowing in the window with the kafka-console-consumer. 
 
