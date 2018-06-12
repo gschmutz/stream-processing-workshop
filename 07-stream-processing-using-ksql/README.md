@@ -1,11 +1,37 @@
 # Stream Processing using KSQL
 With the truck data continously ingested into the truck_movemnt topic, let's perform some stream processing on the information. There are many possible solutions for performing analytics directly on the event stream. In the Kafka project, we can either use Kafka Streams or KSQL, a SQL abstraction on top of Kafka Streams. For this workshop we will be using KSQL. 
 
-### Analyze abnormal driver behaviour
+![Alt Image Text](./images/stream-processing-with-ksql-overview.png "Schema Registry UI")
 
-First let's find out abnormal driver behaviour by selecting all the events where the event type is not `Normal`.
+## Connect to KSQL Server
 
-In order to use KSQL, we need to connect to the KSQL engine using the KSQL CLI. One instance of a KSQL server has been started with our Streaming Plaform can can be reached on port 8088.
+Before we can connect to the KSQL server, make sure that the follwing service does exist in the `docker-compose.yml` configuration. 
+
+```
+  ksql-cli:
+    image: confluentinc/ksql-cli:5.0.0-beta30
+    hostname: ksql-cli
+    depends_on:
+      - broker-1
+      - schema_registry
+      - ksql-server
+    command: "perl -e 'while(1){ sleep 99999 }'"
+    environment:
+      KSQL_CONFIG_DIR: "/etc/ksql"
+      KSQL_LOG4J_OPTS: "-Dlog4j.configuration=file:/etc/ksql/log4j-rolling.properties"
+      STREAMS_BOOTSTRAP_SERVERS: broker-1:9092
+      STREAMS_SCHEMA_REGISTRY_HOST: schema_registry
+      STREAMS_SCHEMA_REGISTRY_PORT: 8081
+    restart: always
+```
+
+If you have to add it, make sure to start it using
+
+```
+docker-compose up -d
+```
+
+In order to use KSQL, we need to connect to the KSQL engine using the KSQL CLI. One instance of a KSQL server has been started with our Streaming Plaform and can be reached on port 8088.
 
 ```
 docker-compose exec ksql-cli ksql http://ksql-server:8088
@@ -18,6 +44,10 @@ show topics;
 show streams;
 show tables;
 ```
+
+## Create a Stream on topic truck_position
+
+First let's find out abnormal driver behaviour by selecting all the events where the event type is not `Normal`.
 
 Before we can use a KSQL SELECT statement, we have to describe the structure of our event in the `truck_position` topic. 
 
