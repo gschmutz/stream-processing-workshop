@@ -145,6 +145,9 @@ services:
       CONNECT_INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       CONNECT_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      CONNECT_PLUGIN_PATH: "/usr/share/java,/etc/kafka-connect/custom-plugins"
+      CONNECT_LOG4J_ROOT_LOGLEVEL: INFO
+      CLASSPATH: /usr/share/java/monitoring-interceptors/monitoring-interceptors-4.0.0.jar
     volumes:
       - $PWD/kafka-connect:/etc/kafka-connect/custom-plugins
     restart: always
@@ -179,7 +182,7 @@ services:
       KSQL_PRODUCER_INTERCEPTOR_CLASSES: io.confluent.monitoring.clients.interceptor.MonitoringProducerInterceptor
       KSQL_CONSUMER_INTERCEPTOR_CLASSES: io.confluent.monitoring.clients.interceptor.MonitoringConsumerInterceptor
     restart: always
-    
+
   ksql-cli:
     image: confluentinc/ksql-cli:5.0.0-beta30
     hostname: ksql-cli
@@ -194,6 +197,7 @@ services:
       STREAMS_BOOTSTRAP_SERVERS: broker-1:9092
       STREAMS_SCHEMA_REGISTRY_HOST: schema_registry
       STREAMS_SCHEMA_REGISTRY_PORT: 8081
+    restart: always
 
   control-center:
     image: confluentinc/cp-enterprise-control-center:5.0.0-beta30-1
