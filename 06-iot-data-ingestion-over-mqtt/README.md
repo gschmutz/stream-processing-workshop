@@ -44,7 +44,7 @@ In order to be able to see what we are producing into MQTT, we need something si
 
 There are multiple tools available, some with a Web-UI and some with Rich-Client UI. 
 
-One of the tools is the `mosquitto-sub`, which can be easly started using a docker container. 
+One of the tools is the `mosquitto-sub`, which can be easly started using a docker container. Make sure that the `DOCKER_HOST_IP` is defined before starting it.
 
 ```
 docker run -it --rm efrecon/mqtt-client sub -h $DOCKER_HOST_IP -t "truck/+/position" -v
