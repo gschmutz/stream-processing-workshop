@@ -252,7 +252,7 @@ The script first removes the MQTT connector, if it already exists and then creat
 Make sure it is executable
 
 ```
-sudo chmod +X configure-mqtt.sh`
+sudo chmod +x configure-mqtt.sh
 ```
 
 ### Start the connector
