@@ -74,9 +74,10 @@ unzip truck-client.zip
 rm truck-client.zip
 ```
 
-Now let's compile it using Maven we have installed before. 
+Now let's compile it using Maven we have installed before. Make sure to execute the `mvn clean package` command where the `pom.xml` is located. 
 
 ```
+cd truck-client
 mvn clean package
 ```
 
