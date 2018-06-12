@@ -56,18 +56,31 @@ Another tool is [MQTT.fx](http://mqttfx.jensd.de/), a rich client UI which you c
 
 Now with the MQTT broker and the MQTT client in place, let's produce some messages to the MQTT topics. 
 
-For that we are using a Java simulator program (source Hortonworks). Download it and compile it locally. For that we first need to install maven:
+For that we are using a Java simulator program (source Hortonworks). Download it and compile it locally. For that we first need to install a Java JDK and [Apache Maven](https://maven.apache.org/):
 
 ```
+sudo add-apt-repository ppa:openjdk-r/ppa
+sudo apt-get update
+sudo apt-get install openjdk-8-jdk
+
 sudo apt-get install maven
 ```
 
-now copy the 
+Download the Zip-File with the Java sources and unzip it.
 
 ```
-sudo apt-get install maven
+wget https://github.com/gschmutz/stream-processing-workshop/raw/master/06-iot-data-ingestion-over-mqtt/java-simulator/truck-client.zip
+unzip truck-client.zip
+rm truck-client.zip
 ```
 
+Now let's compile it using Maven we have installed before. 
+
+```
+mvn clean package
+```
+
+And finally we can run it. 
 
 ```
 mvn exec:java -Dexec.args="-s MQTT -f CSV -p 1883"
