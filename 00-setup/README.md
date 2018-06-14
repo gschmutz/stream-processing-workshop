@@ -7,7 +7,7 @@ For the workshops we asume a Ubuntu Linux environment. You can either install th
 
 ## Docker and Docker Compose
 
-### Setup Docker Enine
+### Setup Docker Engine
 
 ```
 sudo apt-get update
