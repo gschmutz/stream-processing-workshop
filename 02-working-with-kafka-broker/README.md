@@ -347,3 +347,30 @@ curl -s "https://api.mockaroo.com/api/d5a195e0?count=20&key=ff7856d0"| \
 	kafkacat -b 10.0.1.4:9092 -t test-topic -P
 ```
 
+## Using Kafka Manager
+
+[Kafka Manger](https://github.com/yahoo/kafka-manager) is an open source tool created by Yahoo for managing a Kafka cluster. It has been started as part of the streamingplatform and can be reached on <http://streamingplatform:39000/>.
+
+![Alt Image Text](./images/kafka-manager-homepage.png "Kafka Manager Homepage")
+
+Navigate to the **Cluster** menu and click on the drop-down and select **Add Cluster**.
+
+![Alt Image Text](./images/kafka-manager-add-cluster.png "Kafka Manager Add Cluster")
+
+The **Add Cluster** details page should be displayed. Enter the following values into the edit fields / drop down windows:
+
+  * **Cluster Name**: Streaming Platform
+  * **Custer Zookeeper Hosts**: zookeeper:2181
+  * **Kafka Version**: 0.10.2.1
+
+Select the **Enable JMX Polling**, **Poll consumer information**, **Filter out inactive consumers**, **Enable Active OffsetCache** and **Display Broker and Topic Size** and click on **Save** to add the cluster. 
+
+![Alt Image Text](./images/kafka-manager-add-cluster2.png "Kafka Manager Add Cluster2")
+
+![Alt Image Text](./images/kafka-manager-cluster-added.png "Kafka Manager Add Cluster2")
+
+Click on **Go to cluster view**. 
+
+
+
+
