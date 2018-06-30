@@ -32,7 +32,7 @@ For Kafka we will be using the Docker images provided by Confluent and available
 On your Docker Machine, create a folder `streamingplatform`. 
 
 ```
-mkdir streamingplaform
+mkdir streamingplatform
 cd streamingplatform
 ```
 
