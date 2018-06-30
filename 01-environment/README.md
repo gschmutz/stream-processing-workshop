@@ -312,16 +312,31 @@ services:
     restart: always
 ```
 
-## Start the environment
+## Prepare the environment
 
-Before we can start the environment, we have to set the environment variable DOCKER_HOST_IP to contain the IP-address of the Docker Host and environment variable PUBLIC_IP to the public IP address (not the same if you are using Azure). 
-You can find the IP-Address of the Docker host using the `ifconfig` config from the linux shell. The public IP address of the VM in Azure can be found in the Azure portal.
+Before we can start the environment, we have to set the environment variable `DOCKER_HOST_IP` to contain the IP-address of the Docker Host and another environment variable `PUBLIC_IP` to the public IP address (not the same if you are using Azure). 
+You can find the IP-Address of the Docker host using the `ifconfig` config from the linux shell. 
+
+![Alt Image Text](./images/get-ipaddress-dockerhost.png "Schema Registry UI")
+
+The public IP address of the VM in Azure can be found in the Azure portal.
+
+![Alt Image Text](./images/get-ipaddress-azure.png "Schema Registry UI")
+
+In a terminal window, execute the follwoing two commands, setting the two addresses with the values you got in the previous steps:
 
 ```
 export PUBLIC_IP=40.91.195.92
 export DOCKER_HOST_IP=10.0.1.4
 ```
-Now let's run all the container specified by the Docker Compose configuration.
+
+If you are not on azure, you can set the `PUBLIC_IP` environment variable to the same value as the `DOCKER_HOST_IP`.
+
+You have to repeat that, whever you open a new terminal window and want to perform some commands in the docker-compose environment. 
+
+## Start the environment
+
+Now let's run all the container specified by the Docker Compose configuration. In the terminal window, where you have exported the two environment variables, perform the following command:
 
 ```
 docker-compose up -d
