@@ -34,7 +34,7 @@ The images for PostgreSQL as well as a simple Admin tool will be downloaded and 
 Now let's connect to the database as user `sample`. 
 
 ```
-docker exec -ti docker_db_1 bash
+docker exec -ti streamingplatform_db_1 bash
 psql -d sample -U sample
 ```
 
@@ -73,7 +73,7 @@ Now let's create a new topic `trucking_driver`, a compacted topic which will hol
 First connect to one of the Kafka brokers.
 
 ```
-docker exec -ti docker_broker-1_1 bash
+docker exec -ti streamingplatform_broker-1_1 bash
 ```
 
 And then perform the `kafka-topics --create` command:
