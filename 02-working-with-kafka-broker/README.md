@@ -309,13 +309,13 @@ To show only the last message (one for each partition), set the `-o` option to -
 kafkacat -b 10.0.1.4 -t test-topic -o -1
 ```
 
-You can use the `-f` option to format the output. Here we shwo the partition (%p) as well as key (%k) and message (%s):
+You can use the `-f` option to format the output. Here we show the partition (%p) as well as key (%k) and message (%s):
 
 ```
 kafkacat -b 10.0.1.4 -t test-topic -f 'Part-%p => %k:%s\n'
 ```
 
-If there are keys wich are Null, then you can use -Z to actually show NULL in the output:
+If there are keys which are Null, then you can use -Z to actually show NULL in the output:
 
 ```
 kafkacat -b 10.0.1.4 -t test-topic -f 'Part-%p => %k:%s\n' -Z
@@ -323,7 +323,7 @@ kafkacat -b 10.0.1.4 -t test-topic -f 'Part-%p => %k:%s\n' -Z
 
 ### Producing messages using kafkacat
 
-Producing messages with kafacat is as easy as consuming. Just add the `-P` option to switch to Producer mode. Just enter data se
+Producing messages with kafacat is as easy as consuming. Just add the `-P` option to switch to Producer mode. Just enter the data on the next line.
 
 ```
 kafkacat -b 10.0.1.4 -t test-topic -P
@@ -336,7 +336,7 @@ kafkacat -b 10.0.1.4 -t test-topic -P -K , -X topic.partitioner=murmur2_random
 ```
 
 
-### Send realistic test mesages to Kafka using Mockaroo and Kafkacat
+### Send realistic test messages to Kafka using Mockaroo and Kafkacat
 
 In his [blog article](https://rmoff.net/2018/05/10/quick-n-easy-population-of-realistic-test-data-into-kafka-with-mockaroo-and-kafkacat/) Robin Moffatt shows an interesting and easy approach to send realistic mock data to Kafka. He is using [Mockaroo](https://mockaroo.com/), a free test data generator and API mocking tool, together with [Kafkacat](https://github.com/edenhill/kafkacat) to produce mock messages. 
 
