@@ -24,6 +24,7 @@ The following services are provisioned as part of the Streaming Platform:
  * apache zeppelin
  * Streamets Data Collector
  * Apache NiFi
+ * Cassandra
 
 For Kafka we will be using the Docker images provided by Confluent and available under the following GitHub project: <https://github.com/confluentinc/cp-docker-images>. In this project, there is an example folder with a few different docker compose configuration for various Confluent Platform configurations. 
 
