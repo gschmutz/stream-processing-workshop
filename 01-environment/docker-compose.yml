@@ -231,7 +231,19 @@ services:
     environment:
       SCHEMAREGISTRY_URL: 'http://${PUBLIC_IP}:8081'
     restart: always
-
+    
+  kafka-connect-ui:
+    image: landoop/kafka-connect-ui
+    hostname: kafka-connect-ui
+    ports:
+      - "8003:8000"
+    environment:
+      CONNECT_URL: "http://${PUBLIC_IP}:8083/"
+      PROXY: "true"
+    depends_on:
+      - connect
+    restart: always
+    
   kafka-manager:
     image: trivadisbds/kafka-manager
     hostname: kafka-manager
