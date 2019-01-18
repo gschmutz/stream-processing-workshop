@@ -13,9 +13,9 @@ So let's add a new service to the docker-compose.yml file we have created in [Se
 [Mosquitto](https://mosquitto.org/) is an easy to use MQTT broker, belonging to the Eclipse project. The is a docker images available for us on Docker Hub. Just add the following section at the end of the `docker-compose.yml`, right below the zeppelin service. 
 
 ```
-  mosquitto-1:
+  mosquitto:
     image: eclipse-mosquitto:latest
-    hostname: mosquitto-1
+    hostname: mosquitto
     ports: 
       - "1883:1883"
       - "9001:9001"
