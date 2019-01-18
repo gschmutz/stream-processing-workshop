@@ -18,7 +18,7 @@
 version: '2'
 services:
   zookeeper:
-    image: confluentinc/cp-zookeeper:5.0.0-beta30-1
+    image: confluentinc/cp-zookeeper:5.1.0
     hostname: zookeeper
     ports:
       - "2181:2181"
@@ -28,7 +28,7 @@ services:
     restart: always
 
   broker-1:
-    image: confluentinc/cp-enterprise-kafka:5.0.0-beta30-1
+    image: confluentinc/cp-enterprise-kafka:5.1.0
     hostname: broker-1
     depends_on:
       - zookeeper
@@ -53,7 +53,7 @@ services:
     restart: always
 
   broker-2:
-    image: confluentinc/cp-enterprise-kafka:5.0.0-beta30-1
+    image: confluentinc/cp-enterprise-kafka:5.1.0
     hostname: broker-2
     depends_on:
       - zookeeper
@@ -78,7 +78,7 @@ services:
     restart: always
 
   broker-3:
-    image: confluentinc/cp-enterprise-kafka:5.0.0-beta30-1
+    image: confluentinc/cp-enterprise-kafka:5.1.0
     hostname: broker-3
     depends_on:
       - zookeeper
@@ -102,28 +102,28 @@ services:
       CONFLUENT_SUPPORT_CUSTOMER_ID: 'anonymous'
     restart: always
       
-  schema_registry:
-    image: confluentinc/cp-schema-registry:5.0.0-beta30-1
-    hostname: schema_registry
+  schema-registry:
+    image: confluentinc/cp-schema-registry:5.1.0
+    hostname: schema-registry
     depends_on:
       - zookeeper
       - broker-1
     ports:
       - "8081:8081"
     environment:
-      SCHEMA_REGISTRY_HOST_NAME: schema_registry
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: 'zookeeper:2181'
       SCHEMA_REGISTRY_ACCESS_CONTROL_ALLOW_ORIGIN: '*'
       SCHEMA_REGISTRY_ACCESS_CONTROL_ALLOW_METHODS: 'GET,POST,PUT,OPTIONS'
     restart: always
       
   connect:
-    image: confluentinc/cp-kafka-connect:5.0.0-beta30-1
+    image: confluentinc/cp-kafka-connect:5.1.0
     hostname: connect
     depends_on:
       - zookeeper
       - broker-1
-      - schema_registry
+      - schema-registry
     ports:
       - "8083:8083"
     environment:
@@ -139,9 +139,9 @@ services:
       CONNECT_STATUS_STORAGE_TOPIC: docker-connect-status
       CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_KEY_CONVERTER: io.confluent.connect.avro.AvroConverter
-      CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: 'http://schema_registry:8081'
+      CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: 'http://schema-registry:8081'
       CONNECT_VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
-      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: 'http://schema_registry:8081'
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: 'http://schema-registry:8081'
       CONNECT_INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       CONNECT_ZOOKEEPER_CONNECT: 'zookeeper:2181'
@@ -153,28 +153,28 @@ services:
     restart: always
 
   rest-proxy:
-    image: confluentinc/cp-kafka-rest:5.0.0-beta30-1
+    image: confluentinc/cp-kafka-rest:5.1.0
     hostname: rest-proxy
     depends_on:
       - broker-1
-      - schema_registry
+      - schema-registry
     ports:
       - "8084:8084"
     environment:
       KAFKA_REST_ZOOKEEPER_CONNECT: '${DOCKER_HOST_IP}:2181'
       KAFKA_REST_LISTENERS: 'http://0.0.0.0:8084'
-      KAFKA_REST_SCHEMA_REGISTRY_URL: 'http://schema_registry:8081'
+      KAFKA_REST_SCHEMA_REGISTRY_URL: 'http://schema-registry:8081'
       KAFKA_REST_HOST_NAME: 'rest-proxy'
     restart: always
 
   ksql-server:
-    image: confluentinc/cp-ksql-server:5.0.0-beta30
+    image: confluentinc/cp-ksql-server:5.1.0
     hostname: ksql-server
     ports:
       - '8088:8088'
     depends_on:
       - broker-1
-      - schema_registry
+      - schema-registry
     environment:
       KSQL_BOOTSTRAP_SERVERS: "broker-1:9092"
       KSQL_LISTENERS: "http://0.0.0.0:8088"
@@ -184,28 +184,28 @@ services:
     restart: always
 
   ksql-cli:
-    image: confluentinc/ksql-cli:5.0.0-beta30
+    image: confluentinc/ksql-cli:5.1.0
     hostname: ksql-cli
     depends_on:
       - broker-1
-      - schema_registry
+      - schema-registry
       - ksql-server
     command: "perl -e 'while(1){ sleep 99999 }'"
     environment:
       KSQL_CONFIG_DIR: "/etc/ksql"
       KSQL_LOG4J_OPTS: "-Dlog4j.configuration=file:/etc/ksql/log4j-rolling.properties"
       STREAMS_BOOTSTRAP_SERVERS: broker-1:9092
-      STREAMS_SCHEMA_REGISTRY_HOST: schema_registry
+      STREAMS_SCHEMA_REGISTRY_HOST: schema-registry
       STREAMS_SCHEMA_REGISTRY_PORT: 8081
     restart: always
 
   control-center:
-    image: confluentinc/cp-enterprise-control-center:5.0.0-beta30-1
+    image: confluentinc/cp-enterprise-control-center:5.1.0
     hostname: control-center
     depends_on:
       - zookeeper
       - broker-1
-      - schema_registry
+      - schema-registry
       - connect
     ports:
       - "9021:9021"
@@ -225,7 +225,7 @@ services:
     hostname: schema-registry-ui
     depends_on:
       - broker-1
-      - schema_registry
+      - schema-registry
     ports:
       - "8002:8000"
     environment:
@@ -249,13 +249,13 @@ services:
     hostname: streamsets
     ports:
       - "18630:18630"
-    volumes:
-      - ./streamsets/user-libs:/opt/streamsets-datacollector-user-libs
-      - ./streamsets/data:/data      
+#    volumes:
+#      - ./streamsets/user-libs:/opt/streamsets-datacollector-user-libs
+#      - ./streamsets/data:/data      
     restart: always
 
   nifi:
-    image: apache/nifi:1.6.0
+    image: apache/nifi:1.8.0
     hostname: nifi
     ports:
       - "28080:8080"
