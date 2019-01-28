@@ -249,6 +249,7 @@ services:
     hostname: kafka-manager
     depends_on:
       - zookeeper
+      - broker-1
     ports:
       - "39000:9000"
     environment:
@@ -288,9 +289,4 @@ services:
       - ./data:/usr/zeppelin/data
       - ./  :/usr/zeppelin/notebook
     restart: always
-
-  hawtio:
-    image: "indigo/hawtio"
-    hostname: hawtio
-    ports:
-      - "8090:8090" 
+ 
