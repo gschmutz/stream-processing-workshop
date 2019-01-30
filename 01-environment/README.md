@@ -15,7 +15,6 @@ The following services are provisioned as part of the Streaming Platform:
  * Kafka Broker 1-3
  * Confluent Schema Registry
  * Kafka Connect 1 -2 
- * Kafka Rest Proxy
  * KSQL Server
  * Schema registry UI
  * Kafka Connect UI
@@ -107,7 +106,6 @@ Kafka Manager  | 39000
 Kafdrop  | 9020
 Confluent Control Center | 9021
 
-
 ### Add entry to local /etc/hosts File
 To simplify working with the Streaming Platform, add the following entry to your local `/etc/hosts` file. 
 
@@ -128,8 +126,6 @@ Management | Kafka Connect UI | <http://streamingplatform:8003>
 Management | Kafka Manager  | <http://streamingplatform:39000>
 Management | Kafdrop  | <http://streamingplatform:9020>
 Management | Zoonavigator  | <http://streamingplatform:8010>
-Management | Confluent Control Center | <http://streamingplatform:9021>
-
 
 ## Stop the environment
 To stop the environment, execute the following command:
