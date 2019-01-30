@@ -9,7 +9,7 @@ Before we can connect to the KSQL server, make sure that the follwing service do
 
 ```
   ksql-cli:
-    image: confluentinc/ksql-cli:5.0.0-beta30
+    image: confluentinc/ksql-cli:5.1.0
     hostname: ksql-cli
     depends_on:
       - broker-1
