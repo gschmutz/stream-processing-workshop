@@ -3,9 +3,9 @@
 ## Ubuntu Linux
 For the workshops we asume a Ubuntu Linux environment. You can either install that on your machine, use the Virtual Machine image provide with the course or setup a VM in the cloud, for example through the Azure market place. 
 
-### Provisioning an Azure VM with Ubunut installed
-
 ## Docker and Docker Compose
+
+All the infrastructure will be setup using docker containers with Docker-Compose. Therefore we need to make Docker and Docker-Compose available.
 
 ### Setup Docker Engine
 
