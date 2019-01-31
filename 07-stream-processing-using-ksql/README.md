@@ -1,19 +1,19 @@
 # Stream Processing using KSQL
-With the truck data continously ingested into the truck_movemnt topic, let's perform some stream processing on the information. There are many possible solutions for performing analytics directly on the event stream. In the Kafka project, we can either use Kafka Streams or KSQL, a SQL abstraction on top of Kafka Streams. For this workshop we will be using KSQL.
+With the truck data continously ingested into the truck_movemnt topic, let's perform some stream processing on the information. There are many possible solutions for performing analytics directly on the event stream. In the Kafka project, we can either use Kafka Streams or KSQL, a SQL abstraction on top of Kafka Streams. For this workshop we will be using KSQL. 
 
 ![Alt Image Text](./images/stream-processing-with-ksql-overview.png "Schema Registry UI")
 
 ## Connect to KSQL Server
 
-In order to use KSQL, we need to connect to the KSQL engine using the KSQL CLI. One instance of a KSQL server has been started with our Streaming Plaform and can be reached on port 8088.
+In order to use KSQL, we need to connect to the KSQL engine using the KSQL CLI. An instance of a KSQL server has been started with our Streaming Plaform and can be reached on port 8088.
 
 ```
 docker run --network streamingplatform_default --rm --interactive --tty \
    confluentinc/cp-ksql-cli:5.1.0 \
-   http://ksql-server:8088
+   http://ksql-server-1:8088
 ```
 
-We can use the show command to show topics as well as streams and tables. We have not yet created streams and tables, therefore we won't see anythsing.
+We can use the show command to show topics as well as streams and tables. We have not yet created streams and tables, therefore we won't see anythsing. 
 
 ```
 show topics;
@@ -25,7 +25,7 @@ show tables;
 
 ### Give the truck_position topic a structure
 
-Before we can use a KSQL SELECT statement, we have to describe the structure of our event in the `truck_position` topic.
+Before we can use a KSQL SELECT statement, we have to describe the structure of our event in the `truck_position` topic. 
 
 ```
 DROP STREAM truck_position_s;
@@ -43,19 +43,19 @@ CREATE STREAM truck_position_s \
         value_format='DELIMITED');
 ```
 
-Now with the `truck_position_s` in place, let's use the SELECT statement to query live messages arriving on the stream.
+Now with the `truck_position_s` in place, let's use the SELECT statement to query live messages arriving on the stream. 
 
 ### Using KSQL to find abnormal driver behaviour
 
 First let's find out abnormal driver behaviour by selecting all the events where the event type is not `Normal`.
-
+        
 ```
 SELECT * FROM truck_position_s;
 ```
 
-This is not really different to using the `kafka-console-consumer` or `kafkacat`. But of course with KSQL you can do much more. You have the power of SQL-like language at hand.
+This is not really different to using the `kafka-console-consumer` or `kafkacat`. But of course with KSQL you can do much more. You have the power of SQL-like language at hand. 
 
-So let's use a WHERE clause to only view the events where the event type is not `Normal`.
+So let's use a WHERE clause to only view the events where the event type is not `Normal`. 
 
 ```
 SELECT * FROM truck_position_s WHERE eventType != 'Normal';
@@ -63,11 +63,11 @@ SELECT * FROM truck_position_s WHERE eventType != 'Normal';
 
 It  will take much longer until we see a result, so be patient. At the end we only have a few events which are problematic!
 
-This is interesting, but just seeing it in the KSQL terminal is of limited value. We would like to have that information available as a new Kafka topic.
+This is interesting, but just seeing it in the KSQL terminal is of limited value. We would like to have that information available as a new Kafka topic. 
 
-### Make that information available
+### Make that information available 
 
-In order to publish the information to a new Kafka topic, we first have to create the Kafka topic.
+In order to publish the information to a new Kafka topic, we first have to create the Kafka topic. 
 
 As learnt before, connect to one of the broker container instances
 
@@ -81,7 +81,7 @@ And perform the following `kafka-topics` command creating a new `dangerous_drivi
 kafka-topics --zookeeper zookeeper:2181 --create --topic dangerous_driving_ksql --partitions 8 --replication-factor 2
 ```
 
-Now let's publish to that topic from KSQL. For that we can create a new Stream. Instead of creating it on an existing topic as we have done before, we use the `CREATE STREAM ... AS SELECT ...` variant.
+Now let's publish to that topic from KSQL. For that we can create a new Stream. Instead of creating it on an existing topic as we have done before, we use the `CREATE STREAM ... AS SELECT ...` variant. 
 
 ```
 DROP STREAM dangerous_driving_s;
@@ -89,21 +89,21 @@ CREATE STREAM dangerous_driving_s \
   WITH (kafka_topic='dangerous_driving_ksql', \
         value_format='DELIMITED', \
         partitions=8) \
-AS
-SELECT *
+AS 
+SELECT * 
 FROM truck_position_s \
 WHERE eventtype != 'Normal';
 ```
 
-The `SELECT` statement inside is basically the statement we have tested before and we know it will create the right information.
+The `SELECT` statement inside is basically the statement we have tested before and we know it will create the right information. 
 
-We can use a `DESCRIBE` command to see metadata of any stream:
+We can use a `DESCRIBE` command to see metadata of any stream: 
 
 ```
 DESCRIBE dangerous_driving_s;        
 ```
 
-We can use this new stream for further processing, just as we have used the `truck_position_s` stream.
+We can use this new stream for further processing, just as we have used the `truck_position_s` stream. 
 
 ```
 SELECT * FROM dangerous_driving_s;
@@ -125,16 +125,16 @@ You should see the abnormal driving behaviour as before in the KSQL shell.
 ### How many abnormal events do we get per 20 seconds
 
 ```
-SELECT count(*)
-FROM dangerous_driving_s
-WINDOW TUMBLING (size 20 seconds)
+SELECT count(*) 
+FROM dangerous_driving_s 
+WINDOW TUMBLING (size 20 seconds) 
 ```
 
 ### How many abnormal events do we get per 20 seconds
 
 ```
-SELECT eventType, count(*)
-FROM dangerous_driving_s
-WINDOW TUMBLING (size 20 seconds)
+SELECT eventType, count(*) 
+FROM dangerous_driving_s 
+WINDOW TUMBLING (size 20 seconds) 
 GROUP BY eventType;
 ```

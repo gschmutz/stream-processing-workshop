@@ -201,9 +201,9 @@ services:
       - "28080:8080"
     restart: always
 
-  ksql-server:
+  ksql-server-1:
     image: confluentinc/cp-ksql-server:5.1.0
-    hostname: ksql-server
+    hostname: ksql-server-1
     ports:
       - '8088:8088'
     depends_on:
