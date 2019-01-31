@@ -5,39 +5,15 @@ With the truck data continously ingested into the truck_movemnt topic, let's per
 
 ## Connect to KSQL Server
 
-Before we can connect to the KSQL server, make sure that the follwing service does exist in the `docker-compose.yml` configuration. 
-
-```
-  ksql-cli:
-    image: confluentinc/ksql-cli:5.0.0-beta30
-    hostname: ksql-cli
-    depends_on:
-      - broker-1
-      - schema_registry
-      - ksql-server
-    command: "perl -e 'while(1){ sleep 99999 }'"
-    environment:
-      KSQL_CONFIG_DIR: "/etc/ksql"
-      KSQL_LOG4J_OPTS: "-Dlog4j.configuration=file:/etc/ksql/log4j-rolling.properties"
-      STREAMS_BOOTSTRAP_SERVERS: broker-1:9092
-      STREAMS_SCHEMA_REGISTRY_HOST: schema_registry
-      STREAMS_SCHEMA_REGISTRY_PORT: 8081
-    restart: always
-```
-
-If you have to add it, make sure to start it using
-
-```
-docker-compose up -d
-```
-
 In order to use KSQL, we need to connect to the KSQL engine using the KSQL CLI. One instance of a KSQL server has been started with our Streaming Plaform and can be reached on port 8088.
 
 ```
-docker-compose exec ksql-cli ksql http://ksql-server:8088
+docker run --network streamingplatform_default --rm --interactive --tty \
+   confluentinc/cp-ksql-cli:5.1.0 \
+   http://ksql-server:8088
 ```
 
-We can use the show command to show topics as well as streams and tables. We have not yet created streams and tables, therefore we won't see anything. 
+We can use the show command to show topics as well as streams and tables. We have not yet created streams and tables, therefore we won't see anythsing. 
 
 ```
 show topics;

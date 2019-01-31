@@ -217,19 +217,7 @@ services:
       KSQL_PRODUCER_INTERCEPTOR_CLASSES: io.confluent.monitoring.clients.interceptor.MonitoringProducerInterceptor
       KSQL_CONSUMER_INTERCEPTOR_CLASSES: io.confluent.monitoring.clients.interceptor.MonitoringConsumerInterceptor
     restart: always
-
-  ksql-cli:
-    image: confluentinc/cp-ksql-cli:5.1.0
-    container_name: ksql-cli
-    depends_on:
-      - broker-1
-      - ksql-server
-    volumes:
-      - $PWD/scripts/ksql/ksqlcommands:/tmp/ksqlcommands
-    entrypoint: /bin/sh
-    tty: true
-    restart: always
-
+    
   kafka-manager:
     image: trivadisbds/kafka-manager
     hostname: kafka-manager
