@@ -13,9 +13,9 @@ So let's add a new service to the docker-compose.yml file we have created in [Se
 [Mosquitto](https://mosquitto.org/) is an easy to use MQTT broker, belonging to the Eclipse project. The is a docker images available for us on Docker Hub. Just add the following section at the end of the `docker-compose.yml`, right below the zeppelin service. 
 
 ```
-  mosquitto:
+  mosquitto-1:
     image: eclipse-mosquitto:latest
-    hostname: mosquitto
+    hostname: mosquitto-1
     ports: 
       - "1883:1883"
       - "9001:9001"
@@ -121,9 +121,9 @@ There is already a Kafka Connect service instance running as part of the Streami
 Therefore change the defintion of the `connect` service in the `docker-compose.yml` to the following: 
 
 ```
-  connect:
+  connect-1:
     image: confluentinc/cp-kafka-connect:5.0.0-beta30-1
-    hostname: connect
+    hostname: connect-1
     depends_on:
       - zookeeper
       - broker-1
@@ -157,7 +157,7 @@ Therefore change the defintion of the `connect` service in the `docker-compose.y
     restart: always
 ```
 
-With this configuration in place, we have to re-create the connect service from scratch. One way would be to issue a `docker-compose down` following a `docker-compose up -d`. But this would cause all services to be recreated and we would lose all the work done so far. So instead of doing that, just selectively stop and remove the `connect` service, by executing the following commands.
+With this configuration in place, we have to re-create the connect service from scratch. One way would be to issue a `docker-compose down` following a `docker-compose up -d`. But this would cause all services to be recreated and we would lose all the work done so far. So instead of doing that, just selectively stop and remove the `connect-1` service, by executing the following commands.
 
 ```
 docker stop streamingplatform_connect_1
