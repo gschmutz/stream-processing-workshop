@@ -349,3 +349,9 @@ services:
       - connect-1
     restart: always
 
+  tile38:
+    image: tile38/tile38
+    container_name: tile38
+    ports:
+      - "9851:9851"
+    restart: always
