@@ -232,6 +232,7 @@ services:
     
   streamsets:
     image: trivadisbds/streamsets-kafka-nosql
+    container_name: streamsets
     hostname: streamsets
     ports:
       - "18630:18630"
@@ -239,9 +240,10 @@ services:
 
   nifi:
     image: apache/nifi
+    container_name: nifi
     hostname: nifi
     ports:
-      - "28080:8080"
+      - "38080:8080"
     restart: always
 
   web:
@@ -266,6 +268,7 @@ services:
 
   kafka-manager:
     image: trivadisbds/kafka-manager
+    container_name: kafka-manager
     hostname: kafka-manager
     depends_on:
       - zookeeper-1
