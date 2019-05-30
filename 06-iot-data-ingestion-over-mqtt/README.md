@@ -8,7 +8,7 @@ The following diagram shows the setup of the data flow we will be implementing. 
 ## Adding a MQTT broker to Streaming Platform
 Our streaming platform does not yet provide an MQTT broker.
 
-So let's add a new service to the docker-compose.yml file we have created in [Setup of the Streaming Platform](../01-environment/README.md).
+So let's add a new service to the `docker-compose.yml` file we have created in [Setup of the Streaming Platform](../01-environment/README.md).
 
 [Mosquitto](https://mosquitto.org/) is an easy to use MQTT broker, belonging to the Eclipse project. There is a docker images available for us on Docker Hub. Just make sure that the service is configured in the `docker-compose.yml` with the volume mapping as shown below.
 
@@ -33,7 +33,7 @@ log_dest file /mosquitto/log/mosquitto.log
 
 With Docker Compose, you can easily later add some new services, even if the platform is currently running. If you redo a `docker-compose up -d`, Docker Compose will check if there is a delta between what is currently running and what the `docker-compose.yml` file tells. 
 
-If there is a new service added, such as here with Mosquitto, Docker Compose will start the service, leaving the other, already running services untouched. 
+If there is a new service added, such as here with **Mosquitto**, Docker Compose will start the service, leaving the other, already running services untouched. 
 
 If you change configuration on an already running service, then Docker will recreate that service applying the new settings. 
 
@@ -44,7 +44,7 @@ In order to be able to see what we are producing into MQTT, we need something si
 
 There are multiple tools available, some with a Web-UI and some with Rich-Client UI. 
 
-One of the tools is the `mosquitto-sub`, which can be easly started using a docker container. Make sure that the `DOCKER_HOST_IP` is defined before starting it.
+One of the tools is the `mosquitto-sub`, which can be easily started using a docker container. Make sure that the `DOCKER_HOST_IP` is defined before starting it.
 
 ```
 docker run -it --rm efrecon/mqtt-client sub -h $DOCKER_HOST_IP -t "truck/+/position" -v
@@ -107,7 +107,7 @@ Now using the `kafka-topics` command, create the truck_position topic.
 kafka-topics --zookeeper zookeeper-1:2181 --create --topic truck_position --partitions 8 --replication-factor 2
 ```
 
-After successful creation, start a kafka-console-consumer to listen on messages on the truck_position topic. 
+After successful creation, start a `kafka-console-consumer` to listen on messages on the truck_position topic. 
 
 ```
 kafka-console-consumer --bootstrap-server broker-1:9092 --topic truck_position
@@ -122,6 +122,7 @@ kafkacat -b broker-1 -t truck_position
 In order to get the messages from MQTT into Kafka, we will be using Kafka Connect. Luckily, there are multiple Kafka Connectors available for MQTT. We will be using the one available from the [Landoop Stream-Reactor Project](https://github.com/Landoop/stream-reactor/tree/master/kafka-connect-mqtt) called `kafka-connect-mqtt`.
 
 ### Adding the Kafka Connect service
+
 There are two instances of the Kafka Connect service instance running as part of the Streaming Platform. However in order to be able to specify additional connect implementations without having to add them into the container, we need to change the configuration of the service. 
 Therefore change the definition of the `connect-1` and `connect-2`  service in the `docker-compose.yml` to the following: 
 
@@ -310,7 +311,7 @@ sudo chmod +x start-mqtt.sh
 
 ### Start the connector
 
-Now let's start the connector by running the configure-mqtt script.
+Now let's start the connector by running the `configure-mqtt` script.
 
 ```
 ./scripts/start-mqtt.sh

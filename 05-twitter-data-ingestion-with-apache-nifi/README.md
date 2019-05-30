@@ -1,6 +1,6 @@
 # Data Ingestion with Apache NiFi
 ### Create a new pipeline
-In a browser, navigate to <http://streamingplatform:28080/nifi>. This should bring up the NiFi User Interface, which at this point is a blank canvas for orchestrating a dataflow.
+In a browser navigate to <http://streamingplatform:28080/nifi>. This should bring up the NiFi User Interface, which at this point is a blank canvas for orchestrating a data flow.
 
 ![Alt Image Text](./images/nifi-home-screen.png "Schema Registry UI")
 
@@ -9,11 +9,11 @@ The UI has multiple tools to create and manage your first dataflow:
 ![Alt Image Text](./images/nifi-home-screen-expl.png "Schema Registry UI")
 
 ### Adding a Twitter Processor
-We can now begin creating our dataflow by adding a Processor to our canvas. To do this, drag the Processor icon from the top-left of the screen into the middle of the canvas and drop it there. 
+We can now begin creating our data flow by adding a Processor to our canvas. To do this, drag the Processor icon from the top-left of the screen into the middle of the canvas and drop it there. 
 
 ![Alt Image Text](./images/nifi-drag-processor-into-canvas.png "Schema Registry UI")
 
-This will give us a dialog that allows us to choose which Processor we want to add. We can see that there are a total of 260 processors currently available. We can browse throught the list or use the tag cloud on the left to filter the processors by type.
+This will give us a dialog that allows us to choose which Processor we want to add. We can see that there are a total of 260 processors currently available. We can browse through the list or use the tag cloud on the left to filter the processors by type.
 
 ![Alt Image Text](./images/nifi-add-processor.png "Schema Registry UI")
 
@@ -43,12 +43,12 @@ Set the **Terms to Filter On** with the terms you want to filter on.
 
 Click on **Apply** to close the properties of the **GetTwitter** processor.
 
-The processor stil shows the yellow marker, this is because the out-going relationship is neither used nor terminated. Of course we want to use it, but for that we first need the Kafka Processor to send the message onwards. 
+The processor still shows the yellow marker, this is because the out-going relationship is neither used nor terminated. Of course we want to use it, but for that we first need the Kafka Processor to send the message onwards. 
 
 ### Adding a Kafka Processor
 Drag a new Processor into the Canvas, just below the **GetTwitter** processor. 
 
-Edit **kafka** into the Filter field on top right. Only the processors related to Kafka will be shown (16 out of 260). 16 seems to be a lot, they are both for publising as well as consuming and additionally there a different processors for different Kafka versions.
+Enter **kafka** into the Filter field on top right. Only the processors related to Kafka will be shown (16 out of 260). 16 seems to be a lot, they are both for publishing as well as consuming and additionally there a different processors for different Kafka versions.
 
 Scroll down to **PublishKafka\_1\_0** and select it. Click on **Add** to add the **PublishKafka\_1\_0** processor. 
 	
@@ -72,7 +72,7 @@ Click **Add** to finsih creating the connection.
 
 ![Alt Image Text](./images/nifi-stop-get-twitter-processor.png "Schema Registry UI")
 
-Double-click on the **PublishKafka\_1\_0** procesor to configure the Kafka processor. Click on the **PROPERTIES** tab to switch to the Kafka consumer settings. 
+Double-click on the **PublishKafka\_1\_0** processor to configure the Kafka processor. Click on the **PROPERTIES** tab to switch to the Kafka consumer settings. 
 
 ![Alt Image Text](./images/nifi-kafka-processor-properties-1.png "Schema Registry UI")
 
@@ -100,7 +100,7 @@ Both processors are now ready to be started, which you can see on the red stop i
 
 ### Create the topic in Kafka
 
-Create the topic in Kafka, if it dow not yet exist, using the `kafka-topics` command. 
+Create the topic in Kafka, if it does not yet exist, using the `kafka-topics` command. 
 
 ```
 kafka-topics --create \

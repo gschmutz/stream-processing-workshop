@@ -1,11 +1,11 @@
 # Stream Processing using KSQL
-With the truck data continously ingested into the truck_movemnt topic, let's perform some stream processing on the information. There are many possible solutions for performing analytics directly on the event stream. In the Kafka project, we can either use Kafka Streams or KSQL, a SQL abstraction on top of Kafka Streams. For this workshop we will be using KSQL. 
+With the truck data continuously ingested into the `truck_movement` topic, let's perform some stream processing on the information. There are many possible solutions for performing analytics directly on the event stream. In the Kafka project, we can either use Kafka Streams or KSQL, a SQL abstraction on top of Kafka Streams. For this workshop we will be using KSQL. 
 
 ![Alt Image Text](./images/stream-processing-with-ksql-overview.png "Schema Registry UI")
 
 ## Connect to KSQL Server
 
-In order to use KSQL, we need to connect to the KSQL engine using the KSQL CLI. An instance of a KSQL server has been started with our Streaming Plaform and can be reached on port 8088.
+In order to use KSQL, we need to connect to the KSQL engine using the KSQL CLI. An instance of a KSQL server has been started with our Streaming Platform and can be reached on port 8088.
 
 ```
 docker run --network streamingplatform_default --rm --interactive --tty \
@@ -13,7 +13,7 @@ docker run --network streamingplatform_default --rm --interactive --tty \
    http://ksql-server-1:8088
 ```
 
-We can use the show command to show topics as well as streams and tables. We have not yet created streams and tables, therefore we won't see anythsing. 
+We can use the show command to show topics as well as streams and tables. We have not yet created streams and tables, therefore we won't see anything. 
 
 ```
 show topics;
@@ -109,7 +109,7 @@ We can use this new stream for further processing, just as we have used the `tru
 SELECT * FROM dangerous_driving_s;
 ```
 
-Now let's see that we actually produce data on that new topic by runing a `kafka-console-consumer` or alternatively a `kafkacat`.
+Now let's see that we actually produce data on that new topic by running a `kafka-console-consumer` or alternatively a `kafkacat`.
 
 ```
 docker exec -ti docker_broker-1_1 bash

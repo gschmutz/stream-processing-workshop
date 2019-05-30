@@ -1,7 +1,8 @@
 # Data Ingestion with StreamSets Data Collector
 
 ### Create a new pipeline
-In a browser, navigate to <http://streamingplatform:18630>. The Streamsets authentication page should be shown.
+
+In a browser navigate to <http://streamingplatform:18630>. The **StreamSets Data Collector** authentication page should be shown.
 
 ![Alt Image Text](./images/streamsets-login.png "Schema Registry UI")
 
@@ -18,6 +19,7 @@ On the **New Pipeline** pop up, enter `Tweet_to_Kafka` for the **Title** field a
 An empty canvas for the new pipeline is shown. 
 
 ![Alt Image Text](./images/streamsets-empty-pipeline.png "Schema Registry UI")
+
 ### Design the pipeline
 
 Select **HTTP Client - Basic** from the **Select Origin...** drop-down. 
@@ -32,7 +34,7 @@ The pipeline will be displayed with the Origin and Destination being connected.
 
 ![Alt Image Text](./images/streamsets-pipeline-flow.png "Schema Registry UI")
 
-You can see by the red explanation icons, that the pipeline has errors. They first have to be fixed, otherwise we can not run the pipeline. 
+You can see by the red explanation icons, that the pipeline has errors. They first have to be fixed, otherwise we cannot run the pipeline. 
 
 Click on the red icon on the lower left corner and select **Discard (Library: Basic)** for the **Error Records** drop-down.
 
@@ -85,11 +87,11 @@ Now let's run the pipeline. There are two ways you can run a pipeline in StreamS
 ### Preview the pipeline
 The Preview mode allows you to check your pipeline before executing it. 
 
-Click on the **Preview** icon on the menu-bar, as shown on the following screenhot:
+Click on the **Preview** icon on the menu-bar, as shown on the following screenshot:
  
 ![Alt Image Text](./images/streamsets-preview-pipeline.png "Schema Registry UI")
 
-On the **Preview Configuration** pop-up window you can configure how side-effect free your preview should be (option **Write to Destinations and Executors** and **Execute pipeline lifecylce events**). Additionally you define from where the source sould read the events for the preview. From **Configured Source** will use "live" data but you could also take data from a snapshot captured in an earlier run. 
+On the **Preview Configuration** pop-up window you can configure how side-effect free your preview should be (option **Write to Destinations and Executors** and **Execute pipeline lifecylce events**). Additionally you define from where the source should read the events for the preview. From **Configured Source** will use "live" data but you could also take data from a snapshot captured in an earlier run. 
 
 Click on **Run Preview**.
 
@@ -112,10 +114,11 @@ Now let's run the pipeline. Click on the Start icon in the menu bar in the top r
 
 ![Alt Image Text](./images/streamsets-start-pipeline.png "Schema Registry UI")
 
-The pipeline should change in the **RUNNING** state and the tweets should start to show up on the kafkacat terminal. You can see the that StreamSets also switches into the montioring view, where you can find statistics about the data flow you run (such as number of rows processed, bot successfullly and error as well as throughput). 
+The pipeline should change in the **RUNNING** state and the tweets should start to show up on the kafkacat terminal. You can see the that StreamSets also switches into the monitoring view, where you can find statistics about the data flow you run (such as number of rows processed, bot successfully and error as well as throughput). 
 
 ![Alt Image Text](./images/streamsets-running-pipeline.png "Schema Registry UI")
 You can drill down to each component, by just selecting one of the components. 
 
 ### Stop the pipeline 
+
 To stop a running pipeline, click on the stop button on the top right. 

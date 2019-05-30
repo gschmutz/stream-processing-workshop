@@ -3,14 +3,14 @@ In this workshop we will learn the basics of working with Apache Kafka. Make sur
 
 The main units of interest in Kafka are topics and messages. A topic is simply what you publish a message to, topics are a stream of messages.
 
-In this workshop you will learn how to create topics, how to produce messsages, how to consume messages and how to descibe/view metadata in Apache Kafka. 
+In this workshop you will learn how to create topics, how to produce messages, how to consume messages and how to describe/view metadata in Apache Kafka. 
     
 ## Working with built-in Command Line Utilities 
 
 ### Connect to a Kafka Broker 
 The environment contains of a Kafka cluster with 3 brokers, all running on the Docker host of course. So it's of course not meant to really fault-tolerant but to demonstrate how to work with a Kafka cluster. 
 
-To work with Kafka you need the command line utilities. The are available on each broker. 
+To work with Kafka you need the command line utilities. They are available on each broker. 
 The `kafka-topics` utility is used to create, alter, describe, and delete topics. The `kafka-console-producer` and `kafka-console-consumer` can be used to produce/consume messages to/from a Kafka topic. 
 
 So let's connect into one of the broker through a terminal window. 
@@ -24,7 +24,7 @@ So let's connect into one of the broker through a terminal window.
 
 ### List topics in Kafka
 
-First, let's list the topics availble on a given Kafka Cluster.
+First, let's list the topics available on a given Kafka Cluster.
 For that we use the `kafka-topics` utility with the `--list` option. 
 
 ```
@@ -64,7 +64,7 @@ Topic:test-topic	PartitionCount:6	ReplicationFactor:2	Configs:
 ```
 
 ### Produce and Consume to Kafka topic with command line utility
-Now let's see the topic in use. The most basic way to test it is through the command line. Kafka comes with two handy utilities `kafka-console-consumer` and `kafka-console-producer` to consume and produce messages trought the command line. 
+Now let's see the topic in use. The most basic way to test it is through the command line. Kafka comes with two handy utilities `kafka-console-consumer` and `kafka-console-producer` to consume and produce messages through the command line. 
 
 In a new terminal window, first let's run the consumer
 
@@ -74,7 +74,7 @@ kafka-console-consumer --bootstrap-server broker-1:9092,broker-2:9093 \
 ```
 After it is started, the consumer just waits for newly produced messages. 
 
-In a another terminal, connect into broker-1 using `docker exec` and run the following command to start the producer. The console producer reads from stdin, and takes a broker list instead of a zookeeper address. We specify 2 of the 3 brokers of our streaming platform.  
+In an another terminal, connect into broker-1 using `docker exec` and run the following command to start the producer. The console producer reads from stdin, and takes a broker list instead of a zookeeper address. We specify 2 of the 3 brokers of our streaming platform.  
  
 ```
 kafka-console-producer --broker-list broker-1:9092,broker-2:9093 \
@@ -155,7 +155,7 @@ kafka-console-producer --broker-list broker-1:9092,broker-2:9093 \
 Enter your messages so that a key and messages are separated by a comma, i.e. `key1,message1`.
 
 ### Dropping a Kafka topic
-A Kafka topic can be droped using the `kafka-topics` utility with the `--delete` option. 
+A Kafka topic can be dropped using the `kafka-topics` utility with the `--delete` option. 
 
 ```
 kafka-topics --zookeeper zookeeper-1:2181 --delete --topic test-topic
@@ -166,11 +166,11 @@ kafka-topics --zookeeper zookeeper-1:2181 --delete --topic test-topic
 
 It is similar to the `kafka-console-producer` and `kafka-console-consumer` you have learnt and used above, but much more powerful. 
 
-kafkacat is an open-source utility, available at <https://github.com/edenhill/kafkacat>. It is not part of the Confluent platform and also not part of the streaming platform we run in docker. 
+**kafkacat** is an open-source utility, available at <https://github.com/edenhill/kafkacat>. It is not part of the Confluent platform and also not part of the streaming platform we run in docker. 
 
 ### Install kafakcat
 
-You can install kafkacat directly on the Ubuntu environment. First let's install the required packages:
+You can install **kafkacat** directly on the Ubuntu environment. First let's install the required packages:
 
 Install the Confluent public key, which is used to sign the packages in the APT repository:
 
@@ -184,7 +184,7 @@ Add the repository to the `/etc/apt/sources.list`:
 sudo add-apt-repository "deb [arch=amd64] https://packages.confluent.io/deb/4.1 stable main"
 ```
 
-Run apt-get update and install the 2 dependencies as well as kafkacat:
+Run apt-get update and install the 2 dependencies as well as **kafkacat**
  
 ```
 sudo apt-get update
@@ -291,7 +291,7 @@ Now let's use it to Produce and Consume messages.
 
 ### Consuming messages using kafkacat
 
-The simplest way to consume a topic is just specfiying the broker and the topic. By default all messages from the beginning of the topic will be shown 
+The simplest way to consume a topic is just specifying the broker and the topic. By default all messages from the beginning of the topic will be shown 
 
 ```
 kafkacat -b 10.0.1.4 -t test-topic
@@ -349,7 +349,7 @@ curl -s "https://api.mockaroo.com/api/d5a195e0?count=20&key=ff7856d0"| \
 
 ## Using Kafka Manager
 
-[Kafka Manger](https://github.com/yahoo/kafka-manager) is an open source tool created by Yahoo for managing a Kafka cluster. It has been started as part of the streamingplatform and can be reached on <http://streamingplatform:39000/>.
+[Kafka Manger](https://github.com/yahoo/kafka-manager) is an open source tool created by Yahoo for managing a Kafka cluster. It has been started as part of the analyticsplatform and can be reached on <http://analyticsplatform:39000/>.
 
 ![Alt Image Text](./images/kafka-manager-homepage.png "Kafka Manager Homepage")
 

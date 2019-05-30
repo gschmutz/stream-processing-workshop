@@ -82,7 +82,7 @@ And then perform the `kafka-topics --create` command:
 kafka-topics --zookeeper zookeeper:2181 --create --topic truck_driver --partitions 8 --replication-factor 2 --config cleanup.policy=compact --config segment.ms=100 --config delete.retention.ms=100 --config min.cleanable.dirty.ratio=0.001
 ```
 
-Eventhough we have no messages yet, let's create a consumer wich reads the new topic from the beginning. 
+Even though we have no messages yet, let's create a consumer wich reads the new topic from the beginning. 
 
 ```
 kafka-console-consumer --bootstrap-server broker-1:9092 --topic truck_driver --from-beginning
