@@ -28,7 +28,7 @@ services:
     restart: always
 
   broker-1:
-    image: confluentinc/cp-enterprise-kafka:5.2.1
+    image: confluentinc/cp-kafka:5.2.1
     container_name: broker-1
     hostname: broker-1
     depends_on:
@@ -40,21 +40,16 @@ services:
       KAFKA_BROKER_RACK: 'r1'
       KAFKA_ZOOKEEPER_CONNECT: 'zookeeper-1:2181'
       KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://${DOCKER_HOST_IP}:9092'
-      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
+#      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_DELETE_TOPIC_ENABLE: 'true'
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
       KAFKA_JMX_PORT: 9994
-      CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: broker-1:9092
-      CONFLUENT_METRICS_REPORTER_ZOOKEEPER_CONNECT: zookeeper-1:2181
-      CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 1
-      CONFLUENT_METRICS_ENABLE: 'true'
-      CONFLUENT_SUPPORT_CUSTOMER_ID: 'anonymous'
     restart: always
 
   broker-2:
-    image: confluentinc/cp-enterprise-kafka:5.1.0
+    image: confluentinc/cp-kafka:5.2.1
     container_name: broker-2
     hostname: broker-2
     depends_on:
@@ -66,21 +61,16 @@ services:
       KAFKA_BROKER_RACK: 'r1'
       KAFKA_ZOOKEEPER_CONNECT: 'zookeeper-1:2181'
       KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://${DOCKER_HOST_IP}:9093'
-      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+#      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_DELETE_TOPIC_ENABLE: 'true'
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
       KAFKA_JMX_PORT: 9993
-      CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: broker-2:9093
-      CONFLUENT_METRICS_REPORTER_ZOOKEEPER_CONNECT: zookeeper-1:2181
-      CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 1
-      CONFLUENT_METRICS_ENABLE: 'true'
-      CONFLUENT_SUPPORT_CUSTOMER_ID: 'anonymous'
     restart: always
 
   broker-3:
-    image: confluentinc/cp-enterprise-kafka:5.1.0
+    image: confluentinc/cp-enterprise-kafka:5.2.1
     container_name: broker-3
     hostname: broker-3
     depends_on:
@@ -92,21 +82,16 @@ services:
       KAFKA_BROKER_RACK: 'r1'
       KAFKA_ZOOKEEPER_CONNECT: 'zookeeper-1:2181'
       KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://${DOCKER_HOST_IP}:9094'
-      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+#      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_DELETE_TOPIC_ENABLE: 'true'
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
-      KAFKA_JMX_PORT: 9994
-      CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: broker-3:9094
-      CONFLUENT_METRICS_REPORTER_ZOOKEEPER_CONNECT: zookeeper-1:2181
-      CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 1
-      CONFLUENT_METRICS_ENABLE: 'true'
-      CONFLUENT_SUPPORT_CUSTOMER_ID: 'anonymous'
+      KAFKA_JMX_PORT: 9992
     restart: always
-      
+
   schema-registry:
-    image: confluentinc/cp-schema-registry:5.1.0
+    image: confluentinc/cp-schema-registry:5.2.1
     hostname: schema-registry
     container_name: schema-registry
     depends_on:
@@ -120,7 +105,7 @@ services:
       SCHEMA_REGISTRY_ACCESS_CONTROL_ALLOW_ORIGIN: '*'
       SCHEMA_REGISTRY_ACCESS_CONTROL_ALLOW_METHODS: 'GET,POST,PUT,OPTIONS'
     restart: always
-
+            
   connect-1:
     image: confluentinc/cp-kafka-connect:5.2.1
     hostname: connect-1
@@ -157,7 +142,7 @@ services:
     restart: always
 
   connect-2:
-    image: confluentinc/cp-kafka-connect:5.1.0
+    image: confluentinc/cp-kafka-connect:5.2.1
     hostname: connect-2
     depends_on:
       - zookeeper-1
