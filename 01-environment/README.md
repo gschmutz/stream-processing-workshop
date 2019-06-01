@@ -1,4 +1,5 @@
 # Streaming Platform on Docker
+
 The environment for this course is completely based on docker containers. 
 
 In order to simplify the provisioning, a single docker-compose configuration is used. All the necessary software will be provisioned using Docker.  
@@ -32,6 +33,8 @@ Type | Service | Url
 ------|------- | -------------
 Development | StreamSets Data Collector | <http://analyticsplatform:18630>
 Development | Apache NiFi | <http://analyticsplatform:38080/nifi>
+Development | Apache Zeppelin | <http://analyticsplatform:38081>
+Development | Jupyter | <http://analyticsplatform:38888>
 Governance | Schema Registry UI  | <http://analyticsplatform:28002>
 Governance | Schema Registry Rest API  | <http://analyticsplatform:18081>
 Management | Kafka Connect UI | <http://analyticsplatform:28001>

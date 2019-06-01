@@ -1,4 +1,7 @@
 # Getting started with Apache Kafka
+
+## Introduction
+
 In this workshop we will learn the basics of working with Apache Kafka. Make sure that you have created the environment as described in [Preparing the Environment](../01-environment/01-environment.md).
 
 The main units of interest in Kafka are topics and messages. A topic is simply what you publish a message to, topics are a stream of messages.
@@ -30,11 +33,12 @@ For that we use the `kafka-topics` utility with the `--list` option.
 ```
 kafka-topics --list --zookeeper zookeeper-1:2181
 ```
-We can see that there are some techical topics, _schemas being the one, where the Confluent Schema Registry stores its schemas. 
+
+We can see that there are some technical topics, `_schemas` being the one, where the Confluent Schema Registry stores its schemas. 
 
 ### Creating a topic in Kafka
 
-Now let's create a new topic. For that we again use the `kafka-topics` utility but this time with the `--create` option. We will create a test topic with 6 partitions and replicated 2 times. The `--if-not-exists` option is handy to avoid errors, if a topic already exists. 
+Now let's create a new topic. For that we again use the **kafka-topics** utility but this time with the `--create` option. We will create a test topic with 6 partitions and replicated 2 times. The `--if-not-exists` option is handy to avoid errors, if a topic already exists. 
 
 ```
 kafka-topics --create \
@@ -64,6 +68,7 @@ Topic:test-topic	PartitionCount:6	ReplicationFactor:2	Configs:
 ```
 
 ### Produce and Consume to Kafka topic with command line utility
+
 Now let's see the topic in use. The most basic way to test it is through the command line. Kafka comes with two handy utilities `kafka-console-consumer` and `kafka-console-producer` to consume and produce messages through the command line. 
 
 In a new terminal window, first let's run the consumer
@@ -74,7 +79,7 @@ kafka-console-consumer --bootstrap-server broker-1:9092,broker-2:9093 \
 ```
 After it is started, the consumer just waits for newly produced messages. 
 
-In an another terminal, connect into broker-1 using `docker exec` and run the following command to start the producer. The console producer reads from stdin, and takes a broker list instead of a zookeeper address. We specify 2 of the 3 brokers of our streaming platform.  
+In an another terminal connect into broker-1 using `docker exec` and run the following command to start the producer. The console producer reads from stdin, and takes a broker list instead of a zookeeper address. We specify 2 of the 3 brokers of our streaming platform.  
  
 ```
 kafka-console-producer --broker-list broker-1:9092,broker-2:9093 \
@@ -127,11 +132,12 @@ do
 done 
 ```
 
-By ending the command in the loop with an & character, we run each command in the background and by that in parallel. 
+By ending the command in the loop with an & character, we run each command in the background and in parallel. 
 
-If you check the consumer, you can see that they are not in the same order as sent, because of the different partitions, and the messages being published in multiple partitions. We can force order, by using a key when publishing the messages and always using the same value for the key. 
+If you check the consumer, you can see that they are not in the same order as sent, because of the different partitions, and the messages being published in multiple partitions. We can force order by using a key when publishing the messages and always using the same value for the key. 
 
 ### Working with Keyed Messages
+
 A message produced to Kafka always consists of a key and a value, the value being necessary and representing the message/event payload. If a key is not specified, such as we did so far, then it is passed as a null value and Kafka distributes such messages in a round-robin fashion over the different partitions. 
 
 We can check that by just listing the messages we have created so far specifying the properties `print.key` and `key.separator` together with the `--from-beginning` in the console consumer. 
@@ -155,6 +161,7 @@ kafka-console-producer --broker-list broker-1:9092,broker-2:9093 \
 Enter your messages so that a key and messages are separated by a comma, i.e. `key1,message1`.
 
 ### Dropping a Kafka topic
+
 A Kafka topic can be dropped using the `kafka-topics` utility with the `--delete` option. 
 
 ```
@@ -162,6 +169,7 @@ kafka-topics --zookeeper zookeeper-1:2181 --delete --topic test-topic
 ```
 
 ## Working with the Kafkacat utility
+
 [Kafkacat](https://docs.confluent.io/current/app-development/kafkacat-usage.html#kafkacat-usage) is a command line utility that you can use to test and debug Apache Kafka deployments. You can use kafkacat to produce, consume, and list topic and partition information for Kafka. Described as “netcat for Kafka”, it is a swiss-army knife of tools for inspecting and creating data in Kafka.
 
 It is similar to the `kafka-console-producer` and `kafka-console-consumer` you have learnt and used above, but much more powerful. 
@@ -193,7 +201,8 @@ apt-get install kafkacat
 ```
 
 ### Show kafkacat options
-kafkacat has many options. If you just enter `kafkacat` without any options, all the options and some description is shown on the console:
+
+**kafkacat** has many options. If you just enter `kafkacat` without any options, all the options and some description is shown on the console:
 
 ```
 > kafkacat
@@ -303,7 +312,7 @@ If you want to start at the end of the topic, i.e. only show new messages, add t
 kafkacat -b 10.0.1.4 -t test-topic -o end
 ```
 
-To show only the last message (one for each partition), set the `-o` option to -1. -2 would show the last 2 messages.
+To show only the last message (one for each partition), set the `-o` option to `-1`. `-2` would show the last 2 messages.
 
 ```
 kafkacat -b 10.0.1.4 -t test-topic -o -1
@@ -315,7 +324,7 @@ You can use the `-f` option to format the output. Here we show the partition (%p
 kafkacat -b 10.0.1.4 -t test-topic -f 'Part-%p => %k:%s\n'
 ```
 
-If there are keys which are Null, then you can use -Z to actually show NULL in the output:
+If there are keys which are Null, then you can use `-Z` to actually show NULL in the output:
 
 ```
 kafkacat -b 10.0.1.4 -t test-topic -f 'Part-%p => %k:%s\n' -Z
@@ -323,7 +332,7 @@ kafkacat -b 10.0.1.4 -t test-topic -f 'Part-%p => %k:%s\n' -Z
 
 ### Producing messages using kafkacat
 
-Producing messages with kafacat is as easy as consuming. Just add the `-P` option to switch to Producer mode. Just enter the data on the next line.
+Producing messages with **kafacat** is as easy as consuming. Just add the `-P` option to switch to Producer mode. Just enter the data on the next line.
 
 ```
 kafkacat -b 10.0.1.4 -t test-topic -P
@@ -349,7 +358,7 @@ curl -s "https://api.mockaroo.com/api/d5a195e0?count=20&key=ff7856d0"| \
 
 ## Using Kafka Manager
 
-[Kafka Manger](https://github.com/yahoo/kafka-manager) is an open source tool created by Yahoo for managing a Kafka cluster. It has been started as part of the analyticsplatform and can be reached on <http://analyticsplatform:39000/>.
+[Kafka Manger](https://github.com/yahoo/kafka-manager) is an open source tool created by Yahoo for managing a Kafka cluster. It has been started as part of the **analyticsplatform** and can be reached on <http://analyticsplatform:39000/>.
 
 ![Alt Image Text](./images/kafka-manager-homepage.png "Kafka Manager Homepage")
 
@@ -361,7 +370,7 @@ The **Add Cluster** details page should be displayed. Enter the following values
 
   * **Cluster Name**: Streaming Platform
   * **Custer Zookeeper Hosts**: zookeeper-1:2181
-  * **Kafka Version**: 0.10.2.1
+  * **Kafka Version**: 2.0.0
 
 Select the **Enable JMX Polling**, **Poll consumer information**, **Filter out inactive consumers**, **Enable Active OffsetCache** and **Display Broker and Topic Size** and click on **Save** to add the cluster. 
 

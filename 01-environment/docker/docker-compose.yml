@@ -351,6 +351,34 @@ services:
       - connect-1
     restart: always
 
+  zeppelin:
+    image: trivadis/apache-zeppelin:0.8.1-hadoop-3.1.1-spark-2.4.3
+    container_name: zeppelin
+    hostname: zeppelin
+    ports:
+      - "38081:8080"    
+    env_file:
+      - ./conf/hadoop.env
+    environment:
+      PYSPARK_PYTHON: "python3"
+    restart: always
+
+  # make sure to get Spark to fit with the version of spark master 
+  # - 2.4.0 tag 59b402ce701d
+  # - 2.4.3 tag abdb27a6dfbb
+  jupyter:
+    image: jupyter/all-spark-notebook:abdb27a6dfbb
+    container_name: jupyter
+    hostname: jupyter
+    ports: 
+      - "38888:8888"
+    environment:
+      JUPYTER_ENABLE_LAB: "true"
+      JUPYTER_TOKEN: "abc123"
+      GRANT_SUDO: "true"
+      TINI_SUBREAPER: "true"
+    restart: always
+
   tile38:
     image: tile38/tile38
     container_name: tile38

@@ -1,4 +1,7 @@
 # Using Confluent's Python client for Apache Kafka
+
+## Introduction
+
 In this workshop we will learn how to use the [Confluent Python client for Apache Kafka](https://github.com/confluentinc/confluent-kafka-python).
 
 You can perform this part of the workshop using either the Python installation of the Virtual Machine your Docker Host is running or use the Python as part of the Apache Zeppelin container, running as part of the Streaming Platform. 
@@ -23,13 +26,13 @@ After that you can install the self-contained binaries of the Confluent Python c
 pip install confluent-kafka
 ```
 
-To also install avro support, also perform the following step:
+To install support for Avro, also perform the following step:
 
 ```
 pip install confluent-kafka[avro]
 ``` 
 
-You can work with scripts and store each code block in a file. You can then execute using `python script-name.py`. Or you can use the Apache Zeppelin notebook-based environment and just add each code block as a paragraph into a notebook and execute it from there.
+You can work with scripts and store each code block in a file. You can then execute it using `python script-name.py`. Or you can use the Apache Zeppelin notebook-based environment and just add each code block as a paragraph into a notebook and execute it from there.
 
 ## Working with Text Messages
 
@@ -38,12 +41,13 @@ Now lets write a simple program in Python which produces a message to the Kafka 
 First we will produce messages. In order to see the results, run `kafkacat` in a separate terminal window and print the partition, key and value of each message:
 
 ```
-kafkacat -b 10.0.1.4 -t test-topic -f "P-%p: %k=%s\n" -Z 
+kafkacat -b analyticsplatform -t test-topic -f "P-%p: %k=%s\n" -Z 
 ``` 
 
 The following code segments assume that they are run inside the Zeppelin docker container. If you want to run them from the Docker Host, you have to replace broker-1 and broker-2 by the IP Address of the Docker Host.
 
 ### Produce a message with an empty key
+
 The following code block will generate a message with a NULL key. The messages are part 
 
 ```
@@ -73,6 +77,7 @@ for data in messages:
 # callbacks to be triggered.
 p.flush()
 ```
+
 ### Produce a message with a key and value
 
 To also produce a key, you have to also use the parameter `key` together with the parameter `value`.
@@ -200,10 +205,10 @@ avroProducer.flush()
 
 When producing an Avro message, the library will check if the Avro Schema for the key and the value is already registered and if it is compatible. If they do not exist, then the schema is registered. You can check the registry through the REST API or the Schema Registry UI. 
 
-To list all the schemas which are registered through the REST API, perform the execute command. 
+To list all the schemas which are registered through the REST API, perform the following command 
 
 ```
-curl http://localhost:8081/subjects
+curl http://analyticsplatform:18081/subjects
 ```
 
 should get back to subjects:
@@ -213,7 +218,7 @@ $ curl http://localhost:8081/subjects
 ["test-avro-topic-value","test-avro-topic-key"]~
 ```
 
-To browse the Schema Registry using the browser-based [Landoop Schema Registry UI](http://www.landoop.com/blog/2016/08/schema-registry-ui/), navigate to the following URL: <http://streamingplatform:8002>.
+To browse the Schema Registry using the browser-based [Landoop Schema Registry UI](http://www.landoop.com/blog/2016/08/schema-registry-ui/), navigate to the following URL: <http://streamingplatform:28002>.
 
 You should see the two schemas registered. If you click on one of them, the Avro Schema will be displayed on the right side:
 
