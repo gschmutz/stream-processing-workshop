@@ -357,8 +357,6 @@ services:
     hostname: zeppelin
     ports:
       - "38081:8080"    
-    env_file:
-      - ./conf/hadoop.env
     environment:
       PYSPARK_PYTHON: "python3"
     restart: always
