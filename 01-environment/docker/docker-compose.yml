@@ -321,8 +321,11 @@ services:
           connections:
             docker-kafka-server:
               properties:
-                bootstrap.servers: "broker-1:9092"
-              schema-registry: "http://${PUBLIC_IP}:18081"
+                bootstrap.servers: "kafka:9092"
+              schema-registry:
+                url: "http://schema-registry:8081"
+              connect:
+                url: "http://connect-1:8083"
     depends_on:
       - broker-1
     restart: always
