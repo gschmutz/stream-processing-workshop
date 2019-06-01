@@ -322,7 +322,7 @@ services:
             docker-kafka-server:
               properties:
                 bootstrap.servers: "broker-1:9092"
-              schema-registry: "http://schema-registry:8085"
+              schema-registry: "http://schema-registry:8081"
     depends_on:
       - broker-1
     restart: always
