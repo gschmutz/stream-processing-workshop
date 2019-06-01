@@ -15,7 +15,7 @@ Keep **Linux/Unix** for the **Select a platform** and click on **OS Only** and s
 
 ![Alt Image Text](./images/lightsail-create-instance-2.png "Lightsail Homepage")
 
-Scroll down to **Launch script** and add the the following script 
+Scroll down to **Launch script** and add the following script 
 
 ```
 # Install Docker
@@ -38,9 +38,9 @@ sudo sysctl -w vm.max_map_count=262144
 
 # Get the project
 cd /home/ubuntu 
-git clone https://github.com/gschmutz/hadoop-workshop.git
-chown -R ubuntu:ubuntu hadoop-workshop
-cd hadoop-workshop/01-environment/docker
+git clone https://github.com/gschmutz/stream-processing-workshop.git
+chown -R ubuntu:ubuntu stream-processing-workshop
+cd stream-processing-workshop/01-environment/docker
 
 # Startup Environment
 sudo -E docker-compose up -d
@@ -50,9 +50,9 @@ into the **Launch Script** edit field
  
 ![Alt Image Text](./images/lightsail-create-instance-3.png "Lightsail Homepage")
 
-Click on **Change SSH key pair** and leave the **Default** selected and then click on **Download** and save the file to a convinient location on your machine. Under **Choose your instance plan** click on the arrow on the right and select the **16 GB** instance.   
+Click on **Change SSH key pair** and leave the **Default** selected and then click on **Download** and save the file to a convenient location on your machine. Under **Choose your instance plan** click on the arrow on the right and select the **16 GB** instance.   
 
-Under **Identify your istance** enter **Ubuntu-Hadoop-1** into the edit field. 
+Under **Identify your instance** enter **Ubuntu-Hadoop-1** into the edit field. 
 
 ![Alt Image Text](./images/lightsail-create-instance-4.png "Lightsail Homepage")
 
@@ -66,13 +66,13 @@ Click on the instance to navigate to the image details page. On the right you ca
 
 ![Alt Image Text](./images/lightsail-image-details.png "Lightsail Homepage")
 
-Click **Connect using SSH** to open the console and enter the follwoing command to watch the log file of the init script.
+Click **Connect using SSH** to open the console and enter the following command to watch the log file of the init script.
 
 ```
 tail -f /var/log/cloud-init-output.log --lines 1000
 ```
 
-The initializatio is finished when you see the `Creating xxxxx .... done` lines after all the docker images have been downloaded, which takes a couple of minutes. 
+The initialisation is finished when you see the `Creating xxxxx .... done` lines after all the docker images have been downloaded, which takes a couple of minutes. 
 
 ![Alt Image Text](./images/lightsail-create-instance-log-file.png "Lightsail Homepage")
 
@@ -117,7 +117,7 @@ When an instance is stopped, you can create a snapshot, which you can keep, even
 
 You can always recreate an instance based on a snapshot. 
 
-# Deprovision the environment
+# De-provision the environment
 
 To stop the environment, execute the following command:
 
