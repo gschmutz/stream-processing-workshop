@@ -289,10 +289,10 @@ services:
       KAFKA_HOST: broker-1:9092
       #SECURITY_PROTOCOL: SSL
       TRUST_STORE_LOCATION: ssl/client.truststore.jks
-      #TRUST_STORE_PASSWORD: password
-      #KEY_STORE_LOCATION: ssl/server.keystore.jks
-      #KEY_STORE_PASSWORD: password
-      #KEY_PASSWORD: password
+      TRUST_STORE_PASSWORD: password
+      KEY_STORE_LOCATION: ssl/server.keystore.jks
+      KEY_STORE_PASSWORD: password
+      KEY_PASSWORD: password
     restart: always
 
   kafkahq:
