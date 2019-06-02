@@ -20,7 +20,7 @@ curl -X "POST" "$DOCKER_HOST_IP:8083/connectors" \
       "s3.region": "us-central-1",
       "s3.bucket.name": "gschmutz-kafka-confluent-1",
       "s3.part.size": "5242880",
-      "store.url": "http://minio:9000"
+      "store.url": "http://minio:9000",
       "key.converter": "org.apache.kafka.connect.converters.LongConverter",
       "value.converter": "org.apache.kafka.connect.converters.StringConverter",
       "path.format": "'date'=YYYY-MM-dd/'hour'=HH",
