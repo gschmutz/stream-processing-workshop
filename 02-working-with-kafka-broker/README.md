@@ -206,7 +206,7 @@ kafka-console-producer --broker-list broker-1:9092,broker-2:9093 \
                        --topic test-topic
 ```
 
-The console producer reads from stdin, and takes a broker list instead of a zookeeper address. We specify 2 of the 3 brokers of our streaming platform.
+The console producer reads from stdin, and takes a broker list instead of a zookeeper address. We specify 2 of the 3 brokers of our analyticsplatorm.
 
 On the `>` prompt enter a few messages, execute each single message by hitting the **Enter** key.<br>
 **Hint:** Try to enter them as quick as possible.
@@ -564,7 +564,7 @@ curl -s "https://api.mockaroo.com/api/d5a195e0?count=20&key=ff7856d0"| \
 
 ## Using Kafka Manager
 
-[Kafka Manger](https://github.com/yahoo/kafka-manager) is an open source tool created by Yahoo for managing a Kafka cluster. It has been started as part of the **analyticsplatform** and can be reached on <http://analyticsplatform:39000/>.
+[Kafka Manger](https://github.com/yahoo/kafka-manager) is an open source tool created by Yahoo for managing a Kafka cluster. It has been started as part of the **analyticsplatform** and can be reached on <http://analyticsplatform:29000/>.
 
 ![Alt Image Text](./images/kafka-manager-homepage.png "Kafka Manager Homepage")
 
@@ -574,13 +574,15 @@ Navigate to the **Cluster** menu and click on the drop-down and select **Add Clu
 
 The **Add Cluster** details page should be displayed. Enter the following values into the edit fields / drop down windows:
 
-  * **Cluster Name**: Streaming Platform
+  * **Cluster Name**: Analytics Platform
   * **Custer Zookeeper Hosts**: zookeeper-1:2181
   * **Kafka Version**: 2.0.0
 
 Select the **Enable JMX Polling**, **Poll consumer information**, **Filter out inactive consumers**, **Enable Active OffsetCache** and **Display Broker and Topic Size** and click on **Save** to add the cluster. 
 
 ![Alt Image Text](./images/kafka-manager-add-cluster2.png "Kafka Manager Add Cluster2")
+
+You should get a message `Done!` signalling that the cluster has been successfully configured in **Kafka Manager**.
 
 ![Alt Image Text](./images/kafka-manager-cluster-added.png "Kafka Manager Add Cluster2")
 
