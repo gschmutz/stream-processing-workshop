@@ -14,15 +14,13 @@ curl -X "POST" "$DOCKER_HOST_IP:8083/connectors" \
       "tasks.max": "1",
       "timezone": "UTC",
       "locale": "en",
-      "format.class": "io.confluent.connect.s3.format.bytearray.ByteArrayFormat",
       "partitioner.class": "io.confluent.connect.storage.partitioner.TimeBasedPartitioner",
       "storage.class": "io.confluent.connect.s3.storage.S3Storage",
+      "format.class": "io.confluent.connect.s3.format.avro.AvroFormat",
       "s3.region": "us-central-1",
       "s3.bucket.name": "gschmutz-kafka-confluent-1",
       "s3.part.size": "5242880",
       "store.url": "http://minio:9000",
-      "key.converter": "org.apache.kafka.connect.converters.LongConverter",
-      "value.converter": "org.apache.kafka.connect.converters.StringConverter",
       "path.format": "'date'=YYYY-MM-dd/'hour'=HH",
       "timestamp.extractor": "Record"
   }
