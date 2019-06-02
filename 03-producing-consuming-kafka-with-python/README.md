@@ -41,7 +41,7 @@ Now lets write a simple program in Python which produces a message to the Kafka 
 First we will produce messages. In order to see the results, run `kafkacat` in a separate terminal window and print the partition, key and value of each message:
 
 ```
-kafkacat -b analyticsplatform -t test-topic -f "P-%p: %k=%s\n" -Z 
+kafkacat -b streamingplatform -t test-topic -f "P-%p: %k=%s\n" -Z 
 ``` 
 
 The following code segments assume that they are run inside the Zeppelin docker container. If you want to run them from the Docker Host, you have to replace broker-1 and broker-2 by the IP Address of the Docker Host.
@@ -129,7 +129,7 @@ c.close()
 When started, this code block will consume messages in an endless loop, so if you use it in the same Zeppelin notebook, you will have to run the producer externally, i.e. using Kafkacat in order to see some messages. 
 
 ```
-kafkacat -P -b analyticsplatform -t test-topic
+kafkacat -P -b streamingplatform -t test-topic
 ```
 
 ## Working with Avro Messages
@@ -152,7 +152,7 @@ kafka-topics --create \
 Make sure that you change the **kafkacat** command to consume from the new topic.
 
 ```
-kafkacat -b analyticsplatform -t test-avro-topic -f "P-%p: %k=%s\n" -Z 
+kafkacat -b streamingplatform -t test-avro-topic -f "P-%p: %k=%s\n" -Z 
 ``` 
 
 The following Python code produces an Avro message 
@@ -222,39 +222,39 @@ The Schema Registry provides a REST API which is documented in the [Confluent do
 To list all the schemas which are registered through the REST API, perform the following command 
 
 ```
-curl http://analyticsplatform:18081/subjects
+curl http://streamingplatform:18081/subjects
 ```
 
 You should get back the two subjects:
 
 ```
-$ curl http://analyticsplatform:18081/subjects
+$ curl http://streamingplatform:18081/subjects
 ["test-avro-topic-value","test-avro-topic-key"]~
 ```
 
 You can ask for the versions available for a given subject by using the following command
 
 ```
-curl http://analyticsplatform:18081/subjects/test-avro-topic-value/versions
+curl http://streamingplatform:18081/subjects/test-avro-topic-value/versions
 ```
 
 and you should see that there is currently just one version available
 
 ```
-$ curl http://analyticsplatform:18081/subjects/test-avro-topic-value/versions
+$ curl http://streamingplatform:18081/subjects/test-avro-topic-value/versions
 [1]
 ```
 
 To get the schema definition for that schema, use the following command
 
 ```
-curl http://analyticsplatform:18081/subjects/test-avro-topic-value/versions/1
+curl http://streamingplatform:18081/subjects/test-avro-topic-value/versions/1
 ```
 
 and the schema is returned as shown below
 
 ```
-$ curl http://analyticsplatform:18081/subjects/test-avro-topic-value/versions/1
+$ curl http://streamingplatform:18081/subjects/test-avro-topic-value/versions/1
 
 {"subject":"test-avro-topic-value","version":1,"id":1,"schema":"{\"type\":\"record\",
 \"name\":\"Person\",\"namespace\":\"my.test\",\"fields\":[{\"name\":\"id\",\"type\":
@@ -264,7 +264,7 @@ $ curl http://analyticsplatform:18081/subjects/test-avro-topic-value/versions/1
 
 ### View schemas using Schema Registry UI
 
-To browse the Schema Registry using the browser-based [Landoop Schema Registry UI](http://www.landoop.com/blog/2016/08/schema-registry-ui/), navigate to the following URL: <http://analyticsplatform:28002>.
+To browse the Schema Registry using the browser-based [Landoop Schema Registry UI](http://www.landoop.com/blog/2016/08/schema-registry-ui/), navigate to the following URL: <http://streamingplatform:28002>.
 
 You should see the two schemas registered. If you click on one of them, the Avro Schema will be displayed on the right side:
 
@@ -275,7 +275,7 @@ You should see the two schemas registered. If you click on one of them, the Avro
 But what about the output of Kafkacat? We can see that the message is shown, although not very readable. 
 
 ```
-> kafkacat -b analyticsplatform -t test-avro-topic -f "P-%p: %k=%s\n" -Z
+> kafkacat -b streamingplatform -t test-avro-topic -f "P-%p: %k=%s\n" -Z
 % Auto-selecting Consumer mode (use -P or -C to override)
 P-5:10011001
 Peter
@@ -287,7 +287,7 @@ This is even more problematic if the Avro message is much larger with much more 
 
 ### Consuming Messages using `kafka-avro-console-consumer`
 
-On the Analytics Platform, this is part of the schema registry docker container. Let's connect to the docker container:
+On the Streaming Platform, this is part of the schema registry docker container. Let's connect to the docker container:
 
 ```
 docker exec -ti schema-registry bash

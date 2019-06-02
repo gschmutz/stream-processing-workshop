@@ -31,12 +31,14 @@ Click on **PROPERTIES** tab to switch to the properties page.
 
 ![Alt Image Text](./images/nifi-twitter-processor-properties-1.png "Schema Registry UI")
 
-On the properies page, we configure the properties for getting data from twitter.  
+On the properties page, we configure the properties for getting data from twitter.  
 
 ![Alt Image Text](./images/nifi-twitter-processor-properties-2.png "Schema Registry UI")
 
 Change the **Twitter Endpoint** to **Filter Endpoint** and configure the **Consumer Key**, **Consumer Secret**, **Access Token** and **Access Token Secret** with the settings from the Twitter Application. 
+
 You can find the steps for creating a new Twitter Application [here](../99-misc/99-twitter-app/README.md). 
+
 Set the **Terms to Filter On** with the terms you want to filter on. 
 
 ![Alt Image Text](./images/nifi-twitter-processor-properties-3.png "Schema Registry UI")
@@ -56,7 +58,7 @@ Scroll down to **PublishKafka\_1\_0** and select it. Click on **Add** to add the
 
 ![Alt Image Text](./images/nifi-drag-relationship.png "Schema Registry UI")
 
-Click **Add** to finsih creating the connection. 
+Click **Add** to finish creating the connection. 
 
 ![Alt Image Text](./images/nifi-drag-relationship-create-connection.png "Schema Registry UI")
 

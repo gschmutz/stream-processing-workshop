@@ -1,12 +1,14 @@
 # Data Ingestion with StreamSets Data Collector
 
-### Create a new pipeline
+## Log into StreamSets
 
-In a browser navigate to <http://streamingplatform:18630>. The **StreamSets Data Collector** authentication page should be shown.
+In a browser window, navigate to <http://streamingplatform:18630>. The **StreamSets Data Collector** authentication page should be shown.
 
 ![Alt Image Text](./images/streamsets-login.png "Schema Registry UI")
 
 Enter **admin** for username and also for the password.
+
+## Create a new pipeline
 
 On the **Get Started** screen, click on **Create New Pipeline**.
 
@@ -41,7 +43,7 @@ Click on the red icon on the lower left corner and select **Discard (Library: Ba
 ![Alt Image Text](./images/streamsets-fix-pipeline-error.png "Schema Registry UI")
 
 ### Configure the HTTP Client
-Now let's configure the HTTP Client first. Click on the **HTTP Client 1** component on the canvas, it will change its colour to blue. 
+Now let's configure the HTTP Client first. Click on the **HTTP Client 1** component on the canvas, it will change to blue. 
 
 Click on the **HTTP** tab and enter `https://stream.twitter.com/1.1/statuses/filter.json?track=trump` into the **Resource URL** edit field. Also change the **Authentication Type** to `OAuth`. 
 
@@ -51,7 +53,8 @@ Now click on **Credentials** tab and enter the values for the Twitter applicatio
 
 ![Alt Image Text](./images/streamsets-http-client-config-http2.png "Schema Registry UI")
 
-Click on the **Data Format** tab and make sure that `JSON` is selected for the **Data Format** drop down. 
+Click on the **Data Format** tab and make sure `JSON` is selected for the **Data Format** drop down. 
+
 Increase the value of **Max Object Length (chars)** to `409600`.
 
 ![Alt Image Text](./images/streamsets-http-client-config-http3.png "Schema Registry UI")
@@ -62,7 +65,7 @@ Now let's configure the Kafka Producer. Click on the **Kafka Producer 1** compon
 Enter `broker-1:9092,broker-2:9093` into the **Broker URI** edit field and `tweet-json-topic` into the **Topic** field.
 
 ![Alt Image Text](./images/streamsets-kafka-producer-config-kafka.png "Schema Registry UI")
-Click on the **Data Format** tab and make sure that `JSON` is selected for the **Data Format**. 
+Click on the **Data Format** tab and make sure `JSON` is selected for the **Data Format**. 
 
 ### Create the topic in Kafka
 
@@ -91,7 +94,7 @@ Click on the **Preview** icon on the menu-bar, as shown on the following screens
  
 ![Alt Image Text](./images/streamsets-preview-pipeline.png "Schema Registry UI")
 
-On the **Preview Configuration** pop-up window you can configure how side-effect free your preview should be (option **Write to Destinations and Executors** and **Execute pipeline lifecylce events**). Additionally you define from where the source should read the events for the preview. From **Configured Source** will use "live" data but you could also take data from a snapshot captured in an earlier run. 
+On the **Preview Configuration** pop-up window you can configure how side-effect free your preview should be (option **Write to Destinations and Executors** and **Execute pipeline lifecycle events**). Additionally you define from where the source should read the events for the preview. From **Configured Source** will use "live" data but you could also take data from a snapshot captured in an earlier run. 
 
 Click on **Run Preview**.
 

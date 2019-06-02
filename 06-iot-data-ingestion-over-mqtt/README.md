@@ -1,5 +1,5 @@
 # IoT Data Ingestion through MQTT into Kafka
-In this workshop we will be ingesting data not directly into Kafka but rather through MQTT first. We will be using a fictious Trucking company with a fleet of trucks constantly providing some data about the moving vehicles. 
+In this workshop we will be ingesting data not directly into Kafka but rather through MQTT first. We will be using a fictitious Trucking company with a fleet of trucks constantly providing some data about the moving vehicles. 
 
 The following diagram shows the setup of the data flow we will be implementing. Of course we will not be using any real-life data, but have a program simulating some drivers and their trucks.
 

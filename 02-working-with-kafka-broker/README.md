@@ -206,7 +206,7 @@ kafka-console-producer --broker-list broker-1:9092,broker-2:9093 \
                        --topic test-topic
 ```
 
-The console producer reads from stdin, and takes a broker list instead of a zookeeper address. We specify 2 of the 3 brokers of our analyticsplatorm.
+The console producer reads from stdin, and takes a broker list instead of a zookeeper address. We specify 2 of the 3 brokers of the Streaming Platform.
 
 On the `>` prompt enter a few messages, execute each single message by hitting the **Enter** key.<br>
 **Hint:** Try to enter them as quick as possible.
@@ -299,7 +299,7 @@ kafka-topics --zookeeper zookeeper-1:2181 --delete --topic test-topic
 
 It is similar to the `kafka-console-producer` and `kafka-console-consumer` you have learnt and used above, but much more powerful and also simpler to use. 
 
-**Kafkacat** is an open-source utility, available at <https://github.com/edenhill/kafkacat>. It is not part of the Confluent platform and also not part of the Analytics Platform we run in docker. 
+**Kafkacat** is an open-source utility, available at <https://github.com/edenhill/kafkacat>. It is not part of the Confluent platform and also not part of the Streaming Platform we run in docker. 
 
 You can run **Kafkacat** as a standalone utility on any **Linux** or **Mac** computer and remotely connect to a running Kafka cluster. 
 
@@ -308,7 +308,7 @@ You can run **Kafkacat** as a standalone utility on any **Linux** or **Mac** com
 Officially **Kafkacat** is either supported on **Linux** or **Mac OS-X**. There is no official support for **Windows** yet. There is a Docker image for Kafkacat from Confluent as well.
 We will show how to install it on **Ubunut** and **Mac OS-X**. 
 
-In all the workshops we will assume that **Kafkacat** is installed locally on the Docker Host and that `analyticsplatform` alias has been added to `/etc/hosts`. 
+In all the workshops we will assume that **Kafkacat** is installed locally on the Docker Host and that `streamingplatform` alias has been added to `/etc/hosts`. 
 
 #### Ubuntu
 
@@ -496,43 +496,43 @@ Now let's use it to Produce and Consume messages.
 The simplest way to consume a topic is just specifying the broker and the topic. By default all messages from the beginning of the topic will be shown 
 
 ```
-kafkacat -b analyticsplatform -t test-topic
+kafkacat -b streamingplatform -t test-topic
 ```
 
 If you want to start at the end of the topic, i.e. only show new messages, add the `-o` option. 
 
 ```
-kafkacat -b analyticsplatform -t test-topic -o end
+kafkacat -b streamingplatform -t test-topic -o end
 ```
 
 To show only the last message (one for each partition), set the `-o` option to `-1`. `-2` would show the last 2 messages.
 
 ```
-kafkacat -b analyticsplatform -t test-topic -o -1
+kafkacat -b streamingplatform -t test-topic -o -1
 ```
 
 To show only the last message from exactly one partition, add the `-p` option
 
 ```
-kafkacat -b analyticsplatform -t test-topic -p1 -o -1
+kafkacat -b streamingplatform -t test-topic -p1 -o -1
 ```
 
 You can use the `-f` option to format the output. Here we show the partition (`%p`) as well as key (`%k`) and value (`%s`):
 
 ```
-kafkacat -b analyticsplatform -t test-topic -f 'Part-%p => %k:%s\n'
+kafkacat -b streamingplatform -t test-topic -f 'Part-%p => %k:%s\n'
 ```
 
 If there are keys which are Null, then you can use `-Z` to actually show NULL in the output:
 
 ```
-kafkacat -b analyticsplatform -t test-topic -f 'Part-%p => %k:%s\n' -Z
+kafkacat -b streamingplatform -t test-topic -f 'Part-%p => %k:%s\n' -Z
 ```
 
 There is also the option `-J` to have the output emitted as JSON.
 
 ```
-kafkacat -b analyticsplatform -t test-topic -J
+kafkacat -b streamingplatform -t test-topic -J
 ```
 
 ### Producing messages using Kafkacat
@@ -540,13 +540,13 @@ kafkacat -b analyticsplatform -t test-topic -J
 Producing messages with **Kafkacat** is as easy as consuming. Just add the `-P` option to switch to Producer mode.
 
 ```
-kafkacat -b analyticsplatform -t test-topic -P
+kafkacat -b streamingplatform -t test-topic -P
 ```
 
 To produce with key, specify the delimiter to split key and message, using the `-K` option. 
 
 ```
-kafkacat -b analyticsplatform -t test-topic -P -K , -X topic.partitioner=murmur2_random
+kafkacat -b streamingplatform -t test-topic -P -K , -X topic.partitioner=murmur2_random
 ```
 
 Find some more example on the [Kafkacat GitHub project](https://github.com/edenhill/kafkacat) or in the [Confluent Documentation](https://docs.confluent.io/current/app-development/kafkacat-usage.html).
@@ -559,12 +559,12 @@ Taking his example, you can send 10 orders to test-topic.
 
 ```
 curl -s "https://api.mockaroo.com/api/d5a195e0?count=20&key=ff7856d0"| \
-	kafkacat -b analyticsplatform -t test-topic -P
+	kafkacat -b streamingplatform -t test-topic -P
 ```
 
 ## Using Kafka Manager
 
-[Kafka Manger](https://github.com/yahoo/kafka-manager) is an open source tool created by Yahoo for managing a Kafka cluster. It has been started as part of the **analyticsplatform** and can be reached on <http://analyticsplatform:29000/>.
+[Kafka Manger](https://github.com/yahoo/kafka-manager) is an open source tool created by Yahoo for managing a Kafka cluster. It has been started as part of the **streamingplatform** and can be reached on <http://streamingplatform:29000/>.
 
 ![Alt Image Text](./images/kafka-manager-homepage.png "Kafka Manager Homepage")
 
@@ -574,7 +574,7 @@ Navigate to the **Cluster** menu and click on the drop-down and select **Add Clu
 
 The **Add Cluster** details page should be displayed. Enter the following values into the edit fields / drop down windows:
 
-  * **Cluster Name**: Analytics Platform
+  * **Cluster Name**: Streaming Platform
   * **Custer Zookeeper Hosts**: zookeeper-1:2181
   * **Kafka Version**: 2.0.0
 
