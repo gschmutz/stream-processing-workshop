@@ -299,22 +299,31 @@ kafka-topics --zookeeper zookeeper-1:2181 --delete --topic test-topic
 
 It is similar to the `kafka-console-producer` and `kafka-console-consumer` you have learnt and used above, but much more powerful and also simpler to use. 
 
-**kafkacat** is an open-source utility, available at <https://github.com/edenhill/kafkacat>. It is not part of the Confluent platform and also not part of the streaming platform we run in docker. 
+**Kafkacat** is an open-source utility, available at <https://github.com/edenhill/kafkacat>. It is not part of the Confluent platform and also not part of the Analytics Platform we run in docker. 
+
+You can run **Kafkacat** as a standalone utility on any **Linux** or **Mac** computer and remotely connect to a running Kafka cluster. 
 
 ### Installing Kafakcat
+
+Officially **Kafkacat** is either supported on **Linux** or **Mac OS-X**. There is no official support for **Windows** yet. There is a Docker image for Kafkacat from Confluent as well.
+We will show how to install it on **Ubunut** and **Mac OS-X**. 
+
+In all the workshops we will assume that **Kafkacat** is installed locally on the Docker Host and that `analyticsplatform` alias has been added to `/etc/hosts`. 
+
+#### Ubuntu
 
 You can install **kafkacat** directly on the Ubuntu environment. First let's install the required packages:
 
 Install the Confluent public key, which is used to sign the packages in the APT repository:
 
 ```
-wget -qO - https://packages.confluent.io/deb/4.1/archive.key | sudo apt-key add -
+wget -qO - https://packages.confluent.io/deb/5.2/archive.key | sudo apt-key add -
 ```
 
 Add the repository to the `/etc/apt/sources.list`:
 
 ```
-sudo add-apt-repository "deb [arch=amd64] https://packages.confluent.io/deb/4.1 stable main"
+sudo add-apt-repository "deb [arch=amd64] https://packages.confluent.io/deb/5.2 stable main"
 ```
 
 Run apt-get update and install the 2 dependencies as well as **kafkacat**
@@ -322,12 +331,36 @@ Run apt-get update and install the 2 dependencies as well as **kafkacat**
 ```
 sudo apt-get update
 sudo apt-get install librdkafka-dev libyajl-dev
-apt-get install kafkacat
+sudo apt-get install kafkacat
 ```
 
-### Show kafkacat options
+#### Mac OS-X
 
-**kafkacat** has many options. If you just enter `kafkacat` without any options, all the options and some description is shown on the console:
+To install **Kafkacat** on a Macbook, just run the following command:
+
+```
+brew install kafkacat
+```
+
+#### Docker Container
+
+There is also a Docker container from Confluent which can be used to run **Kafkacat**
+
+```
+docker run --tty --network docker_default confluentinc/cp-kafkacat kafkacat
+```
+
+Check the [Docker Image description on Docker Hub](https://hub.docker.com/r/confluentinc/cp-kafkacat) to see more options for using **Kafkacat** with Docker. 
+
+#### Windows
+
+There is no official support to run Kafkacat on Windows. You might try the following link to run it on Windows: <https://ci.appveyor.com/project/edenhill/kafkacat/builds/23675338/artifacts>.
+
+An other option for Windows is to run it as a Docker container as shown above. 
+
+### Display Kafkacat options
+
+**kafkacat** has many options. If you just enter `kafkacat` without any options, all the options with a short description is shown on the console. Additionally Kafkacat will show the version which is installed. This is current **1.4.0** if installed on Mac and **1.3.1** if on Ubuntu. **1.4.0** is interesting, because support for Kafka Headers has been added. 
 
 ```
 gus@gusmacbook ~> kafkacat
@@ -458,54 +491,67 @@ Query offset by timestamp:
 
 Now let's use it to Produce and Consume messages.
 
-### Consuming messages using kafkacat
+### Consuming messages using Kafkacat
 
 The simplest way to consume a topic is just specifying the broker and the topic. By default all messages from the beginning of the topic will be shown 
 
 ```
-kafkacat -b 10.0.1.4 -t test-topic
+kafkacat -b analyticsplatform -t test-topic
 ```
 
 If you want to start at the end of the topic, i.e. only show new messages, add the `-o` option. 
 
 ```
-kafkacat -b 10.0.1.4 -t test-topic -o end
+kafkacat -b analyticsplatform -t test-topic -o end
 ```
 
 To show only the last message (one for each partition), set the `-o` option to `-1`. `-2` would show the last 2 messages.
 
 ```
-kafkacat -b 10.0.1.4 -t test-topic -o -1
+kafkacat -b analyticsplatform -t test-topic -o -1
 ```
 
-You can use the `-f` option to format the output. Here we show the partition (%p) as well as key (%k) and message (%s):
+To show only the last message from exactly one partition, add the `-p` option
 
 ```
-kafkacat -b 10.0.1.4 -t test-topic -f 'Part-%p => %k:%s\n'
+kafkacat -b analyticsplatform -t test-topic -p1 -o -1
+```
+
+You can use the `-f` option to format the output. Here we show the partition (`%p`) as well as key (`%k`) and value (`%s`):
+
+```
+kafkacat -b analyticsplatform -t test-topic -f 'Part-%p => %k:%s\n'
 ```
 
 If there are keys which are Null, then you can use `-Z` to actually show NULL in the output:
 
 ```
-kafkacat -b 10.0.1.4 -t test-topic -f 'Part-%p => %k:%s\n' -Z
+kafkacat -b analyticsplatform -t test-topic -f 'Part-%p => %k:%s\n' -Z
 ```
 
-### Producing messages using kafkacat
-
-Producing messages with **kafacat** is as easy as consuming. Just add the `-P` option to switch to Producer mode. Just enter the data on the next line.
+There is also the option `-J` to have the output emitted as JSON.
 
 ```
-kafkacat -b 10.0.1.4 -t test-topic -P
+kafkacat -b analyticsplatform -t test-topic -J
+```
+
+### Producing messages using Kafkacat
+
+Producing messages with **Kafkacat** is as easy as consuming. Just add the `-P` option to switch to Producer mode.
+
+```
+kafkacat -b analyticsplatform -t test-topic -P
 ```
 
 To produce with key, specify the delimiter to split key and message, using the `-K` option. 
 
 ```
-kafkacat -b 10.0.1.4 -t test-topic -P -K , -X topic.partitioner=murmur2_random
+kafkacat -b analyticsplatform -t test-topic -P -K , -X topic.partitioner=murmur2_random
 ```
 
+Find some more example on the [Kafkacat GitHub project](https://github.com/edenhill/kafkacat) or in the [Confluent Documentation](https://docs.confluent.io/current/app-development/kafkacat-usage.html).
 
-### Send realistic test messages to Kafka using Mockaroo and Kafkacat
+### Send "realistic" test messages to Kafka using Mockaroo and Kafkacat
 
 In his [blog article](https://rmoff.net/2018/05/10/quick-n-easy-population-of-realistic-test-data-into-kafka-with-mockaroo-and-kafkacat/) Robin Moffatt shows an interesting and easy approach to send realistic mock data to Kafka. He is using [Mockaroo](https://mockaroo.com/), a free test data generator and API mocking tool, together with [Kafkacat](https://github.com/edenhill/kafkacat) to produce mock messages. 
 
@@ -513,7 +559,7 @@ Taking his example, you can send 10 orders to test-topic.
 
 ```
 curl -s "https://api.mockaroo.com/api/d5a195e0?count=20&key=ff7856d0"| \
-	kafkacat -b 10.0.1.4:9092 -t test-topic -P
+	kafkacat -b analyticsplatform -t test-topic -P
 ```
 
 ## Using Kafka Manager
@@ -539,7 +585,5 @@ Select the **Enable JMX Polling**, **Poll consumer information**, **Filter out i
 ![Alt Image Text](./images/kafka-manager-cluster-added.png "Kafka Manager Add Cluster2")
 
 Click on **Go to cluster view**. 
-
-
 
 
