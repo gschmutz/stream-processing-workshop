@@ -365,6 +365,21 @@ services:
       TINI_SUBREAPER: "true"
     restart: always
 
+  minio:
+    hostname: minio
+    image: minio/minio
+    container_name: minio
+    ports:
+      - '9000:9000'
+#    volumes:
+#      - './minio/data/:/data'
+#      - './minio/config:/root/.minio'
+    environment:
+      MINIO_ACCESS_KEY: V42FCGRVMK24JJ8DHUYG
+      MINIO_SECRET_KEY: bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza
+    command: server /data
+    restart: always
+
   tile38:
     image: tile38/tile38
     container_name: tile38
