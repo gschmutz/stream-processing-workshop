@@ -16,7 +16,7 @@ You have the following options to start the environment:
 
 These steps are necessary after the starting the docker environment. 
 
-### Add entry to local /etc/hosts File
+### Add entry to local `/etc/hosts` File
 
 To simplify working with the Streaming Platform and for the links below to work, add the following entry to your local `/etc/hosts` file. 
 
@@ -43,7 +43,9 @@ Management | Kafdrop  | <http://analyticsplatform:29020>
 Management | Kadmin  | <http://analyticsplatform:28080>
 Management | Kafkahq  | <http://analyticsplatform:28082>
 Management | Zoonavigator  | <http://analyticsplatform:28010>
+Management | Mino | <http://analyticsplatform:9000>
 Management | Kafka Rest Service | <http://analyticsplatform:8086>
 Management | Kafka Connect Rest Service | <http://analyticsplatform:8083>
+
 
 
