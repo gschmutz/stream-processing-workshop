@@ -14,7 +14,7 @@ curl -X "POST" "$DOCKER_HOST_IP:8083/connectors" \
       "tasks.max": "1",
       "timezone": "UTC",
       "locale": "en",
-      "partitioner.class": "io.confluent.connect.storage.partitioner.TimeBasedPartitioner",
+      "partitioner.class": "io.confluent.connect.storage.partitioner.DefaultPartition",
       "schema.generator.class": "io.confluent.connect.storage.hive.schema.DefaultSchemaGenerator",
       "storage.class": "io.confluent.connect.s3.storage.S3Storage",
       "format.class": "io.confluent.connect.s3.format.json.JsonFormat",
