@@ -1,11 +1,12 @@
 # Static Data Ingestion into Kafka
-Let's simulate some rather static data about the drivers of our truck fleet.
+
+So far we have ingested the truck data from MQTT to Kafka and detected dangerous driving behaviour. But the information only holds the `driverId` but no other information on the driver. In this workshop we will ingest information about the drivers into another Kafka topic and then use that information and join it with the stream we got so far. 
 
 ![Alt Image Text](./images/joining-static-data-with-ksql-overview.png "Schema Registry UI")
 
 ## Create a Postgresql instance
 
-For that let's add a Postgresql database to our streaming platform. Add the following two service definition to the `docker-compose.yml` file. 
+For that let's add a Postgresql database to our streaming platform. Add the following two service definitions to the `docker-compose.yml` file. 
 
 ```
   adminer:
@@ -29,16 +30,22 @@ docker-compose up -d
 
 The images for PostgreSQL as well as a simple Admin tool will be downloaded and started. 
 
-## Create the driver table and load some data
+## Create the `driver` table and load some data
 
 Now let's connect to the database as user `sample`. 
 
 ```
-docker exec -ti streamingplatform_db_1 bash
+docker exec -ti db bash
+```
+
+and run the `psql` command line utility. 
+
+
+```
 psql -d sample -U sample
 ```
 
-On the command prompt, create the table `driver`.
+On the command prompt, first create the table `driver`.
 
 ```
 DROP TABLE driver;
@@ -48,7 +55,7 @@ CREATE TABLE driver (id BIGINT, first_name CHARACTER VARYING(45), last_name CHAR
 ALTER TABLE driver ADD CONSTRAINT driver_pk PRIMARY KEY (id);
 ```
 
-Let's add some initial data to the newly created table. 
+And then add some driver data to the newly created table. 
 
 ```
 INSERT INTO "driver" ("id", "first_name", "last_name", "available", "birthdate", "last_update") VALUES (10,'Diann', 'Butler', 'Y', '10-JUN-68', CURRENT_TIMESTAMP);
@@ -64,7 +71,7 @@ INSERT INTO "driver" ("id", "first_name", "last_name", "available", "birthdate",
 INSERT INTO "driver" ("id", "first_name", "last_name", "available", "birthdate", "last_update") VALUES (20,'Clarence','Lamb', 'Y','15-NOV-77' ,CURRENT_TIMESTAMP);
 ```
 
-Keep this window open and connected to PostgeSQL, we will need it again later.
+Keep this window open and connected to PostgreSQL, we will need it again later.
  
 ## Create a new topic truck_driver
 
@@ -73,10 +80,10 @@ Now let's create a new topic `truck_driver`, a compacted topic which will hold t
 First connect to one of the Kafka brokers.
 
 ```
-docker exec -ti streamingplatform_broker-1_1 bash
+docker exec -ti broker-1 bash
 ```
 
-And then perform the `kafka-topics --create` command:
+And then perform the `kafka-topics --create` command to create the topic `truck_driver` and configure it to be a **log compacted** topic:
 
 ```
 kafka-topics --zookeeper zookeeper:2181 --create --topic truck_driver --partitions 8 --replication-factor 2 --config cleanup.policy=compact --config segment.ms=100 --config delete.retention.ms=100 --config min.cleanable.dirty.ratio=0.001
@@ -92,7 +99,7 @@ Keep it running, we will come back to it in a minute!
 
 ## Create the Kafka Connector to pull driver from Postgresql
 
-No it's time to start a Kafka JDBC connector, which gets all the data from the `driver` table and publishes into the `truck_driver` topic. 
+Now it's time to use a Kafka Connect  JDBC connector, which gets all the data from the `driver` table and publishes it to the `truck_driver` topic. Unlike the MQTT Connector we have used in [IoT Data Ingestion through MQTT into Kafka](../06-iot-data-ingestion-over-mqtt/README.md), the [Kafka Connect JDBC Connector](https://docs.confluent.io/current/connect/kafka-connect-jdbc/index.html) is already part of the Kafka Connect cluster, so we don't have to provision additional software in order to use it. 
 
 Similar to the way we have configured and created the MQTT connect, create a new file `configure-connect-jdbc.sh` in the `scripts` folder.
  
@@ -140,7 +147,7 @@ curl -X "POST" "$DOCKER_HOST_IP:8083/connectors" \
 }'
 ```
 
-Make sure that the script is executable and execute it. 
+First make sure that the script is executable and then run it. 
 
 ```
 sudo chmod +x configure-connect-jdbc.sh
@@ -177,13 +184,17 @@ UPDATE "driver" SET "available" = 'N', "last_update" = CURRENT_TIMESTAMP  WHERE 
 
 Again we should see the updates as new events in the `truck_driver` topic. 
 
-No let's use the driver data to enrich the `dangerous_driving_s` stream from workshop [IoT Data Ingestion through MQTT into Kafka](../06-iot-data-ingestion-over-mqtt/README.md). 
+Now let's use the driver data to enrich the `dangerous_driving_s` stream from workshop [IoT Data Ingestion through MQTT into Kafka](../06-iot-data-ingestion-over-mqtt/README.md). 
 
-## Create a struct 
+## Create a KSQL table
+
+In the KSQL CLI
 
 ```
-docker-compose exec ksql-cli ksql-cli local --bootstrap-server broker-1:9092
+docker run -it --network docker_default confluentinc/cp-ksql-cli:5.2.1 http://ksql-server-1:8088
 ```
+
+create a table over the `truck_driver` topic. It will hold the latest state of all the drivers:
 
 ```
 set 'commit.interval.ms'='5000';
@@ -191,6 +202,7 @@ set 'cache.max.bytes.buffering'='10000000';
 set 'auto.offset.reset'='earliest';
 
 DROP TABLE driver_t;
+
 CREATE TABLE driver_t  \
    (id BIGINT,  \
    first_name VARCHAR, \
@@ -202,16 +214,62 @@ CREATE TABLE driver_t  \
         KEY = 'id');
 ```
 
+Let's see that we actually have some drivers in the table. 
+
 ```
+set 'commit.interval.ms'='5000';
+set 'cache.max.bytes.buffering'='10000000';
+set 'auto.offset.reset'='earliest';
+
 SELECT * FROM driver_t;
 ```
+
+Keep that SELECT statement running and perform an update on the `driver` table. Connect to the PostgreSQL CLI
+
+```
+docker exec -ti postgresql psql -d sample -U sample
+```
+
+and execute this `UPDATE` statement
+
+```
+UPDATE "driver" SET "available" = 'N', "last_update" = CURRENT_TIMESTAMP  WHERE "id" = 21;
+```
+
+## Join Stream with Table
+
+Now lets join the `dangerous_driving_s` stream to the `driver_t` table
+
+```
+set 'commit.interval.ms'='5000';
+set 'cache.max.bytes.buffering'='10000000';
+set 'auto.offset.reset'='latest';
+```
+
+```
+SELECT driverid, first_name, last_name, truckId, routeId, eventType, latitude, longitude \
+FROM dangerous_driving_s \
+LEFT JOIN driver_t \
+ON dangerous_driving_s.driverId = driver_t.id;
+```
+
+with outer join
+
+```
+SELECT driverid, first_name, last_name, truckId, routeId, eventType, latitude, longitude \
+FROM dangerous_driving_s \
+LEFT OUTER JOIN driver_t \
+ON dangerous_driving_s.driverId = driver_t.id;
+```
+
+Create Stream `dangerous_driving_and_driver`
 
 ```
 DROP STREAM dangerous_driving_and_driver_s;
 CREATE STREAM dangerous_driving_and_driver_s  \
-  WITH (kafka_topic='dangerous_driving_and_driver_s', \
+  WITH (kafka_topic='dangerous_driving_and_driver', \
         value_format='JSON', partitions=8) \
-AS SELECT driverid, first_name, last_name, truckId, routeId ,eventType \
+AS SELECT driverid, first_name, last_name, truckId, routeId, eventType, latitude, longitude \
 FROM dangerous_driving_s \
 LEFT JOIN driver_t \
 ON dangerous_driving_s.driverId = driver_t.id;
@@ -226,11 +284,15 @@ SELECT * FROM dangerous_driving_and_driver_s;
 SELECT * FROM dangerous_driving_and_driver_s WHERE driverid = 11;
 ```
 
-
+Perform an update on the first_name to see the change in the live stream:
 
 ```
-SELECT first_name, last_name, eventType, count(*) 
-FROM dangerous_driving_and_driver_s 
-WINDOW TUMBLING (size 20 seconds) 
-GROUP BY first_name, last_name, eventType;
+docker exec -ti docker_db_1 bash
+
+psql -d sample -U sample
+```
+
+```
+UPDATE "driver" SET "first_name" = 'Slow Down Mickey', "last_update" = CURRENT_TIMESTAMP  WHERE "id" = 11;
+UPDATE "driver" SET "first_name" = 'Slow Down Patricia', "last_update" = CURRENT_TIMESTAMP  WHERE "id" = 22;
 ```
