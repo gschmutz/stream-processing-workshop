@@ -20,10 +20,12 @@ So let's add a new service to the `docker-compose.yml` file we have created in [
       - "1883:1883"
       - "9001:9001"
     volumes:
-      - ./mosquitto/mosquitto-1.conf:/mosquitto/config/mosquitto.conf
+      - ./conf/mosquitto-1.conf:/mosquitto/config/mosquitto.conf
 ```
 
-Mosquitto needs some configurations, which we can pass from outside in a file. First create a folder `mosquitto` below the `streamingplatform` folder. Inside this folder create the `mosquitto-1.conf` file and add the following configurations to this file:
+Mosquitto needs to be configured, before we can use it. That's why we use the volume mapping above, to map the file `./conf/mosquitto-1.conf` into the `mosquitto-1` container. 
+
+Create a folder `conf` below the `docker` folder and in there create the `mosquitto-1.conf` file with the following content:
 
 ```
 persistence true
@@ -39,79 +41,91 @@ If you change configuration on an already running service, then Docker will recr
 
 However, removing a service from the `docker-compose.yml` will not cause a running service to be stopped and removed. You have to do that manually. 
 
-### Installing an MQTT Client
+### Using an MQTT Client
 In order to be able to see what we are producing into MQTT, we need something similar to the `kafkacat` and `kafka-console-consumer` utilities. 
 
-There are multiple tools available, some with a Web-UI and some with Rich-Client UI. 
+In this workshop we show two options for consuming from MQTT
+ 
+ * use dockerized MQTT client in the terminal
+ * use browser-based HiveMQ Web UI
 
-One of the tools is the `mosquitto-sub`, which can be easily started using a docker container. Make sure that the `DOCKER_HOST_IP` is defined before starting it.
+#### Using Dockerized MQTT Client
+
+To start consuming using through a command line, perform the following docker command:
 
 ```
 docker run -it --rm efrecon/mqtt-client sub -h $DOCKER_HOST_IP -t "truck/+/position" -v
 ```
 
-Another tool is [MQTT.fx](http://mqttfx.jensd.de/), a rich client UI which you can either install on Linux, OS-X or Windows. 
+The consumed messages will show up in the terminal.
+
+#### Using HiveMQ Web UI  
+
+To start consuming using the MQTT UI ([HiveMQ Web UI](https://www.hivemq.com/docs/3.4/web-ui/introduction.html)), navigate to <http://streamingplatform:29080> and connect using `streamingplatform` for the **Host** field, `9001` for the **Port** field and then click on **Connect**: 
+
+![Alt Image Text](./images/mqtt-ui-connect.png "MQTT UI Connect")
+	
+When successfully connected, click on Add New Topic Subscription and enter `truck/+/position` into **Topic** field and click **Subscribe**:
+	
+![Alt Image Text](./images/mqtt-ui-subscription.png "MQTT UI Connect")
+	
+Alternatively you can also use the [MQTT.fx](https://mqttfx.jensd.de/) or the [MQTT Explorer](https://mqtt-explorer.com/) applications to browse for the messages on the MQTT broker. They are both available for installation on Mac or Windows. 
+ 
+Now with the MQTT broker and the MQTT client in place, let's produce some messages to the MQTT topics. 
 
 ## Running the Truck Simulator to publish to MQTT
 
-Now with the MQTT broker and the MQTT client in place, let's produce some messages to the MQTT topics. 
+For simulating truck data, we are going to use a Java program (adapted from Hortonworks) and maintained in this [GitHub project](https://github.com/TrivadisBDS/various-bigdata-prototypes/tree/master/streaming-sources/iot-truck-simulator/impl). It can be started either using Maven or Docker. We will be using it as a Docker container. 
 
-For that we are using a Java simulator program (source Hortonworks). Download it and compile it locally. 
+The simulator can produce data either to a **Kafka** or **MQTT**. These two options are shown below. 
 
-Java and Maven has already been installed in chapter 0. If it is not available, perform the following steps to both install a Java JDK and [Apache Maven](https://maven.apache.org/):
-
+Producing truck events to the MQTT broker on port 1883 is as simple as running the `trivadis/iot-truck-simulator` docker image.
 ```
-sudo add-apt-repository ppa:openjdk-r/ppa
-sudo apt-get update
-sudo apt-get install openjdk-8-jdk
-
-sudo apt-get install maven
+docker run trivadis/iot-truck-simulator '-s' 'MQTT' '-h' $DOCKER_HOST_IP '-p' '1883' '-f' 'CSV'
 ```
 
-Now download the Zip-File with the Java sources and unzip it.
+As soon as messages are produced to MQTT, you should see them either on the CLI or in the MQTT UI (Hive MQ) as shown below.
+
+![Alt Image Text](./images/mqtt-ui-messages.png "MQTT UI Connect")
+
+## Creating the necessary Kafka Topics
+
+The Kafka cluster is configured with `auto.topic.create.enable` set to `false`. Therefore we first have to create all the necessary topics, using the `kafka-topics` command line utility of Apache Kafka. 
+
+We can easily get access to the `kafka-topics` CLI by navigating into one of the containers for the 3 Kafka Brokers. Let's use `broker-1`
 
 ```
-wget https://github.com/gschmutz/stream-processing-workshop/raw/master/06-iot-data-ingestion-over-mqtt/java-simulator/truck-client.zip
-unzip truck-client.zip
-rm truck-client.zip
+docker exec -ti broker-1 bash
 ```
 
-Now let's compile it using Maven we have installed before. Make sure to execute the `mvn clean package` command where the `pom.xml` is located. 
+First let's see all existing topics
 
 ```
-cd truck-client
-mvn clean package
+kafka-topics --zookeeper zookeeper-1:2181 --list
 ```
 
-And finally we can run it. 
-
-```
-mvn exec:java -Dexec.args="-s MQTT -f CSV -p 1883"
-```
-
-As soon as the simulator is up and running, you should see messages in the window with the `mosquitto-sub` running. 
-
-
-## Create the Kafka Topic
 Now let's create the topic `truck_position` in Kafka, where the message from MQTT should be integrated with. 
-
-Connect into one of the broker containers using the `docker exec` command. 
-
-```
-docker exec -ti streamingplatform_broker-1_1 bash
-```
-
-Now using the `kafka-topics` command, create the truck_position topic. 
-
 ```
 kafka-topics --zookeeper zookeeper-1:2181 --create --topic truck_position --partitions 8 --replication-factor 2
 ```
 
-After successful creation, start a `kafka-console-consumer` to listen on messages on the truck_position topic. 
+Make sure to exit from the container after the topics have been created successfully.
+
+```
+exit
+```
+
+If you don't like to work with the CLI, you can also create the Kafka topics using the [Kafka Manager GUI](http://streamingplatform:29000). 
+
+After successful creation, start a `kafka-console-consumer` or `kafkacat` to consume messages from the  `truck_position` topic. 
+
+Use either
 
 ```
 kafka-console-consumer --bootstrap-server broker-1:9092 --topic truck_position
 ```
+
+or 
 
 ```
 kafkacat -b broker-1 -t truck_position
@@ -119,125 +133,42 @@ kafkacat -b broker-1 -t truck_position
 
 ## Using Kafka Connect to bridge between MQTT and Kafka
 
-In order to get the messages from MQTT into Kafka, we will be using Kafka Connect. Luckily, there are multiple Kafka Connectors available for MQTT. We will be using the one available from the [Landoop Stream-Reactor Project](https://github.com/Landoop/stream-reactor/tree/master/kafka-connect-mqtt) called `kafka-connect-mqtt`.
+In order to get the messages from MQTT into Kafka, we will be using Kafka Connect. Luckily, there are multiple Kafka Connectors available for MQTT. We can either use the one provided by [Confluent Inc.](https://www.confluent.io/connector/kafka-connect-mqtt/) (in preview and available as evaluation license on Confluent Hub) or the one provided as part of the [Landoop Stream-Reactor Project](https://github.com/Landoop/stream-reactor/tree/master/kafka-connect-mqtt) available on GitHub. We will be using the Landoop MQTT Connector. 
 
-### Adding the Kafka Connect service
+Check-out the [IoT Truck Demo Tutorial](https://github.com/gschmutz/iot-truck-demo) to see the Confluent MQTT Connector in Action. 
 
-There are two instances of the Kafka Connect service instance running as part of the Streaming Platform. However in order to be able to specify additional connect implementations without having to add them into the container, we need to change the configuration of the service. 
-Therefore change the definition of the `connect-1` and `connect-2`  service in the `docker-compose.yml` to the following: 
+### Adding the Kafka Connect service 
 
-```
-  connect-1:
-    image: confluentinc/cp-kafka-connect:5.1.0
-    hostname: connect-1
-    depends_on:
-      - zookeeper-1
-      - broker-1
-      - schema-registry
-    ports:
-      - "8083:8083"
-    environment:
-      CONNECT_BOOTSTRAP_SERVERS: 'broker-1:9092'
-      CONNECT_REST_ADVERTISED_HOST_NAME: connect-1
-      CONNECT_REST_PORT: 8083
-      CONNECT_GROUP_ID: compose-connect-group
-      CONNECT_CONFIG_STORAGE_TOPIC: docker-connect-configs
-      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
-      CONNECT_OFFSET_FLUSH_INTERVAL_MS: 10000
-      CONNECT_OFFSET_STORAGE_TOPIC: docker-connect-offsets
-      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
-      CONNECT_STATUS_STORAGE_TOPIC: docker-connect-status
-      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
-      CONNECT_KEY_CONVERTER: io.confluent.connect.avro.AvroConverter
-      CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: 'http://schema-registry:8081'
-      CONNECT_VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
-      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: 'http://schema-registry:8081'
-      CONNECT_INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
-      CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
-      CONNECT_ZOOKEEPER_CONNECT: 'zookeeper-1:2181'
-      CONNECT_PLUGIN_PATH: "/usr/share/java,/etc/kafka-connect/custom-plugins"
-      CONNECT_LOG4J_ROOT_LOGLEVEL: INFO
-      CLASSPATH: /usr/share/java/monitoring-interceptors/monitoring-interceptors-4.0.0.jar
-    volumes:
-      - $PWD/kafka-connect:/etc/kafka-connect/custom-plugins
-    restart: always
+There are two instances of the Kafka Connect service instance running as part of the Streaming Platform, `connect-1` and `connect-2`. To be able to add the connector implementations, without having to copy them into the docker container (or even create a dedicated docker image), both connect services are configured to retrieve additional implementations from the local folder `/etc/kafka-connect/custom-plugins`. This folder is mapped as a volume to the `kafka-connect` folder outside of the container. 
 
-  connect-2:
-    image: confluentinc/cp-kafka-connect:5.1.0
-    hostname: connect-2
-    depends_on:
-      - zookeeper-1
-      - broker-1
-      - schema-registry
-    ports:
-      - "8084:8084"
-    environment:
-      CONNECT_BOOTSTRAP_SERVERS: 'broker-1:9092'
-      CONNECT_REST_ADVERTISED_HOST_NAME: connect-2
-      CONNECT_REST_PORT: 8084
-      CONNECT_GROUP_ID: compose-connect-group
-      CONNECT_CONFIG_STORAGE_TOPIC: docker-connect-configs
-      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
-      CONNECT_OFFSET_FLUSH_INTERVAL_MS: 10000
-      CONNECT_OFFSET_STORAGE_TOPIC: docker-connect-offsets
-      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
-      CONNECT_STATUS_STORAGE_TOPIC: docker-connect-status
-      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
-      CONNECT_KEY_CONVERTER: io.confluent.connect.avro.AvroConverter
-      CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: 'http://schema-registry:8081'
-      CONNECT_VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
-      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: 'http://schema-registry:8081'
-      CONNECT_INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
-      CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
-      CONNECT_ZOOKEEPER_CONNECT: 'zookeeper-1:2181'
-      CONNECT_PLUGIN_PATH: "/usr/share/java,/etc/kafka-connect/custom-plugins"
-      CONNECT_LOG4J_ROOT_LOGLEVEL: INFO
-      CLASSPATH: /usr/share/java/monitoring-interceptors/monitoring-interceptors-4.0.0.jar
-    volumes:
-      - $PWD/kafka-connect:/etc/kafka-connect/custom-plugins
-    restart: always
-```
-
-With this configuration in place, we have to re-create the connect service from scratch. One way would be to issue a `docker-compose down` following a `docker-compose up -d`. But this would cause all services to be recreated and we would lose all the work done so far. So instead of doing that, just selectively stop and remove the `connect-1` and `connect-2` service, by executing the following commands.
+Make sure that it is existing and that we can write into it. 
 
 ```
-docker stop streamingplatform_connect-1_1
-docker rm streamingplatform_connect-1_1
-docker stop streamingplatform_connect-2_1
-docker rm streamingplatform_connect-2_1
+sudo rm -R kafka-connect/
+mkdir kafka-connect
 ```
 
-And then with the `connect-1` and `connect-2` service gone, let's recreate it running the docker-compose command
-
-```
-docker-compose up -d
-```
+In that folder we need to copy the artefacts of the Kafka connectors we want to use. 
 
 ### Download and deploy the kafka-connect-mqtt artefact
 
-As part of the restart of the `connect` service, the `kafka-connect` folder mapped into the container should have been created on the Docker host. Make sure that it belongs to the `cas` user by executing the following command:
+Navigate into the `kafka-connect` folder 
 
 ```
-sudo chown bigdata:bigdata -R kafka-connect
+cd kafka-connect
 ```
 
-Then navigate into the `kafka-connect` folder, create a folder `mqtt` and navigate into this folder.
+and download the `kafka-connect-mqtt-1.2.1-2.1.0-all.tar.gz` file from the [Landoop Stream-Reactor Project](https://github.com/Landoop/stream-reactor/tree/master/kafka-connect-mqtt) project.
 
 ```
-mkdir mqtt
-cd mqtt
+wget https://github.com/Landoop/stream-reactor/releases/download/1.2.1/kafka-connect-mqtt-1.2.1-2.1.0-all.tar.gz
 ```
 
-In here, download the `kafka-connect-mqtt-1.0.0-1.0.0-all.tar.gz` file from the [Landoop Stream-Reactor Project](https://github.com/Landoop/stream-reactor/tree/master/kafka-connect-mqtt).
+Once it is successfully downloaded, uncompress it using this `tar` command and remove the file. 
 
 ```
-wget https://github.com/Landoop/stream-reactor/releases/download/1.0.0/kafka-connect-mqtt-1.0.0-1.0.0-all.tar.gz
-```
-
-Once it is successfully downloaded, untar it using this `tar` command. 
-
-```
-tar xvf kafka-connect-mqtt-1.0.0-1.0.0-all.tar.gz
+mkdir kafka-connect-mqtt-1.2.1-2.1.0-all && tar xvf kafka-connect-mqtt-1.2.1-2.1.0-all.tar.gz -C kafka-connect-mqtt-1.2.1-2.1.0-all
+rm kafka-connect-mqtt-1.2.1-2.1.0-all.tar.gz
 ```
 
 Now let's restart Kafka connect in order to pick up the new connector. 
@@ -246,11 +177,30 @@ Now let's restart Kafka connect in order to pick up the new connector.
 docker-compose restart connect-1 connect-2
 ```
 
-### Configure and start an MQTT Connector
+The connector should now be added to the Kafka cluster. You can confirm that by watching the log file of the two containers
 
-Kafka Connect is already started as a service of the Streaming Platform and it exposes a REST API on Port 8083. 
+```
+docker-compose logs -f connect-1 connect-2
+```
 
-For invoking the API, you can either use a REST client or the Linux `curl` command line utility, which should be available on the Docker host. Curl is what we are going to use here. 
+After a while you should see an output similar to the one below with a message that the MQTT connector was added and later that the connector finished starting ...
+
+```
+...
+connect-2             | [2019-06-08 18:01:02,590] INFO Registered loader: PluginClassLoader{pluginLocation=file:/etc/kafka-connect/custom-plugins/kafka-connect-mqtt-1.2.1-2.1.0-all/} (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
+connect-2             | [2019-06-08 18:01:02,591] INFO Added plugin 'com.datamountaineer.streamreactor.connect.mqtt.source.MqttSourceConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
+connect-2             | [2019-06-08 18:01:02,591] INFO Added plugin 'com.datamountaineer.streamreactor.connect.mqtt.sink.MqttSinkConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
+connect-2             | [2019-06-08 18:01:02,592] INFO Added plugin 'com.datamountaineer.streamreactor.connect.converters.source.JsonResilientConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
+connect-2             | [2019-06-08 18:01:02,592] INFO Added plugin 'com.landoop.connect.sql.Transformation' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
+...
+connect-2             | [2019-06-08 18:01:11,520] INFO Starting connectors and tasks using config offset -1 (org.apache.kafka.connect.runtime.distributed.DistributedHerder)
+connect-2             | [2019-06-08 18:01:11,520] INFO Finished starting connectors and tasks (org.apache.kafka.connect.runtime.distributed.DistributedHerder)
+
+```
+
+### Configure the MQTT Connector
+
+For creating an instance of the connector over the API, you can either use a REST client or the Linux `curl` command line utility, which should be available on the Docker host. Curl is what we are going to use here. 
 
 Create a folder scripts and navigate into the folder. 
 
@@ -259,38 +209,40 @@ mkdir scripts
 cd scripts
 ```
 
-In there, create a script `start-mqtt.sh` and copy/paste the code below.  
+In the `scripts` folder, create a file `start-mqtt.sh` and add the code below.  
 
 ```
 #!/bin/bash
 
 echo "removing MQTT Source Connector"
 
-curl -X "DELETE" "$DOCKER_HOST_IP:8083/connectors/mqtt-source"
+curl -X "DELETE" "$DOCKER_HOST_IP:8083/connectors/mqtt-truck-position-source"
+
 
 echo "creating MQTT Source Connector"
 
 curl -X "POST" "$DOCKER_HOST_IP:8083/connectors" \
      -H "Content-Type: application/json" \
-     -d $'{
-  "name": "mqtt-source",
+     -d '{
+  "name": "mqtt-truck-position-source",
   "config": {
-  	"connector.class": "com.datamountaineer.streamreactor.connect.mqtt.source.MqttSourceConnector",
-  	"connect.mqtt.connection.timeout": "1000",
-  	"tasks.max": "1",
-  	"connect.mqtt.kcql": "INSERT INTO truck_position SELECT * FROM truck/+/position",
-  	"name": "mqtt-source",
-  	"connect.mqtt.connection.clean": "true",
-  	"connect.mqtt.service.quality": "0",
-  	"connect.mqtt.connection.keep.alive": "1000",
-  	"connect.mqtt.client.id": "tm-mqtt-connect-01",
-  	"connect.mqtt.converter.throw.on.error": "true",
-  	"connect.mqtt.hosts": "tcp://mosquitto-1:1883"
-	}
+    "connector.class": "com.datamountaineer.streamreactor.connect.mqtt.source.MqttSourceConnector",
+    "connect.mqtt.connection.timeout": "1000",
+    "tasks.max": "1",
+    "connect.mqtt.kcql": "INSERT INTO truck_position SELECT * FROM truck/+/position",
+    "connect.mqtt.connection.clean": "true",
+    "connect.mqtt.service.quality": "0",
+    "connect.mqtt.connection.keep.alive": "1000",
+    "connect.mqtt.client.id": "tm-mqtt-connect-01",
+    "connect.mqtt.converter.throw.on.error": "true",
+    "connect.mqtt.hosts": "tcp://mqtt-1:1883"
+  }
   }'
 ```
 
-In there, also create a script `stop-mqtt.sh` for stopping the connector when no longer needed and add add the following code:
+The script first removes the MQTT connector, if it already exists and then creates it (again). 
+
+Also create a separate script `stop-mqtt.sh` for just stopping the connector and add add the following code:
 
 ```
 #!/bin/bash
@@ -301,21 +253,23 @@ curl -X "DELETE" "$DOCKER_HOST_IP:8083/connectors/mqtt-source"
 ```
 
 
-The script first removes the MQTT connector, if it already exists and then creates it (again). 
-
-Make sure that the script is executable
+Make sure that the both script are executable
 
 ```
 sudo chmod +x start-mqtt.sh
+sudo chmod +x stop-mqtt.sh
 ```
 
-### Start the connector
+### Start the MQTT connector
 
-Now let's start the connector by running the `configure-mqtt` script.
+Finally let's start the connector by running the `start-mqtt` script.
 
 ```
 ./scripts/start-mqtt.sh
 ```
 
-The messages should start appear in the window with the `kafka-console-consumer` running. 
+A soon as the connector starts getting the messages from MQTT, they should start appearing on the console where the Kafka consumer is running. 
 
+### Monitor connector in Kafka Connect UI
+
+Navigate to the [Kafka Connect UI](http://streamingplatform:28001) to see the connector running.
