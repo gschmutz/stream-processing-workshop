@@ -40,6 +40,10 @@ Create a folder `conf` below the `docker` folder and in there create the `mosqui
 persistence true
 persistence_location /mosquitto/data/
 log_dest file /mosquitto/log/mosquitto.log
+
+listener 1883
+listener 9001
+protocol websockets
 ```
 
 With Docker Compose, you can easily later add some new services, even if the platform is currently running. If you redo a `docker-compose up -d`, Docker Compose will check if there is a delta between what is currently running and what the `docker-compose.yml` file tells. 
