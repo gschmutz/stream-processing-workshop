@@ -110,8 +110,31 @@ You should see a new folder `topics` with a sub-folder `truck_position` represen
 
 ![Alt Image Text](./images/minio-folders.png "Minio create bucket")
 
-In each folder you will find multiple files, all with some messages from Kafka. 
+In each folder you will find multiple objects, all with some messages from Kafka. 
 
 ![Alt Image Text](./images/minio-objects.png "Minio create bucket")
 
-Download one of the files and check the messages it contains.
+Let's see the content of one of the objects. We cannot do that directly from the MinIO UI, we have to first download it and then use a local editor. To download an object, select the object and then click on the **Download object** button in the upper right corner.
+
+![Alt Image Text](./images/minio-download-file.png "Minio create bucket")
+
+The content of the object should be similar to the one shown below
+
+```
+gus@gusmacbook ~/Downloads> cat truck_position+0+0000000000.json
+"1559500996371,18,22,1594289134,Normal,34.81,-91.93,8723575629839349139"
+"1559500996494,26,14,160405074,Normal,41.87,-87.67,8723575629839349139"
+"1559500996631,62,24,1090292248,Normal,41.66,-90.82,8723575629839349139"
+"1559500996648,48,25,160779139,Normal,34.83,-91.38,8723575629839349139"
+"1559500996736,18,22,1594289134,Normal,34.89,-91.74,8723575629839349139"
+"1559500996830,26,14,160405074,Normal,41.48,-88.07,8723575629839349139"
+"1559500997082,62,24,1090292248,Normal,41.67,-91.24,8723575629839349139"
+"1559500997097,48,25,160779139,Normal,34.96,-91.14,8723575629839349139"
+"1559500997178,18,22,1594289134,Normal,34.83,-91.38,8723575629839349139"
+"1559500997367,26,14,160405074,Normal,41.11,-88.42,8723575629839349139"
+"1559500997446,48,25,160779139,Normal,35.03,-90.94,8723575629839349139"
+"1559500997523,62,24,1090292248,Normal,41.7,-91.59,8723575629839349139"
+"1559500997619,18,22,1594289134,Normal,34.96,-91.14,8723575629839349139"
+"1559500997740,26,14,160405074,Normal,40.76,-88.77,8723575629839349139"
+...
+```
