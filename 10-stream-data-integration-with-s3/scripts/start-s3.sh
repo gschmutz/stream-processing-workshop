@@ -19,7 +19,7 @@ curl -X "POST" "$DOCKER_HOST_IP:8083/connectors" \
       "storage.class": "io.confluent.connect.s3.storage.S3Storage",
       "format.class": "io.confluent.connect.s3.format.json.JsonFormat",
       "s3.region": "us-east-1",
-      "s3.bucket.name": "gschmutz-kafka-confluent-1",
+      "s3.bucket.name": "kafka-logistics",
       "s3.part.size": "5242880",
       "store.url": "http://minio:9000",
       "key.converter": "org.apache.kafka.connect.storage.StringConverter",

@@ -242,7 +242,7 @@ curl -X "POST" "$DOCKER_HOST_IP:8083/connectors" \
 
 The script first removes the MQTT connector, if it already exists and then creates it (again). 
 
-Also create a separate script `stop-mqtt.sh` for just stopping the connector and add add the following code:
+Also create a separate script `stop-mqtt.sh` for just stopping the connector and add the following code:
 
 ```
 #!/bin/bash
@@ -253,7 +253,7 @@ curl -X "DELETE" "$DOCKER_HOST_IP:8083/connectors/mqtt-source"
 ```
 
 
-Make sure that the both script are executable
+Make sure that the both scripts are executable
 
 ```
 sudo chmod +x start-mqtt.sh
