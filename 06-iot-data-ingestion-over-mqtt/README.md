@@ -10,7 +10,8 @@ Our streaming platform does not yet provide an MQTT broker.
 
 So let's add a new service to the `docker-compose.yml` file we have created in [Setup of the Streaming Platform](../01-environment/README.md).
 
-[Mosquitto](https://mosquitto.org/) is an easy to use MQTT broker, belonging to the Eclipse project. There is a docker images available for us on Docker Hub. Just make sure that the service is configured in the `docker-compose.yml` with the volume mapping as shown below.
+[Mosquitto](https://mosquitto.org/) is an easy to use MQTT broker, belonging to the Eclipse project. There is a docker image available for us on Docker Hub. Just make sure that the service is configured in the `docker-compose.yml` with the volume mapping as shown below.
+Additionally, if you want to use the MQTT UI later in the workshop, you have to add it as another service (`mqtt-ui`). 
 
 ```
   mosquitto-1:
@@ -21,6 +22,14 @@ So let's add a new service to the `docker-compose.yml` file we have created in [
       - "9001:9001"
     volumes:
       - ./conf/mosquitto-1.conf:/mosquitto/config/mosquitto.conf
+
+  mqtt-ui:
+    image: vergissberlin/hivemq-mqtt-web-client
+    hostname: mqtt-ui
+    container_name: mqtt-ui
+    restart: always
+    ports:
+      - "29080:80"
 ```
 
 Mosquitto needs to be configured, before we can use it. That's why we use the volume mapping above, to map the file `./conf/mosquitto-1.conf` into the `mosquitto-1` container. 
