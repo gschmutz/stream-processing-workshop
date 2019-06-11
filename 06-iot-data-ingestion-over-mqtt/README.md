@@ -16,6 +16,7 @@ Additionally, if you want to use the MQTT UI later in the workshop, you have to 
 ```
   mosquitto-1:
     image: eclipse-mosquitto:latest
+    container_name: mosquitto-1
     hostname: mosquitto-1
     ports: 
       - "1883:1883"
