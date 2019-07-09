@@ -24,7 +24,7 @@ To simplify working with the Streaming Platform and for the links below to work,
 40.91.195.92	streamingplatform
 ```
 
-Replace the IP address by the PUBLIC IP of the docker host. 
+Replace the IP address by the public IP address of the docker host. 
 
 ## Services accessible on Streaming Platform
 The following service are available as part of the platform:

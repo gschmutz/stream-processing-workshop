@@ -18,7 +18,7 @@
 version: '3'
 services:
   zookeeper-1:
-    image: confluentinc/cp-zookeeper:5.2.1
+    image: confluentinc/cp-zookeeper:5.2.2
     container_name: zookeeper-1
     ports:
       - "2181:2181"
@@ -28,7 +28,7 @@ services:
     restart: always
 
   broker-1:
-    image: confluentinc/cp-kafka:5.2.1
+    image: confluentinc/cp-kafka:5.2.2
     container_name: broker-1
     hostname: broker-1
     depends_on:
@@ -51,7 +51,7 @@ services:
     restart: always
 
   broker-2:
-    image: confluentinc/cp-kafka:5.2.1
+    image: confluentinc/cp-kafka:5.2.2
     container_name: broker-2
     hostname: broker-2
     depends_on:
@@ -74,7 +74,7 @@ services:
     restart: always
 
   broker-3:
-    image: confluentinc/cp-enterprise-kafka:5.2.1
+    image: confluentinc/cp-enterprise-kafka:5.2.2
     container_name: broker-3
     hostname: broker-3
     depends_on:
@@ -98,7 +98,7 @@ services:
     restart: always
 
   schema-registry:
-    image: confluentinc/cp-schema-registry:5.2.1
+    image: confluentinc/cp-schema-registry:5.2.2
     hostname: schema-registry
     container_name: schema-registry
     depends_on:
@@ -114,7 +114,7 @@ services:
     restart: always
             
   connect-1:
-    image: confluentinc/cp-kafka-connect:5.2.1
+    image: confluentinc/cp-kafka-connect:5.2.2
     container_name: connect-1
     hostname: connect-1
     depends_on:
@@ -152,7 +152,7 @@ services:
     restart: always
 
   connect-2:
-    image: confluentinc/cp-kafka-connect:5.2.1
+    image: confluentinc/cp-kafka-connect:5.2.2
     container_name: connect-2
     hostname: connect-2
     depends_on:
@@ -190,31 +190,59 @@ services:
     restart: always
 
   ksql-server-1:
-    image: confluentinc/cp-ksql-server:5.2.1
+    image: confluentinc/cp-ksql-server:5.2.2
     container_name: ksql-server-1
     ports:
-      - '8088:8088'
+      - '18088:8088'
     depends_on:
       - broker-1
       - schema-registry
     environment:
       KSQL_CONFIG_DIR: "/etc/ksql"
       KSQL_LOG4J_OPTS: "-Dlog4j.configuration=file:/etc/ksql/log4j-rolling.properties"
-      KSQL_BOOTSTRAP_SERVERS: "broker-1:9092"
-      KSQL_HOST_NAME: ksql-server
+      KSQL_BOOTSTRAP_SERVERS: "broker-1:9092,broker-2:9093"
+      KSQL_HOST_NAME: ksql-server-1
       KSQL_APPLICATION_ID: "kafka-demo"
       KSQL_LISTENERS: "http://0.0.0.0:8088"
       KSQL_CACHE_MAX_BYTES_BUFFERING: 0
       # Schema Registry using HTTPS
-      KSQL_KSQL_SCHEMA_REGISTRY_URL: "http://schema_registry:8081"
+      KSQL_KSQL_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
       KSQL_KSQL_SERVICE_ID: "kafka-demo"
       KSQL_PRODUCER_INTERCEPTOR_CLASSES: io.confluent.monitoring.clients.interceptor.MonitoringProducerInterceptor
       KSQL_CONSUMER_INTERCEPTOR_CLASSES: io.confluent.monitoring.clients.interceptor.MonitoringConsumerInterceptor
       KSQL_KSQL_SERVER_UI_ENABLED: "true"
+    volumes:
+      - $PWD/ksql:/etc/ksql/ext      
+    restart: always
+
+  ksql-server-2:
+    image: confluentinc/cp-ksql-server:5.2.2
+    container_name: ksql-server-2
+    ports:
+      - '18089:8088'
+    depends_on:
+      - broker-1
+      - schema-registry
+    environment:
+      KSQL_CONFIG_DIR: "/etc/ksql"
+      KSQL_LOG4J_OPTS: "-Dlog4j.configuration=file:/etc/ksql/log4j-rolling.properties"
+      KSQL_BOOTSTRAP_SERVERS: "broker-1:9092,broker-2:9093"
+      KSQL_HOST_NAME: ksql-server-2
+      KSQL_APPLICATION_ID: "kafka-demo"
+      KSQL_LISTENERS: "http://0.0.0.0:8088"
+      KSQL_CACHE_MAX_BYTES_BUFFERING: 0
+      # Schema Registry using HTTPS
+      KSQL_KSQL_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      KSQL_KSQL_SERVICE_ID: "kafka-demo"
+      KSQL_PRODUCER_INTERCEPTOR_CLASSES: io.confluent.monitoring.clients.interceptor.MonitoringProducerInterceptor
+      KSQL_CONSUMER_INTERCEPTOR_CLASSES: io.confluent.monitoring.clients.interceptor.MonitoringConsumerInterceptor
+      KSQL_KSQL_SERVER_UI_ENABLED: "true"
+    volumes:
+      - $PWD/ksql:/etc/ksql/ext      
     restart: always
 
   kafka-rest-1:
-    image: confluentinc/cp-kafka-rest:5.2.1
+    image: confluentinc/cp-kafka-rest:5.2.2
     container_name: rest-proxy-1
     depends_on:
       - broker-1
