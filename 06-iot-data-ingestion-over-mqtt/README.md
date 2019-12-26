@@ -98,6 +98,11 @@ Producing truck events to the MQTT broker on port 1883 is as simple as running t
 docker run trivadis/iot-truck-simulator '-s' 'MQTT' '-h' $DOCKER_HOST_IP '-p' '1883' '-f' 'CSV'
 ```
 
+Or in a windows shell:
+```
+docker run trivadis/iot-truck-simulator "-s" "MQTT" "-h" %DOCKER_HOST_IP% "-p" "1883" "-f" "CSV"
+```
+
 As soon as messages are produced to MQTT, you should see them either on the CLI or in the MQTT UI (Hive MQ) as shown below.
 
 ![Alt Image Text](./images/mqtt-ui-messages.png "MQTT UI Connect")
