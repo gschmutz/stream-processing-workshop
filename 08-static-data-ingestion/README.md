@@ -80,7 +80,7 @@ Now let's create a new topic `truck_driver`, a compacted topic which will hold t
 First connect to one of the Kafka brokers.
 
 ```
-docker exec -ti broker-1 bash
+docker exec -ti kafka-1 bash
 ```
 
 And then perform the `kafka-topics --create` command to create the topic `truck_driver` and configure it to be a **log compacted** topic:
@@ -92,7 +92,7 @@ kafka-topics --zookeeper zookeeper:2181 --create --topic truck_driver --partitio
 Even though we have no messages yet, let's create a consumer wich reads the new topic from the beginning. 
 
 ```
-kafka-console-consumer --bootstrap-server broker-1:9092 --topic truck_driver --from-beginning
+kafka-console-consumer --bootstrap-server kafka-1:9092 --topic truck_driver --from-beginning
 ```
 
 Keep it running, we will come back to it in a minute!
@@ -295,4 +295,4 @@ psql -d sample -U sample
 ```
 UPDATE "driver" SET "first_name" = 'Slow Down Mickey', "last_update" = CURRENT_TIMESTAMP  WHERE "id" = 11;
 UPDATE "driver" SET "first_name" = 'Slow Down Patricia', "last_update" = CURRENT_TIMESTAMP  WHERE "id" = 22;
-```
+```kafka-1

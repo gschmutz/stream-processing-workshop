@@ -2,7 +2,7 @@
 
 ## Log into StreamSets
 
-In a browser window, navigate to <http://streamingplatform:18630>. The **StreamSets Data Collector** authentication page should be shown.
+In a browser window, navigate to <http://dataplatform:18630>. The **StreamSets Data Collector** authentication page should be shown.
 
 ![Alt Image Text](./images/streamsets-login.png "Schema Registry UI")
 

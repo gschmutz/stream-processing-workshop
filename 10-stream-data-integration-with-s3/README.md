@@ -16,7 +16,7 @@ It is part of the Confluent Platform and pre-loaded with the Kafka cluster. We c
 curl -X "GET" "$DOCKER_HOST_IP:8083/connectors" -H "Content-Type: application/json" -H "Accept: application/json"
 ```
 
-or use the [Kafka Connect UI](http://streamingplatform:28001/#/cluster/kafka-connect-1). If you click on **New** then on the page you should see the 
+or use the [Kafka Connect UI](http://dataplatform:28001/#/cluster/kafka-connect-1). If you click on **New** then on the page you should see the 
 
 ![Alt Image Text](./images/kafka-connect-ui-new-connector.png "Minio list objects") 
 
@@ -84,7 +84,7 @@ sudo chmod +x stop-s3.sh
 
 Before we can start the script, we have to make sure that the bucket `kafka-logistics` exists in Object Storage. 
 
-In a browser window, navigate to <http://streamingplatform:9000> and you should see login screen. Enter `V42FCGRVMK24JJ8DHUYG` into the **Access Key** and  `bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza ` into the **Secret Key** field and click on the connect button.  
+In a browser window, navigate to <http://dataplatform:9000> and you should see login screen. Enter `V42FCGRVMK24JJ8DHUYG` into the **Access Key** and  `bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza ` into the **Secret Key** field and click on the connect button.  
 
 The MinIO homepage should now appear. Click on the **+** button on the lower right corner and create the bucket.
 

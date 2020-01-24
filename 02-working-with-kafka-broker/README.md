@@ -18,16 +18,16 @@ The `kafka-topics` utility is used to create, alter, describe, and delete topics
 
 So let's connect into one of the broker through a terminal window. 
 
-Open a terminal window on the Docker Host and run a `docker exec` command to start a shell in the `broker-1` docker container 
+Open a terminal window on the Docker Host and run a `docker exec` command to start a shell in the `kafka-1` docker container 
 
 ```
-docker exec -ti broker-1 bash
+docker exec -ti kafka-1 bash
 ```
 
 if we just execute the `kafka-topics` command without any options, a help page is shown
 
 ```
-root@broker-1:/# kafka-topics
+root@kafka-1:/# kafka-topics
 Create, delete, describe, or change a topic.
 Option                                   Description
 ------                                   -----------
@@ -188,21 +188,21 @@ Now let's see the topic in use. The most basic way to test it is through the com
 In a new terminal window, first let's run the consumer on the topic `test-topic` we have created before
 
 ```
-kafka-console-consumer --bootstrap-server broker-1:9092,broker-2:9093 \
+kafka-console-consumer --bootstrap-server kafka-1:9092,kafka-2:9093 \
                        --topic test-topic
 ```
 After it is started, the consumer just waits for newly produced messages. 
 
-In an another terminal, again connect into `broker-1` using a `docker exec` 
+In an another terminal, again connect into `kafka-1` using a `docker exec` 
 
 ```
-docker exec -ti broker-1 bash
+docker exec -ti kafka-1 bash
 ```
 
 and run the following command to start the producer.   
  
 ```
-kafka-console-producer --broker-list broker-1:9092,broker-2:9093 \
+kafka-console-producer --broker-list kafka-1:9092,kafka-2:9093 \
                        --topic test-topic
 ```
 
@@ -222,7 +222,7 @@ On the `>` prompt enter a few messages, execute each single message by hitting t
 You should see the messages being consumed by the consumer. 
 
 ```
-root@broker-1:/# kafka-console-consumer --bootstrap-server broker-1:9092,broker-2:9093 --topic test-topic
+root@kafka-1:/# kafka-console-consumer --bootstrap-server kafka-1:9092,kafka-2:9093 --topic test-topic
 aaa
 bbb
 ccc
@@ -238,7 +238,7 @@ You can also echo a longer message and pipe it into the console producer, as he 
 
 ```
 echo "This is my first message!" | kafka-console-producer \
-                  --broker-list broker-1:9092,broker-2:9093 \
+                  --broker-list kafka-1:9092,kafka-2:9093 \
                   --topic test-topic
 ```
 
@@ -248,7 +248,7 @@ And of course you can send messages inside a bash for loop:
 for i in 1 2 3 4 5 6 7 8 9 10
 do
    echo "This is message $i"| kafka-console-producer \
-                  --broker-list broker-1:9092,broker-2:9093 \
+                  --broker-list kafka-1:9092,kafka-2:9093 \
                   --topic test-topic \
                   --batch-size 1 &
 done 
@@ -265,7 +265,7 @@ A message produced to Kafka always consists of a key and a value, the value bein
 We can check that by re-consuming the messages we have created so far, specifying the option `--from-beginning` together with the option `print.key` and `key.separator` in the console consumer. For that stop the old consumer and restart it again using the following command
 
 ```
-kafka-console-consumer --bootstrap-server broker-1:9092,broker-2:9093 \
+kafka-console-consumer --bootstrap-server kafka-1:9092,kafka-2:9093 \
 							--topic test-topic \
 							--property print.key=true \
 							--property key.separator=, \
@@ -277,7 +277,7 @@ We can see that the keys are all `null` because so far we have only created the 
 For producing messages also with a key, use the options `parse.key` and `key.separator`. 
 
 ```
-kafka-console-producer --broker-list broker-1:9092,broker-2:9093 \
+kafka-console-producer --broker-list kafka-1:9092,kafka-2:9093 \
 							--topic test-topic \
 							--property parse.key=true \
 							--property key.separator=,
@@ -308,7 +308,7 @@ You can run **Kafkacat** as a standalone utility on any **Linux** or **Mac** com
 Officially **Kafkacat** is either supported on **Linux** or **Mac OS-X**. There is no official support for **Windows** yet. There is a Docker image for Kafkacat from Confluent as well.
 We will show how to install it on **Ubunut** and **Mac OS-X**. 
 
-In all the workshops we will assume that **Kafkacat** is installed locally on the Docker Host and that `streamingplatform` alias has been added to `/etc/hosts`. 
+In all the workshops we will assume that **Kafkacat** is installed locally on the Docker Host and that `dataplatform` alias has been added to `/etc/hosts`. 
 
 #### Ubuntu
 
@@ -360,7 +360,7 @@ An other option for Windows is to run it as a Docker container as shown above.
 
 ### Display Kafkacat options
 
-**kafkacat** has many options. If you just enter `kafkacat` without any options, all the options with a short description is shown on the console. Additionally Kafkacat will show the version which is installed. This is current **1.4.0** if installed on Mac and **1.3.1** if on Ubuntu. **1.4.0** is interesting, because support for Kafka Headers has been added. 
+`kafkacat` has many options. If you just enter `kafkacat` without any options, all the options with a short description is shown on the console. Additionally Kafkacat will show the version which is installed. This is current **1.5.0** if installed on Mac and **1.3.1** if on Ubuntu. 
 
 ```
 gus@gusmacbook ~> kafkacat
@@ -369,8 +369,8 @@ Error: -b <broker,..> missing
 Usage: kafkacat <options> [file1 file2 .. | topic1 topic2 ..]]
 kafkacat - Apache Kafka producer and consumer tool
 https://github.com/edenhill/kafkacat
-Copyright (c) 2014-2017, Magnus Edenhill
-Version 1.4.0 (JSON) (librdkafka 1.0.0 builtin.features=gzip,snappy,ssl,sasl,regex,lz4,sasl_gssapi,sasl_plain,sasl_scram,plugins,zstd)
+Copyright (c) 2014-2019, Magnus Edenhill
+Version 1.5.0 (JSON, Avro, librdkafka 1.3.0 builtin.features=gzip,snappy,ssl,sasl,regex,lz4,sasl_gssapi,sasl_plain,sasl_scram,plugins,zstd,sasl_oauthbearer)
 
 
 General options:
@@ -394,9 +394,10 @@ General options:
   -X prop=val        Set librdkafka configuration property.
                      Properties prefixed with "topic." are
                      applied as topic properties.
+  -X schema.registry.prop=val Set libserdes configuration property for the Avro/Schema-Registry client.
   -X dump            Dump configuration and exit.
   -d <dbg1,...>      Enable librdkafka debugging:
-                     all,generic,broker,topic,metadata,feature,queue,msg,protocol,cgrp,security,fetch,interceptor,plugin,consumer,admin,eos
+                     all,generic,broker,topic,metadata,feature,queue,msg,protocol,cgrp,security,fetch,interceptor,plugin,consumer,admin,eos,mock
   -q                 Be quiet (verbosity set to 0)
   -v                 Increase verbosity
   -V                 Print version
@@ -427,16 +428,44 @@ Consumer options:
                      beginning | end | stored |
                      <value>  (absolute offset) |
                      -<value> (relative offset from end)
+                     s@<value> (timestamp in ms to start at)
+                     e@<value> (timestamp in ms to stop at (not included))
   -e                 Exit successfully when last message received
   -f <fmt..>         Output formatting string, see below.
                      Takes precedence over -D and -K.
   -J                 Output with JSON envelope
+  -s key=<serdes>    Deserialize non-NULL keys using <serdes>.
+  -s value=<serdes>  Deserialize non-NULL values using <serdes>.
+  -s <serdes>        Deserialize non-NULL keys and values using <serdes>.
+                     Available deserializers (<serdes>):
+                       <pack-str> - A combination of:
+                                    <: little-endian,
+                                    >: big-endian (recommended),
+                                    b: signed 8-bit integer
+                                    B: unsigned 8-bit integer
+                                    h: signed 16-bit integer
+                                    H: unsigned 16-bit integer
+                                    i: signed 32-bit integer
+                                    I: unsigned 32-bit integer
+                                    q: signed 64-bit integer
+                                    Q: unsigned 64-bit integer
+                                    c: ASCII character
+                                    s: remaining data is string
+                                    $: match end-of-input (no more bytes remaining or a parse error is raised).
+                                       Not including this token skips any
+                                       remaining data after the pack-str is
+                                       exhausted.
+                       avro       - Avro-formatted with schema in Schema-Registry (requires -r)
+                     E.g.: -s key=i -s value=avro - key is 32-bit integer, value is Avro.
+                       or: -s avro - both key and value are Avro-serialized
+  -r <url>           Schema registry URL (requires avro deserializer to be used with -s)
   -D <delim>         Delimiter to separate messages on output
   -K <delim>         Print message keys prefixing the message
                      with specified delimiter.
   -O                 Print message offset using -K delimiter
   -c <cnt>           Exit after consuming this number of messages
-  -Z                 Print NULL messages and keys as "NULL"(instead of empty)
+  -Z                 Print NULL values and keys as "NULL"instead of empty.
+                     For JSON (-J) the nullstr is always null.
   -u                 Unbuffered output
 
 Metadata options (-L):
@@ -468,6 +497,13 @@ Format string tokens:
  Example:
   -f 'Topic %t [%p] at offset %o: key %k: %s\n'
 
+JSON message envelope (on one line) when consuming with -J:
+ { "topic": str, "partition": int, "offset": int,
+   "tstype": "create|logappend|unknown", "ts": int, // timestamp in milliseconds since epoch
+   "headers": { "<name>": str, .. }, // optional
+   "key": str|json, "payload": str|json,
+   "key_error": str, "payload_error": str } //optional
+ (note: key_error and payload_error are only included if deserialization failed)
 
 Consumer mode (writes messages to stdout):
   kafkacat -b <broker> -t <topic> -p <partition>
@@ -487,6 +523,7 @@ Metadata listing:
 
 Query offset by timestamp:
   kafkacat -Q -b broker -t <topic>:<partition>:<timestamp>
+  
 ```
 
 Now let's use it to Produce and Consume messages.
@@ -496,43 +533,43 @@ Now let's use it to Produce and Consume messages.
 The simplest way to consume a topic is just specifying the broker and the topic. By default all messages from the beginning of the topic will be shown 
 
 ```
-kafkacat -b streamingplatform -t test-topic
+kafkacat -b dataplatform -t test-topic
 ```
 
 If you want to start at the end of the topic, i.e. only show new messages, add the `-o` option. 
 
 ```
-kafkacat -b streamingplatform -t test-topic -o end
+kafkacat -b dataplatform -t test-topic -o end
 ```
 
 To show only the last message (one for each partition), set the `-o` option to `-1`. `-2` would show the last 2 messages.
 
 ```
-kafkacat -b streamingplatform -t test-topic -o -1
+kafkacat -b dataplatform -t test-topic -o -1
 ```
 
 To show only the last message from exactly one partition, add the `-p` option
 
 ```
-kafkacat -b streamingplatform -t test-topic -p1 -o -1
+kafkacat -b dataplatform -t test-topic -p1 -o -1
 ```
 
 You can use the `-f` option to format the output. Here we show the partition (`%p`) as well as key (`%k`) and value (`%s`):
 
 ```
-kafkacat -b streamingplatform -t test-topic -f 'Part-%p => %k:%s\n'
+kafkacat -b dataplatform -t test-topic -f 'Part-%p => %k:%s\n'
 ```
 
 If there are keys which are Null, then you can use `-Z` to actually show NULL in the output:
 
 ```
-kafkacat -b streamingplatform -t test-topic -f 'Part-%p => %k:%s\n' -Z
+kafkacat -b dataplatform -t test-topic -f 'Part-%p => %k:%s\n' -Z
 ```
 
 There is also the option `-J` to have the output emitted as JSON.
 
 ```
-kafkacat -b streamingplatform -t test-topic -J
+kafkacat -b dataplatform -t test-topic -J
 ```
 
 ### Producing messages using Kafkacat
@@ -540,13 +577,13 @@ kafkacat -b streamingplatform -t test-topic -J
 Producing messages with **Kafkacat** is as easy as consuming. Just add the `-P` option to switch to Producer mode.
 
 ```
-kafkacat -b streamingplatform -t test-topic -P
+kafkacat -b dataplatform -t test-topic -P
 ```
 
 To produce with key, specify the delimiter to split key and message, using the `-K` option. 
 
 ```
-kafkacat -b streamingplatform -t test-topic -P -K , -X topic.partitioner=murmur2_random
+kafkacat -b dataplatform -t test-topic -P -K , -X topic.partitioner=murmur2_random
 ```
 
 Find some more example on the [Kafkacat GitHub project](https://github.com/edenhill/kafkacat) or in the [Confluent Documentation](https://docs.confluent.io/current/app-development/kafkacat-usage.html).
@@ -559,12 +596,12 @@ Taking his example, you can send 10 orders to test-topic.
 
 ```
 curl -s "https://api.mockaroo.com/api/d5a195e0?count=20&key=ff7856d0"| \
-	kafkacat -b streamingplatform -t test-topic -P
+	kafkacat -b dataplatform -t test-topic -P
 ```
 
 ## Using Kafka Manager
 
-[Kafka Manger](https://github.com/yahoo/kafka-manager) is an open source tool created by Yahoo for managing a Kafka cluster. It has been started as part of the **streamingplatform** and can be reached on <http://streamingplatform:29000/>.
+[Kafka Manger](https://github.com/yahoo/kafka-manager) is an open source tool created by Yahoo for managing a Kafka cluster. It has been started as part of the **dataplatform** and can be reached on <http://dataplatform:29000/>.
 
 ![Alt Image Text](./images/kafka-manager-homepage.png "Kafka Manager Homepage")
 

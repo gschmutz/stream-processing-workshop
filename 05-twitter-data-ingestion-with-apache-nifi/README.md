@@ -1,6 +1,6 @@
 # Data Ingestion with Apache NiFi
 ### Create a new pipeline
-In a browser navigate to <http://streamingplatform:28080/nifi>. This should bring up the NiFi User Interface, which at this point is a blank canvas for orchestrating a data flow.
+In a browser navigate to <http://dataplatform:28080/nifi>. This should bring up the NiFi User Interface, which at this point is a blank canvas for orchestrating a data flow.
 
 ![Alt Image Text](./images/nifi-home-screen.png "Schema Registry UI")
 
@@ -127,3 +127,4 @@ Now we are ready to run the completed flow.
 
 
 ![Alt Image Text](./images/nifi-running-canvas-with-twitter-and-kafka.png "Schema Registry UI")
+dataplatform

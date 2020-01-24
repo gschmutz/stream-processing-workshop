@@ -75,7 +75,7 @@ The consumed messages will show up in the terminal.
 
 #### Using HiveMQ Web UI  
 
-To start consuming using the MQTT UI ([HiveMQ Web UI](https://www.hivemq.com/docs/3.4/web-ui/introduction.html)), navigate to <http://streamingplatform:29080> and connect using `streamingplatform` for the **Host** field, `9001` for the **Port** field and then click on **Connect**: 
+To start consuming using the MQTT UI ([HiveMQ Web UI](https://www.hivemq.com/docs/3.4/web-ui/introduction.html)), navigate to <http://dataplatform:29080> and connect using `dataplatform` for the **Host** field, `9001` for the **Port** field and then click on **Connect**: 
 
 ![Alt Image Text](./images/mqtt-ui-connect.png "MQTT UI Connect")
 	
@@ -129,7 +129,7 @@ Make sure to exit from the container after the topics have been created successf
 exit
 ```
 
-If you don't like to work with the CLI, you can also create the Kafka topics using the [Kafka Manager GUI](http://streamingplatform:29000). 
+If you don't like to work with the CLI, you can also create the Kafka topics using the [Kafka Manager GUI](http://dataplatform:29000). 
 
 After successful creation, start a `kafka-console-consumer` or `kafkacat` to consume messages from the  `truck_position` topic. 
 
@@ -286,4 +286,4 @@ A soon as the connector starts getting the messages from MQTT, they should start
 
 ### Monitor connector in Kafka Connect UI
 
-Navigate to the [Kafka Connect UI](http://streamingplatform:28001) to see the connector running.
+Navigate to the [Kafka Connect UI](http://dataplatform:28001) to see the connector running.
