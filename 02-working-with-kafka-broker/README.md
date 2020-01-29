@@ -317,13 +317,13 @@ You can install **kafkacat** directly on the Ubuntu environment. First let's ins
 Install the Confluent public key, which is used to sign the packages in the APT repository:
 
 ```
-wget -qO - https://packages.confluent.io/deb/5.2/archive.key | sudo apt-key add -
+wget -qO - https://packages.confluent.io/deb/5.4/archive.key | sudo apt-key add -
 ```
 
 Add the repository to the `/etc/apt/sources.list`:
 
 ```
-sudo add-apt-repository "deb [arch=amd64] https://packages.confluent.io/deb/5.2 stable main"
+sudo add-apt-repository "deb [arch=amd64] https://packages.confluent.io/deb/5.4 stable main"
 ```
 
 Run apt-get update and install the 2 dependencies as well as **kafkacat**
@@ -611,7 +611,7 @@ Navigate to the **Cluster** menu and click on the drop-down and select **Add Clu
 
 The **Add Cluster** details page should be displayed. Enter the following values into the edit fields / drop down windows:
 
-  * **Cluster Name**: Streaming Platform
+  * **Cluster Name**: Data Platform
   * **Custer Zookeeper Hosts**: zookeeper-1:2181
   * **Kafka Version**: 2.0.0
 

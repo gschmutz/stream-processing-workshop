@@ -62,7 +62,7 @@ Increase the value of **Max Object Length (chars)** to `409600`.
 ### Configure the Kafka Producer
 Now let's configure the Kafka Producer. Click on the **Kafka Producer 1** component on the canvas and select the **Kafka** tab. 
 
-Enter `broker-1:9092,broker-2:9093` into the **Broker URI** edit field and `tweet-json-topic` into the **Topic** field.
+Enter `kafka-1:9092,kafka-2:9093` into the **Broker URI** edit field and `tweet-json-topic` into the **Topic** field.
 
 ![Alt Image Text](./images/streamsets-kafka-producer-config-kafka.png "Schema Registry UI")
 Click on the **Data Format** tab and make sure `JSON` is selected for the **Data Format**. 
@@ -74,7 +74,7 @@ Create the topic using the `kafka-topics` command.
 ```
 kafka-topics --create \
 			--if-not-exists \
-			--zookeeper zookeeper:2181 \
+			--zookeeper zookeeper-1:2181 \
 			--topic tweet-json-topic \
 			--partitions 6 \
 			--replication-factor 2
@@ -83,7 +83,7 @@ kafka-topics --create \
 Now let's start a `kafkacat` consumer on the new topic:
 
 ```
-kafkacat -b 10.0.1.4:9092 -t tweet-json-topic
+kafkacat -b dataplatform:9092 -t tweet-json-topic
 ```
 Now let's run the pipeline. There are two ways you can run a pipeline in StreamSets, either in **Preview** mode with no/minimal side-effects or in **Execution** mode, where the pipeline runs until stopped. 
  
@@ -94,7 +94,9 @@ Click on the **Preview** icon on the menu-bar, as shown on the following screens
  
 ![Alt Image Text](./images/streamsets-preview-pipeline.png "Schema Registry UI")
 
-On the **Preview Configuration** pop-up window you can configure how side-effect free your preview should be (option **Write to Destinations and Executors** and **Execute pipeline lifecycle events**). Additionally you define from where the source should read the events for the preview. From **Configured Source** will use "live" data but you could also take data from a snapshot captured in an earlier run. 
+On the **Preview Configuration** pop-up window you can configure how side-effect free your preview should be (option **Write to Destinations and Executors** and **Execute pipeline lifecycle events**). 
+
+Additionally you define from where the source should read the events for the preview. From **Configured Source** will use "live" data but you could also take data from a snapshot captured in an earlier run. 
 
 Click on **Run Preview**.
 
@@ -117,9 +119,14 @@ Now let's run the pipeline. Click on the Start icon in the menu bar in the top r
 
 ![Alt Image Text](./images/streamsets-start-pipeline.png "Schema Registry UI")
 
-The pipeline should change in the **RUNNING** state and the tweets should start to show up on the kafkacat terminal. You can see the that StreamSets also switches into the monitoring view, where you can find statistics about the data flow you run (such as number of rows processed, bot successfully and error as well as throughput). 
+The pipeline should change in the **RUNNING** state and the tweets should start to show up on the kafkacat terminal. 
+
+![Alt Image Text](./images/terminal-kafkacat-output.png "Schema Registry UI")
+
+You can see the that StreamSets also switches into the monitoring view, where you can find statistics about the data flow you run (such as number of rows processed, bot successfully and error as well as throughput). 
 
 ![Alt Image Text](./images/streamsets-running-pipeline.png "Schema Registry UI")
+
 You can drill down to each component, by just selecting one of the components. 
 
 ### Stop the pipeline 
