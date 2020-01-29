@@ -5,7 +5,7 @@ The following diagram shows the setup of the data flow we will be implementing. 
 
 ![Alt Image Text](./images/iot-ingestion-overview.png "Schema Registry UI")
 
-## Adding a MQTT broker to Streaming Platform
+## MQTT broker of the Data Platform
 Our streaming platform does not yet provide an MQTT broker.
 
 So let's add a new service to the `docker-compose.yml` file we have created in [Setup of the Streaming Platform](../01-environment/README.md).
@@ -13,47 +13,18 @@ So let's add a new service to the `docker-compose.yml` file we have created in [
 [Mosquitto](https://mosquitto.org/) is an easy to use MQTT broker, belonging to the Eclipse project. There is a docker image available for us on Docker Hub. Just make sure that the service is configured in the `docker-compose.yml` with the volume mapping as shown below.
 Additionally, if you want to use the MQTT UI later in the workshop, you have to add it as another service (`mqtt-ui`). 
 
+
+
+## Running the Truck Simulator to publish to MQTT
+
+For simulating truck data, we are going to use a Java program (adapted from Hortonworks) and maintained in this [GitHub project](https://github.com/TrivadisBDS/various-bigdata-prototypes/tree/master/streaming-sources/iot-truck-simulator/impl). It can be started either using Maven or Docker. We will be using it as a Docker container. 
+
+The simulator can produce data either to a **Kafka** or **MQTT**. These two options are shown below. 
+
+Producing truck events to the MQTT broker on port 1883 is as simple as running the `trivadis/iot-truck-simulator` docker image.
 ```
-  mosquitto-1:
-    image: eclipse-mosquitto:latest
-    container_name: mosquitto-1
-    hostname: mosquitto-1
-    ports: 
-      - "1883:1883"
-      - "9001:9001"
-    volumes:
-      - ./conf/mosquitto-1.conf:/mosquitto/config/mosquitto.conf
-
-  mqtt-ui:
-    image: vergissberlin/hivemq-mqtt-web-client
-    hostname: mqtt-ui
-    container_name: mqtt-ui
-    restart: always
-    ports:
-      - "29080:80"
+docker run trivadis/iot-truck-simulator '-s' 'MQTT' '-h' $DOCKER_HOST_IP '-p' '1883' '-f' 'CSV'
 ```
-
-Mosquitto needs to be configured, before we can use it. That's why we use the volume mapping above, to map the file `./conf/mosquitto-1.conf` into the `mosquitto-1` container. 
-
-Create a folder `conf` below the `docker` folder and in there create the `mosquitto-1.conf` file with the following content:
-
-```
-persistence true
-persistence_location /mosquitto/data/
-log_dest file /mosquitto/log/mosquitto.log
-
-listener 1883
-listener 9001
-protocol websockets
-```
-
-With Docker Compose, you can easily later add some new services, even if the platform is currently running. If you redo a `docker-compose up -d`, Docker Compose will check if there is a delta between what is currently running and what the `docker-compose.yml` file tells. 
-
-If there is a new service added, such as here with **Mosquitto**, Docker Compose will start the service, leaving the other, already running services untouched. 
-
-If you change configuration on an already running service, then Docker will recreate that service applying the new settings. 
-
-However, removing a service from the `docker-compose.yml` will not cause a running service to be stopped and removed. You have to do that manually. 
 
 ### Using an MQTT Client
 In order to be able to see what we are producing into MQTT, we need something similar to the `kafkacat` and `kafka-console-consumer` utilities. 
@@ -87,16 +58,6 @@ Alternatively you can also use the [MQTT.fx](https://mqttfx.jensd.de/) or the [M
  
 Now with the MQTT broker and the MQTT client in place, let's produce some messages to the MQTT topics. 
 
-## Running the Truck Simulator to publish to MQTT
-
-For simulating truck data, we are going to use a Java program (adapted from Hortonworks) and maintained in this [GitHub project](https://github.com/TrivadisBDS/various-bigdata-prototypes/tree/master/streaming-sources/iot-truck-simulator/impl). It can be started either using Maven or Docker. We will be using it as a Docker container. 
-
-The simulator can produce data either to a **Kafka** or **MQTT**. These two options are shown below. 
-
-Producing truck events to the MQTT broker on port 1883 is as simple as running the `trivadis/iot-truck-simulator` docker image.
-```
-docker run trivadis/iot-truck-simulator '-s' 'MQTT' '-h' $DOCKER_HOST_IP '-p' '1883' '-f' 'CSV'
-```
 
 As soon as messages are produced to MQTT, you should see them either on the CLI or in the MQTT UI (Hive MQ) as shown below.
 
@@ -109,7 +70,7 @@ The Kafka cluster is configured with `auto.topic.create.enable` set to `false`. 
 We can easily get access to the `kafka-topics` CLI by navigating into one of the containers for the 3 Kafka Brokers. Let's use `broker-1`
 
 ```
-docker exec -ti broker-1 bash
+docker exec -ti kafka-1 bash
 ```
 
 First let's see all existing topics
@@ -136,13 +97,13 @@ After successful creation, start a `kafka-console-consumer` or `kafkacat` to con
 Use either
 
 ```
-kafka-console-consumer --bootstrap-server broker-1:9092 --topic truck_position
+kafka-console-consumer --bootstrap-server kafka-1:9092 --topic truck_position
 ```
 
 or 
 
 ```
-kafkacat -b broker-1 -t truck_position
+kafkacat -b kafka-1 -t truck_position
 ```
 
 ## Using Kafka Connect to bridge between MQTT and Kafka
@@ -158,7 +119,7 @@ There are two instances of the Kafka Connect service instance running as part of
 Make sure that it is existing and that we can write into it. 
 
 ```
-sudo rm -R kafka-connect/
+cd plugins
 mkdir kafka-connect
 ```
 
@@ -172,29 +133,29 @@ Navigate into the `kafka-connect` folder
 cd kafka-connect
 ```
 
-and download the `kafka-connect-mqtt-1.2.1-2.1.0-all.tar.gz` file from the [Landoop Stream-Reactor Project](https://github.com/Landoop/stream-reactor/tree/master/kafka-connect-mqtt) project.
+and download the `kafka-connect-mqtt-1.2.6-2.1.0-all.tar.gz` file from the [Landoop Stream-Reactor Project](https://github.com/Landoop/stream-reactor/tree/master/kafka-connect-mqtt) project.
 
 ```
-wget https://github.com/Landoop/stream-reactor/releases/download/1.2.1/kafka-connect-mqtt-1.2.1-2.1.0-all.tar.gz
+wget https://github.com/Landoop/stream-reactor/releases/download/1.2.6/kafka-connect-mqtt-1.2.6-2.1.0-all.tar.gz
 ```
 
 Once it is successfully downloaded, uncompress it using this `tar` command and remove the file. 
 
 ```
-mkdir kafka-connect-mqtt-1.2.1-2.1.0-all && tar xvf kafka-connect-mqtt-1.2.1-2.1.0-all.tar.gz -C kafka-connect-mqtt-1.2.1-2.1.0-all
-rm kafka-connect-mqtt-1.2.1-2.1.0-all.tar.gz
+mkdir kafka-connect-mqtt-1.2.6-2.1.0-all && tar xvf kafka-connect-mqtt-1.2.6-2.1.0-all.tar.gz -C kafka-connect-mqtt-1.2.6-2.1.0-all
+rm kafka-connect-mqtt-1.2.6-2.1.0-all.tar.gz
 ```
 
 Now let's restart Kafka connect in order to pick up the new connector. 
 
 ```
-docker-compose restart connect-1 connect-2
+docker-compose restart kafka-connect-1 kafka-connect-2
 ```
 
 The connector should now be added to the Kafka cluster. You can confirm that by watching the log file of the two containers
 
 ```
-docker-compose logs -f connect-1 connect-2
+docker-compose logs -f kafka-connect-1 kafka-connect-2
 ```
 
 After a while you should see an output similar to the one below with a message that the MQTT connector was added and later that the connector finished starting ...

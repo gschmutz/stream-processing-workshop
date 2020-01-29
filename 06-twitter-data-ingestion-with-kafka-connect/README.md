@@ -79,28 +79,26 @@ In the `scripts` folder, create a file `start-twitter.sh` and add the code below
 
 echo "removing Twitter Source Connector"
 
-curl -X "DELETE" "$DOCKER_HOST_IP:28013/connectors/tweet-source"
+curl -X "DELETE" http://dataplatform:28013/connectors/tweet-source"
 
 echo "creating Twitter Source Connector"
 
-curl -X POST \
-  "$DOCKER_HOST_IP:28013/connectors" \
+curl -X "POST" http://dataplatform:28013/connectors \
   -H 'Content-Type: application/json' \
-  -H 'Accept: application/json' \
   -d '{
   "name": "tweet-source",
   "config": {
     "connector.class": "com.github.jcustenborder.kafka.connect.twitter.TwitterSourceConnector",
     "process.deletes": "false",
-    "filter.keywords": "#trump",
+    "filter.keywords": "trump",
     "kafka.status.topic": "tweet-avro-v1",
     "tasks.max": "1",
-    "twitter.oauth.consumerKey": "XXXXXXX",
+    "twitter.oauth.consumerKey": "XXXXXX",
     "twitter.oauth.consumerSecret": "XXXXXX",
     "twitter.oauth.accessToken": "XXXXXX",
-    "twitter.oauth.accessTokenSecret": "XXXXXXX"
+    "twitter.oauth.accessTokenSecret": "XXXXXXXX"
   }
-}'  
+}' 
 ```
 Make sure that you replace the `oauth.xxxxx` settings with the value of your Twittter application (created [here](https://developer.twitter.com/en/apps)).
 
@@ -111,7 +109,7 @@ Also create a separate script `stop-twitter.sh` for just stopping the connector 
 
 echo "removing Twitter Source Connector"
 
-curl -X "DELETE" "$DOCKER_HOST_IP:8083/connectors/tweet-source"
+curl -X "DELETE" http://dataplatform:28013/connectors/tweet-source"
 ```
 
 Make sure that the both scripts are executable
