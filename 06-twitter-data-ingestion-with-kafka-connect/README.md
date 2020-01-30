@@ -4,7 +4,7 @@ In this workshop we will be using Kafka Connect to get the messages from Twitter
 
 Luckily, there is a [Kafka Connector](https://github.com/jcustenborder/kafka-connect-twitter) available for retrieving live Tweets. So all we have to do here is configure it and bring it to action!
 
-## Adding the Kafka Connect service 
+## Adding the Twitter Kafka Connector 
 
 There are two instances of the Kafka Connect service instance running as part of the Modern Data Platform, `kafka-connect-1` and `kafka-connect-2`. 
 
@@ -12,7 +12,7 @@ To add the connector implementations, without having to copy them into the docke
 
 Into this folder we have to copy the artefacts of the Kafka connectors we want to use. 
 
-### Download and deploy the kafka-connect-mqtt artefact
+### Download and deploy the Connector
 
 Navigate into the `plugins/kafka-connect` folder 
 
