@@ -1,0 +1,4 @@
+platform_name=streaming-platform
+stack_name=trivadis/platys-modern-data-platform
+stack_version=1.2.0
+
