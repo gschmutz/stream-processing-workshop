@@ -204,7 +204,7 @@ key = {"id": "1001"}
 
 avroProducer = AvroProducer({
     'bootstrap.servers': 'kafka-1:9092,kafka-2:9093',
-    'schema.registry.url': 'http://schema-registry:8081',
+    'schema.registry.url': 'http://schema-registry-1:8081',
     'compression.codec': 'snappy'
     }, default_key_schema=key_schema, default_value_schema=value_schema)
 
@@ -222,39 +222,39 @@ The Schema Registry provides a REST API which is documented in the [Confluent do
 To list all the schemas which are registered through the REST API, perform the following command 
 
 ```
-curl http://dataplatform:18081/subjects
+curl http://dataplatform:28030/subjects
 ```
 
 You should get back the two subjects:
 
 ```
-$ curl http://dataplatform:18081/subjects
+$ curl http://dataplatform:28030/subjects
 ["test-avro-topic-value","test-avro-topic-key"]~
 ```
 
 You can ask for the versions available for a given subject by using the following command
 
 ```
-curl http://dataplatform:18081/subjects/test-avro-topic-value/versions
+curl http://dataplatform:28030/subjects/test-avro-topic-value/versions
 ```
 
 and you should see that there is currently just one version available
 
 ```
-$ curl http://dataplatform:18081/subjects/test-avro-topic-value/versions
+$ curl http://dataplatform:28030/subjects/test-avro-topic-value/versions
 [1]
 ```
 
 To get the schema definition for that schema, use the following command
 
 ```
-curl http://dataplatform:18081/subjects/test-avro-topic-value/versions/1
+curl http://dataplatform:28030/subjects/test-avro-topic-value/versions/1
 ```
 
 and the schema is returned as shown below
 
 ```
-$ curl http://dataplatform:18081/subjects/test-avro-topic-value/versions/1
+$ curl http://dataplatform:28030/subjects/test-avro-topic-value/versions/1
 
 {"subject":"test-avro-topic-value","version":1,"id":1,"schema":"{\"type\":\"record\",
 \"name\":\"Person\",\"namespace\":\"my.test\",\"fields\":[{\"name\":\"id\",\"type\":
