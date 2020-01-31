@@ -26,7 +26,7 @@ The MQTT broker is exposing port 28100. Running the simulator is as simple as ru
 docker run trivadis/iot-truck-simulator '-s' 'MQTT' '-h' $DOCKER_HOST_IP '-p' '28100' '-f' 'CSV'
 ```
 
-We are producing the data in **CSV** format to the broker running on the docker host on prot 281000. 
+We are producing the data in **CSV** format to the broker running on the docker host on port 28100. 
 
 You should see an output similar to the one below, signaling that messages are produced to MQTT. 
 
