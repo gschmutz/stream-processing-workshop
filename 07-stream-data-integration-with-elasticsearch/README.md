@@ -137,7 +137,7 @@ Alternatively you can also delete the index using the Cerebro UI.
 Now create the new index with the mapping using the following REST API call:
 
 ```
-curl -XPUT 'http://dataplatform:9200/tweet-raw-v1-index' -d '{
+curl -XPUT 'http://dataplatform:9200/tweet-raw-v1-index' -H 'Content-Type: application/json' -d '{
  "mappings": {
   "tweets": {
    "properties": {
