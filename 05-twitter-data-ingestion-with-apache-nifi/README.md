@@ -123,8 +123,10 @@ Now we are ready to run the completed flow.
 
 ### Run the pipeline 
 
+Click on the start arrow 
+
 ![Alt Image Text](./images/nifi-start-canvas-with-twitter-and-kafka.png "Schema Registry UI")
 
+to run the pipeline 
 
 ![Alt Image Text](./images/nifi-running-canvas-with-twitter-and-kafka.png "Schema Registry UI")
-dataplatform
