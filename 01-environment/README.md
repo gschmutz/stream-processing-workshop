@@ -1,4 +1,4 @@
-# Streaming Data Plaform in Docker
+# Streaming Data Platform in Docker
 
 The environment for this course is completely based on docker containers. 
 
