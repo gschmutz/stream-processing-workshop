@@ -42,12 +42,12 @@ Let's see these messages using an MQTT client
 
 For viewing the messages in MQTT, we need something similar to the `kafkacat` and `kafka-console-consumer` utilities. There are multiple options avaiable. 
 
-In this workshop we will present two alternaive options for consuming from MQTT
+In this workshop we will present two alternative options for consuming from MQTT
  
  * use dockerized MQTT client in the terminal
  * use browser-based HiveMQ Web UI
 
-Additionally, you can also use [MQTT.fx](https://mqttfx.jensd.de/), a rich-client MQTT Client written in Java, which can be installed on your local Windows or Mac client. 
+Alternatively you can also use the [MQTT.fx](https://mqttfx.jensd.de/) or the [MQTT Explorer](https://mqtt-explorer.com/) applications to browse for the messages on the MQTT broker. They are both available for installation on Mac or Windows. 
 
 ### Using dockerized MQTT Client
 
@@ -70,8 +70,6 @@ To start consuming using the MQTT UI ([HiveMQ Web UI](https://www.hivemq.com/doc
 When successfully connected, click on Add New Topic Subscription and enter `truck/+/position` into **Topic** field and click **Subscribe**:
 	
 ![Alt Image Text](./images/mqtt-ui-subscription.png "MQTT UI Connect")
-	
-Alternatively you can also use the [MQTT.fx](https://mqttfx.jensd.de/) or the [MQTT Explorer](https://mqtt-explorer.com/) applications to browse for the messages on the MQTT broker. They are both available for installation on Mac or Windows. 
 
 You should again see the messagesa as they are being sent to MQTT.
 
