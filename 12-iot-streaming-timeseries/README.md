@@ -95,22 +95,7 @@ Next we will Integrate the message from Kafka with InfluxDB. For that we will be
 
 ## Integrate Kafka with InfluxDB using StreamSets
 
-Create a new pipeline and name it `IoT_Kafka_to_InfluxDB`. On the Pipeline canvas, add a `Kafka Multitopic Consumer` origin. For InfluxDB we first have to install the InfluxDB Library, as it is not pre-installed with the version of StreamSets which is installed on the Dataplatform. 
-
-![Alt Image Text](./images/streamsets-package-manager.png "MQTT UI Connect")
-
-In the **Type to search** box enter `Influx` and you should see the `InfluxDB 0.9+` library appear. The version might be different. 
-
-Install it by selecting the item and clicking on the `+` on the top right corner. 
-
-Streamsets will download the library and once finished will tell you to restart StreamSets. You can do that using the following docker command.
-
-```
-docker restart streamsets-1
-```
-
-Relogin to StreamSets once restarted and navigate back to the `IoT_Kafka_to_InfluxDB` pipeline. 
-Now you should be able to select `InfluxDB` from the list of destination. 
+Create a new pipeline and name it `IoT_Kafka_to_InfluxDB`. On the Pipeline canvas, add a `Kafka Multitopic Consumer` origin and use a temporary `Trash` for the destination. Later we will replace the Trash destination by the `InfluxDB` destination. 
 
 Configure the **Kafka Multitopic Consumer** using the following settings
 
@@ -118,11 +103,12 @@ Configure the **Kafka Multitopic Consumer** using the following settings
 * **Topic List**: `iot-v1`
 * **Data Format**: `JSON`
 
-Run the pipeline already once in **Preview Mode** to see if data can be consumed from Kafka and to get StreamSets to know about the fields available. 
 
 Add a **Expression Evaluator** and a **Field Type Converter** processor inbetween **Kafka Multitopic Consumer** and **Influx DB**. The pipeline should now look as shown below:
 
 ![Alt Image Text](./images/streamsets-pipeline-with-processors.png "MQTT UI Connect")
+
+Run the pipeline already once in **Preview Mode** to see if data can be consumed from Kafka and to get StreamSets to know about the fields available. 
 
 With the **Expression Evaluator** procesor we specify the name of the measurement, needed for the **InfluxDB** destination. Configure it using the following settings:
 
@@ -137,6 +123,30 @@ With the **Field Type Converter** procesor we convert the string timestamp to a 
 * **Convert to Type**: `DATETIME`
 * **Data Format**: `Other...`
 * **Other Data Format**: `yyyy-MM-dd'T'HH:mm:ss.SSSZ`
+
+The filled-out settings for the converter can be seen below
+
+![Alt Image Text](./images/streamsets-preview.png "MQTT UI Connect")
+
+Run the Pipeline once more in Preview mode to see if the date conversion workes as expected.
+
+![Alt Image Text](./images/streamsets-preview-conversion.png "MQTT UI Connect")
+
+For InfluxDB we first have to install the InfluxDB Library, as it is not pre-installed with the version of StreamSets which is installed on the Dataplatform. 
+
+![Alt Image Text](./images/streamsets-package-manager.png "MQTT UI Connect")
+
+In the **Type to search** box enter `Influx` and you should see the `InfluxDB 0.9+` library appear. The version might be different. 
+
+Install it by selecting the item and clicking on the `+` on the top right corner. 
+
+Streamsets will download the library and once finished will tell you to restart StreamSets. You can do that using the following docker command.
+
+```
+docker restart streamsets-1
+```
+
+Relogin to StreamSets once restarted and navigate back to the `IoT_Kafka_to_InfluxDB` pipeline. Remove the `Trash` destination and replace it by the `InfluxDB` destination, now available from the list of destinations. 
 
 Configure the **InfluxDB** using the following settings
 
