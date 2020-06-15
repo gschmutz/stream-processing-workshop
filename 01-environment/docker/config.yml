@@ -4,7 +4,8 @@
       platys:
         platform-name: 'default'
         stack-image-name: 'trivadis/platys-modern-data-platform'
-        stack-image-version: '1.2.0'
+        stack-image-version: '1.6.0-preview'
+        structure: 'flat'
 
       #zookeeper
       ZOOKEEPER_enable: true
@@ -17,7 +18,7 @@
       KAFKA_edition: 'community'
       KAFKA_volume_map_data: false
       KAFKA_broker_nodes: 3
-      KAFKA_delete_topic_enable: false
+      KAFKA_delete_topic_enable: true
       KAFKA_auto_create_topics_enable: false
 
       #kafka schema registry
@@ -29,6 +30,7 @@
       #kafka connect
       KAFKA_CONNECT_enable: true
       KAFKA_CONNECT_nodes: 2
+      KAFKA_CONNECT_connectors: 'confluentinc/kafka-connect-elasticsearch:5.5.0'
 
       #misc kafka 'addons'
       KAFKA_KSQLDB_enable: true
@@ -41,25 +43,27 @@
       KAFKA_RESTPROXY_enable: false
       KAFKA_MQTTPROXY_enable: false
 
+      KAFKACAT_enable: true
+
       KAFKA_SCHEMA_REGISTRY_UI_enable: true
       KAFKA_CONNECT_UI_enable: true
 
-      KAFKA_MANAGER_enable: true
+      KAFKA_CMAK_enable: true
       KAFKA_KAFDROP_enable: false
       KAFKA_KADMIN_enable: false
-      KAFKA_KAFKAHQ_enable: true
+      KAFKA_AKHQ_enable: true
       KAFKA_BURROW_enable: false
 
       #hadoop
       HADOOP_enable: false
-      HADOOP_datanodes: 2
+      HADOOP_datanodes: 1
 
       #spark
-      SPARK_enable: false
+      SPARK_enable: true
       SPARK_workers: 2
 
       # misc spark 'addons'
-      SPARK_HISTORY_enable: false
+      SPARK_HISTORY_enable: true
       SPARK_THRIFT_enable: false
       
       # Apache Livy
@@ -87,7 +91,7 @@
       STREAMSETS_volume_map_data: false
       STREAMSETS_TRANSFORMER_enable: false
       STREAMSETS_TRANSFORMER_volume_map_data: false
-      STREAMSETS_EDGE_enable: false
+      STREAMSETS_EDGE_enable: true
       STREAMSETS_EDGE_volume_map_data: false
 
       #nifi
@@ -102,21 +106,13 @@
       ZEPPELIN_volume_map_data: false
 
       #jupyter
-      JUPYTER_enable: false
+      JUPYTER_enable: true
       # one of 'minimal', 'r', 'scipy', 'tensorflow', 'datascience', 'all_spark'
       JUPYTER_edition: 'minimal'
       JUPYTER_volume_map_data: false
 
-      #(only one of the 6 services can be enabled)
-      JUPYTER_MINIMAL_enable: false
-      JUPYTER_R_enable: false
-      JUPYTER_SCIPY_enable: false
-      JUPYTER_TENSORFLOW_enable: false
-      JUPYTER_DATASCIENCE_enable: false
-      JUPYTER_ALL_SPARK_enable: false
-
       # Visualization
-      GRAFANA_enable: true
+      GRAFANA_enable: false
       KIBANA_enable: true #needs to have elasticsearch enabled to work
       
       # NoSQL
@@ -126,7 +122,7 @@
       SOLR_enable: false
       ELASTICSEARCH_enable: true
 
-      NEO4J_enable: true
+      NEO4J_enable: false
       NEO4J_volume_map_data: false
       NEO4J_volume_map_logs: false
       
@@ -186,7 +182,7 @@
 
       # Container Mgmt
       PORTAINER_enable: false
-      CADVISOR_enable: true
+      CADVISOR_enable: false
 
       # Python image
       PYTHON_enable: false
