@@ -1,10 +1,13 @@
-# Moving Data from Kafka to Object Storage
+# IoT Data Ingestion - Moving Data from Kafka to Object Storage
 
-In this workshop we will see how we can use Kafka Connect to move data from a Kafka topic to Object Storage. A similar approach would also work for moving data to HDFS. 
+In this workshop we will see how we can use Kafka Connect to move data from the Kafka topic with the Raw events (`truck_position`) to Object Storage.  
+
+![Alt Image Text](./images/kafka-connect-s3-overview.png "Minio list objects")
 
 We will work with [MinIO](https://min.io/) as the Object Storage solution, but [Amazon S3](https://aws.amazon.com/s3/) or any other cloud Object Storage solution would work as well.
+MinIO is available as part of the Data Platform. 
 
-MinIO is available as part of the streaming platform. 
+A similar approach would also work for moving data to HDFS.
 
 ## Configure a Kafka Connector
 
@@ -16,7 +19,7 @@ It is part of the Confluent Platform and pre-loaded with the Kafka cluster. We c
 curl -X "GET" "$DOCKER_HOST_IP:8083/connectors" -H "Content-Type: application/json" -H "Accept: application/json"
 ```
 
-or use the [Kafka Connect UI](http://dataplatform:28001/#/cluster/kafka-connect-1). If you click on **New** then on the page you should see the 
+or use the [Kafka Connect UI](http://dataplatform:28103/#/cluster/kafka-connect-1). If you click on **New** then on the page you should see the 
 
 ![Alt Image Text](./images/kafka-connect-ui-new-connector.png "Minio list objects") 
 
@@ -84,7 +87,7 @@ sudo chmod +x stop-s3.sh
 
 Before we can start the script, we have to make sure that the bucket `kafka-logistics` exists in Object Storage. 
 
-In a browser window, navigate to <http://dataplatform:9000> and you should see login screen. Enter `V42FCGRVMK24JJ8DHUYG` into the **Access Key** and  `bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza ` into the **Secret Key** field and click on the connect button.  
+In a browser window, navigate to <http://dataplatform:9000> and you should see login screen. Enter `V42FCGRVMK24JJ8DHUYG` into the **Access Key** and  `bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza ` into the **Secret Key** field and click on the **connect** button.  
 
 The MinIO homepage should now appear. Click on the **+** button on the lower right corner and create the bucket.
 
@@ -98,7 +101,9 @@ Finally let's start the connector by running the `start-s3` script.
 ./scripts/start-mqtt.sh
 ```
 
-You have to make sure that either the ingestion into `truck_position` over MQTT is still working or that you have existing messages in the topic `truck_position`. You can also run the simulator to by-track the MQTT ingestion pipeline and produce directly to the Kafka topic instead:
+You have to make sure that either the ingestion into `truck_position` over MQTT is still working or that you have existing messages in the topic `truck_position`. 
+
+You can also run the simulator to sidetrack the MQTT ingestion pipeline and produce directly to the Kafka topic instead:
 
 ```
 docker run trivadis/iot-truck-simulator '-s' 'KAFKA' '-h' $PUBLIC_IP '-p' '9092' '-f' 'CSV' "-t" "sec"
