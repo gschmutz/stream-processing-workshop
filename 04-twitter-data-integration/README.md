@@ -12,8 +12,8 @@ For the Ingestion part we have 3 different solutions:
 
 * [Ingesting Tweets into Kafka using StreamSets Data Collector](../04a-twitter-data-ingestion-with-streamsets/README.md)
 * [Ingesting Tweets into Kafka using Apache NiFi](../04b-twitter-data-ingestion-with-apache-nifi/README.md)
-* [Ingesting Tweets into Kafka using Kafka Connect](./04c-twitter-data-ingestion-with-kafka-connect/README.md)
+* [Ingesting Tweets into Kafka using Kafka Connect](../04c-twitter-data-ingestion-with-kafka-connect/README.md)
 
 For storing the Tweets into Elasticsearch we only have one solution:
 
-* [Storing Tweets into Elasticsearch using Kafka Connect](./04d-stream-data-integration-with-elasticsearch/README.md)
+* [Storing Tweets into Elasticsearch using Kafka Connect](../04d-stream-data-integration-with-elasticsearch/README.md)

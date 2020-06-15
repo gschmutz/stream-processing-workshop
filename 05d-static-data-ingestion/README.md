@@ -1,4 +1,4 @@
-# Static Data Ingestion into Kafka
+# IoT Data Ingestion - Ingesting and Joining Static Data to Stream
 
 So far we have ingested the truck data from MQTT to Kafka and detected dangerous driving behaviour. But the information only holds the `driverId` but no other information about the driver. 
 

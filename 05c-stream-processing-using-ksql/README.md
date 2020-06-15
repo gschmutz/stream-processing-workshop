@@ -1,4 +1,4 @@
-# Stream Processing using KSQL
+# IoT Data Ingestion - Stream Processing using ksqlDB
 
 With the truck data continuously ingested into the `truck_movement` topic, let's now perform some stream processing on the data.
  
@@ -6,10 +6,8 @@ There are many possible solutions for performing analytics directly on the event
 
 ![Alt Image Text](./images/stream-processing-with-ksql-overview.png "Schema Registry UI")
 
-## Connect to KSQL Server
-
-For working with ksqlDB, there is a KSQL CLI available, which alllows us to connect to the ksqlDB engine and work with KSQL, i.e. executing some KSQL statements.  
-
+## Connect to ksqlDB engine
+ 
 An instance of a ksqlDB server is part of the Data Platform and started as service `ksqldb-server-1`. It can be reached on port 8088. Additionally the ksqlDB CLI is also running as service `ksqldb-cli`. 
 
 Let's use the CLI by doing an `docker exec` into the running docker container
@@ -21,7 +19,6 @@ docker exec -it ksqldb-cli ksql http://ksqldb-server-1:8088
 and you should see the ksqlDB "welcome page":
 
 ```
-
                   ===========================================
                   =       _              _ ____  ____       =
                   =      | | _____  __ _| |  _ \| __ )      =
@@ -33,9 +30,9 @@ and you should see the ksqlDB "welcome page":
                   =        for stream processing apps       =
                   ===========================================
 
-Copyright 2017-2019 Confluent Inc.
+Copyright 2017-2020 Confluent Inc.
 
-CLI v0.6.0, Server v0.6.0 located at http://ksqldb-server-1:8088
+CLI v0.9.0, Server v0.9.0 located at http://ksqldb-server-1:8088
 
 Having trouble? Type 'help' (case-insensitive) for a rundown of how things work!
 ```
@@ -54,7 +51,7 @@ Let's bring ksqlDB to action.
 
 KSQL is a SQL like dialect, but instead of reading from static tables, as you know from using it with databases, in KSQL we mostly read from data streams. In the Kafka world, a data stream is available through a Kafka topic. 
 
-ksqlDB can be used for doing ad-hoc queries as well as running continous queries in the background. Let's first doing some ad-hoc queries to familiarize ourselves with the data on the `truck_position` topic. 
+ksqlDB can be used for doing ad-hoc queries as well as running continuous queries in the background. Let's first doing some ad-hoc queries to familiarise ourselves with the data on the `truck_position` topic. 
 
 ### Give the truck_position topic a structure
 
@@ -96,11 +93,11 @@ WHERE eventType != 'Normal'
 EMIT CHANGES;
 ```
 
-It  will now take much longer until we see a result, as the non-normal behavour is not occuring so often. So be patient!
+It  will now take much longer until we see a result, as the non-normal behaviour is not occurring so often. So be patient!
 
 This is interesting data, but just seeing it in the KSQL terminal is of limited value. We would like to have that information available as a new Kafka topic, so we can further process it using KSQL or allow other subscriber to work with that information.  
 
-## Use ksqlDB to constantly publish results to a new topic 
+## Using ksqlDB to constantly publish results to a new topic 
 
 For publishing the resulting data to a new Kafka topic, we first have to create the Kafka topic. 
 
@@ -182,7 +179,7 @@ kafka-console-consumer --bootstrap-server broker-1:9092 \
 or `kafkacat`
 
 ```
-kafkacat -b dataplatform -t dangerous_driving_ksql
+docker exec -ti kafkacat kafkacat -b kafka-1 -t dangerous_driving_ksql
 ```
 
 You should see the same abnormal driving behaviour data as before in the ksqlDB shell.        
@@ -190,7 +187,7 @@ You should see the same abnormal driving behaviour data as before in the ksqlDB 
 ## Perform some more advanced analytics on the stream
 
 
-### How many abnormal events do we get per 20 seconds tumbling window
+Let's see how many abnormal events do we get per 20 seconds tumbling window
 
 ```
 SELECT eventType, count(*) 
