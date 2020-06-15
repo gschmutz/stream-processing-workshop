@@ -30,7 +30,7 @@
       #kafka connect
       KAFKA_CONNECT_enable: true
       KAFKA_CONNECT_nodes: 2
-      KAFKA_CONNECT_connectors: 'confluentinc/kafka-connect-elasticsearch:5.5.0'
+      KAFKA_CONNECT_connectors: 'confluentinc/kafka-connect-elasticsearch:5.5.0'
 
       #misc kafka 'addons'
       KAFKA_KSQLDB_enable: true
