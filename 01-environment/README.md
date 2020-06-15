@@ -32,31 +32,28 @@ The following service are available as part of the platform:
 
 Type | Service | Url
 ------|------- | -------------
-Development | StreamSets Data Collector | <http://dataplatform:28029>
-Development | Apache NiFi | <http://dataplatform:28054/nifi>
-Development | Apache Zeppelin | <http://dataplatform:28055>
-Development | Jupyter | <http://dataplatform:38888>
-Development | Kibana | <http://dataplatform:28006>
-Development | InfluxDB UI | <http://dataplatform:28151>
-Development | InfluxDB Chronograf UI | <http://dataplatform:28152>
-Datastore | Neo4J | <http://dataplatform:28080>
-Datastore | InfluxDB REST API | <http://dataplatform:28083>
-Datastore | Minio | <http://dataplatform:28150>
-Governance | Schema Registry UI  | <http://dataplatform:28039>
-Governance | Schema Registry Rest API  | <http://dataplatform:18081>
-Management | Kafka Connect UI | <http://dataplatform:28038>
-Management | Kafka Manager  | <http://dataplatform:28044>
-Management | Kafkahq  | <http://dataplatform:28042>
-Management | Mino | <http://dataplatform:9000>
-Management | Kafka Rest Service | <http://dataplatform:8086>
+Development | StreamSets Data Collector | <http://dataplatform:18630>
+Development | Apache NiFi | <http://dataplatform:18080/nifi>
+Development | Apache Zeppelin | <http://dataplatform:28080>
+Development | Kibana | <http://dataplatform:5601>
+Development | InfluxDB UI | <http://dataplatform:28128>
+Development | InfluxDB Chronograf UI | <http://dataplatform:28129>
+Datastore | Neo4J | <http://dataplatform:7474>
+Datastore | Minio | <http://dataplatform:9000>
+Governance | Schema Registry UI  | <http://dataplatform:28102>
+Governance | Schema Registry Rest API  | <http://dataplatform:8081>
+Management | Kafka Connect UI | <http://dataplatform:28103>
+Management | Cluster Manager for Apache Kafka (CMAK)  | <http://dataplatform:28104>
+Management | AKHQ  | <http://dataplatform:28107>
+Management | Kafka Rest Service | <http://dataplatform:18086>
 Management | Kafka Connect Rest Service | <http://dataplatform:8083>
-Management | ksqlDB Rest Service | <http://dataplatform:28034>
+Management | ksqlDB Rest Service | <http://dataplatform:8088>
 Management | Elasticsearch Rest Service | <http://dataplatform:9200>
-Management | Elasticsearch Dejavu UI | <http://dataplatform:28000>
-Management | Elasticsearch Cerebro UI | <http://dataplatform:28061>
-Management | Elasticsearch HQ | <http://dataplatform:28052>
-Management | Adminer RDBMS UI | <http://dataplatform:28041>
-Management | MQTT UI | <http://dataplatform:28082>
-Monitoring | Grafana | <http://dataplatform:28099>
-Monitoring | CAdvisor	 | <http://dataplatform:28160>
+Management | Elasticsearch Dejavu UI | <http://dataplatform:28125>
+Management | Elasticsearch Cerebro UI | <http://dataplatform:28126>
+Management | Elasticsearch HQ | <http://dataplatform:28127>
+Management | Adminer RDBMS UI | <http://dataplatform:28131>
+Management | MQTT UI | <http://dataplatform:28136>
+Monitoring | Grafana | <http://dataplatform:3000>
+Monitoring | CAdvisor	 | <http://dataplatform:28138>
 

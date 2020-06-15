@@ -164,8 +164,16 @@ Configure the **InfluxDB** using the following settings
 
 Now with all these configurations in place, we can run the pipeline by clicking on **Start**. 
 
+The data is feed into the InfluxDB and avalable for visualization or analytics. 
 
 ## Visualize InfluxDB data using Chronograf
+
+One tool for visualization is Chronograf, which is part of the so called [TICK Stack](https://www.influxdata.com/time-series-platform/) (TICK for **T**elegraf, **I**nfluxDB, **C**hronograf and **K**apacitor). 
+
+In a browser window, navigate to <http://dataplatform:28152/> to open the Chronograf homepage. 
+
+
+
 
 
 

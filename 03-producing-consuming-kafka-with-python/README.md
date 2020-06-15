@@ -149,7 +149,7 @@ kafka-topics --create \
 			--replication-factor 3
 ```
 
-Make sure that you change the **kafkacat** command to consume from the new topic.
+Make sure that you change the `kafkacat` command to consume from the new topic.
 
 ```
 kafkacat -b dataplatform -t test-avro-topic -f "P-%p: %k=%s\n" -Z 
