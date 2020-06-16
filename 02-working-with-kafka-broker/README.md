@@ -188,7 +188,7 @@ Now let's see the topic in use. The most basic way to test it is through the com
 In a new terminal window, first let's run the consumer on the topic `test-topic` we have created before
 
 ```
-kafka-console-consumer --bootstrap-server kafka-1:9092,kafka-2:9093 \
+kafka-console-consumer --bootstrap-server kafka-1:19092,kafka-2:19093 \
                        --topic test-topic
 ```
 After it is started, the consumer just waits for newly produced messages. 
@@ -202,7 +202,7 @@ docker exec -ti kafka-1 bash
 and run the following command to start the producer.   
  
 ```
-kafka-console-producer --broker-list kafka-1:9092,kafka-2:9093 \
+kafka-console-producer --broker-list kafka-1:19092,kafka-2:19093 \
                        --topic test-topic
 ```
 
@@ -222,7 +222,7 @@ On the `>` prompt enter a few messages, execute each single message by hitting t
 You should see the messages being consumed by the consumer. 
 
 ```
-root@kafka-1:/# kafka-console-consumer --bootstrap-server kafka-1:9092,kafka-2:9093 --topic test-topic
+root@kafka-1:/# kafka-console-consumer --bootstrap-server kafka-1:19092,kafka-2:19093 --topic test-topic
 aaa
 bbb
 ccc
@@ -238,7 +238,7 @@ You can also echo a longer message and pipe it into the console producer, as he 
 
 ```
 echo "This is my first message!" | kafka-console-producer \
-                  --broker-list kafka-1:9092,kafka-2:9093 \
+                  --broker-list kafka-1:19092,kafka-2:19093 \
                   --topic test-topic
 ```
 
@@ -248,7 +248,7 @@ And of course you can send messages inside a bash for loop:
 for i in 1 2 3 4 5 6 7 8 9 10
 do
    echo "This is message $i"| kafka-console-producer \
-                  --broker-list kafka-1:9092,kafka-2:9093 \
+                  --broker-list kafka-1:19092,kafka-2:19093 \
                   --topic test-topic \
                   --batch-size 1 &
 done 
@@ -265,7 +265,7 @@ A message produced to Kafka always consists of a key and a value, the value bein
 We can check that by re-consuming the messages we have created so far, specifying the option `--from-beginning` together with the option `print.key` and `key.separator` in the console consumer. For that stop the old consumer and restart it again using the following command
 
 ```
-kafka-console-consumer --bootstrap-server kafka-1:9092,kafka-2:9093 \
+kafka-console-consumer --bootstrap-server kafka-1:19092,kafka-2:19093 \
 							--topic test-topic \
 							--property print.key=true \
 							--property key.separator=, \
@@ -277,7 +277,7 @@ We can see that the keys are all `null` because so far we have only created the 
 For producing messages also with a key, use the options `parse.key` and `key.separator`. 
 
 ```
-kafka-console-producer --broker-list kafka-1:9092,kafka-2:9093 \
+kafka-console-producer --broker-list kafka-1:19092,kafka-2:19093 \
 							--topic test-topic \
 							--property parse.key=true \
 							--property key.separator=,
@@ -301,11 +301,12 @@ It is similar to the `kafka-console-producer` and `kafka-console-consumer` you h
 
 **Kafkacat** is an open-source utility, available at <https://github.com/edenhill/kafkacat>. It is not part of the Confluent platform and also not part of the Streaming Platform we run in docker. 
 
-You can run **Kafkacat** as a standalone utility on any **Linux** or **Mac** computer and remotely connect to a running Kafka cluster. 
+You can run **Kafkacat** as a standalone utility on any **Linux** or **Mac** computer and remotely connect to a running Kafka cluster or use the docker container instance which is part of the Data Platform. 
 
 ### Installing Kafakcat
 
 Officially **Kafkacat** is either supported on **Linux** or **Mac OS-X**. There is no official support for **Windows** yet. There is a Docker image for Kafkacat from Confluent as well.
+
 We will show how to install it on **Ubunut** and **Mac OS-X**. 
 
 In all the workshops we will assume that **Kafkacat** is installed locally on the Docker Host and that `dataplatform` alias has been added to `/etc/hosts`. 
@@ -344,19 +345,17 @@ brew install kafkacat
 
 #### Docker Container
 
-There is also a Docker container from Confluent which can be used to run **Kafkacat**
+`kafkacat` is also part of the Data Platform. Just use a `docker exec ...` command
 
 ```
-docker run --tty --network docker_default confluentinc/cp-kafkacat kafkacat
+docker exec -ti kafkacat kafkacat
 ```
-
-Check the [Docker Image description on Docker Hub](https://hub.docker.com/r/confluentinc/cp-kafkacat) to see more options for using **Kafkacat** with Docker. 
 
 #### Windows
 
 There is no official support to run Kafkacat on Windows. You might try the following link to run it on Windows: <https://ci.appveyor.com/project/edenhill/kafkacat/builds/23675338/artifacts>.
 
-An other option for Windows is to run it as a Docker container as shown above. 
+An other option for Windows is to use the Docker container as shown above. 
 
 ### Display Kafkacat options
 
@@ -530,11 +529,20 @@ Now let's use it to Produce and Consume messages.
 
 ### Consuming messages using Kafkacat
 
+In all of the statements below replace `dataplatform` with `kafka-1` if you are using the containerized `kafkacat` of the Data Platform. 
+
 The simplest way to consume a topic is just specifying the broker and the topic. By default all messages from the beginning of the topic will be shown 
 
 ```
 kafkacat -b dataplatform -t test-topic
 ```
+
+or using containerized kafkacat
+
+```
+docker exec -ti kafkacat kafkacat -b kafka-1 -t test-topic
+```
+
 
 If you want to start at the end of the topic, i.e. only show new messages, add the `-o` option. 
 
@@ -599,9 +607,9 @@ curl -s "https://api.mockaroo.com/api/d5a195e0?count=20&key=ff7856d0"| \
 	kafkacat -b dataplatform -t test-topic -P
 ```
 
-## Using Kafka Manager
+## Using CMAK (Cluster Manager for Apache Kafka)
 
-[Kafka Manger](https://github.com/yahoo/kafka-manager) is an open source tool created by Yahoo for managing a Kafka cluster. It has been started as part of the **dataplatform** and can be reached on <http://dataplatform:29000/>.
+[Cluster Manager for Apache Kafka](https://github.com/yahoo/kafka-manager) is an open source tool created by Yahoo for managing a Kafka cluster. It has been started as part of the **dataplatform** and can be reached on <http://dataplatform:28104/>.
 
 ![Alt Image Text](./images/kafka-manager-homepage.png "Kafka Manager Homepage")
 
@@ -613,7 +621,7 @@ The **Add Cluster** details page should be displayed. Enter the following values
 
   * **Cluster Name**: Data Platform
   * **Custer Zookeeper Hosts**: zookeeper-1:2181
-  * **Kafka Version**: 2.0.0
+  * **Kafka Version**: 2.4.0
 
 Select the **Enable JMX Polling**, **Poll consumer information**, **Filter out inactive consumers**, **Enable Active OffsetCache** and **Display Broker and Topic Size** and click on **Save** to add the cluster. 
 
