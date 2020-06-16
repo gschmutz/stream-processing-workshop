@@ -84,12 +84,20 @@ ssh -i LightsailDefaultKey-eu-central-1.pem ubuntu@18.196.124.212
 
 So with all services running, there is one last step to do. We have to configure the Firewall to allow traffic into the Lightsail instance. 
 
+Click on the **Networking** tab/link to navigate to the network settings.
+
 ![Alt Image Text](./images/lightsail-image-networking.png "Lightsail Homepage")
 
-Click on the **Networking** tab/link to navigate to the network settings and under **Firewall** click on ** **Add another**.
-For simplicity reasons, we allow all TCP traffic by selecting **All TCP** on port range **0 - 65535** and then click **Save**. 
+Click on **Add rule** to add a new Firewall rule. 
 
-![Alt Image Text](./images/lightsail-image-networking-add-firewall-rule.png "Lightsail Homepage")
+For simplicity reasons, we allow all TCP traffic by selecting **All TCP** on port range **0 - 65535**. To increase security, you can restrict incoming traffic to one or more IP addresses by selecting the option **Restrict to IP address** and adding the IP address of your client as the **Source IP address**.	
+![Alt Image Text](./images/lightsail-image-networking-add-firewall-rule-1.png "Lightsail Homepage")
+
+In a browser, navigate to <https://www.ipify.org/> to learn your IP Address. 
+
+Click on **Create** to save this new Firewarll rule and it should be added to the list of rules. 
+
+![Alt Image Text](./images/lightsail-image-networking-add-firewall-rule-2.png "Lightsail Homepage")
 
 Your instance is now ready to use. Complete the post installation steps documented the [here](README.md).
 
