@@ -35,9 +35,8 @@ Type | Service | Url
 Development | StreamSets Data Collector | <http://dataplatform:18630>
 Development | Apache NiFi | <http://dataplatform:18080/nifi>
 Development | Apache Zeppelin | <http://dataplatform:28080>
+Development | Jupyter | <http://dataplatform:28888>
 Development | Kibana | <http://dataplatform:5601>
-Development | InfluxDB UI | <http://dataplatform:28128>
-Development | InfluxDB Chronograf UI | <http://dataplatform:28129>
 Datastore | Neo4J | <http://dataplatform:7474>
 Datastore | Minio | <http://dataplatform:9000>
 Governance | Schema Registry UI  | <http://dataplatform:28102>
@@ -49,11 +48,6 @@ Management | Kafka Rest Service | <http://dataplatform:18086>
 Management | Kafka Connect Rest Service | <http://dataplatform:8083>
 Management | ksqlDB Rest Service | <http://dataplatform:8088>
 Management | Elasticsearch Rest Service | <http://dataplatform:9200>
-Management | Elasticsearch Dejavu UI | <http://dataplatform:28125>
-Management | Elasticsearch Cerebro UI | <http://dataplatform:28126>
-Management | Elasticsearch HQ | <http://dataplatform:28127>
 Management | Adminer RDBMS UI | <http://dataplatform:28131>
 Management | MQTT UI | <http://dataplatform:28136>
-Monitoring | Grafana | <http://dataplatform:3000>
-Monitoring | CAdvisor	 | <http://dataplatform:28138>
 

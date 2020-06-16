@@ -127,10 +127,10 @@
       NEO4J_volume_map_logs: false
       
       # Influx DB 1.x
-      INFLUXDB_enable: true
+      INFLUXDB_enable: false
       INFLUXDB_volume_map_data: false
-      INFLUXDB_TELEGRAF_enable: true
-      INFLUXDB_CHRONOGRAF_enable: true
+      INFLUXDB_TELEGRAF_enable: false
+      INFLUXDB_CHRONOGRAF_enable: false
       INFLUXDB_CHRONOGRAF_volume_map_data: false
       INFLUXDB_KAPACITOR_enable: false
       INFLUXDB_KAPACITOR_volume_map_data: false
