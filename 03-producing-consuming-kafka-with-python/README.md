@@ -53,7 +53,7 @@ The following code block will generate a message with a NULL key. The messages a
 ```
 from confluent_kafka import Producer
 
-p = Producer({'bootstrap.servers': 'kafka-1:9092,kafka-2:9093'})
+p = Producer({'bootstrap.servers': 'kafka-1:19092,kafka-2:19093'})
 messages = ["message1","message2","message3"]
 
 def delivery_report(err, msg):
@@ -97,7 +97,7 @@ To consume text messages through python, use the following code segment. Make su
 from confluent_kafka import Consumer, KafkaError
 
 c = Consumer({
-    'bootstrap.servers': 'kafka-1:9092,kafka-2:9093',
+    'bootstrap.servers': 'kafka-1:19092,kafka-2:19093',
     'group.id': 'test-consumer-group',
     'default.topic.config': {
         'auto.offset.reset': 'largest'
@@ -143,7 +143,7 @@ In order to separate the Avro tests from the other tests, lets create a new topi
 ```
 kafka-topics --create \
 			--if-not-exists \
-			--zookeeper zookeeper:2181 \
+			--zookeeper zookeeper-1:2181 \
 			--topic test-avro-topic \
 			--partitions 8 \
 			--replication-factor 3
@@ -203,7 +203,7 @@ value = {"id":"1001", "firstName": "Peter", "lastName": "Muster"}
 key = {"id": "1001"}
 
 avroProducer = AvroProducer({
-    'bootstrap.servers': 'kafka-1:9092,kafka-2:9093',
+    'bootstrap.servers': 'kafka-1:19092,kafka-2:19093',
     'schema.registry.url': 'http://schema-registry-1:8081',
     'compression.codec': 'snappy'
     }, default_key_schema=key_schema, default_value_schema=value_schema)
@@ -222,39 +222,39 @@ The Schema Registry provides a REST API which is documented in the [Confluent do
 To list all the schemas which are registered through the REST API, perform the following command 
 
 ```
-curl http://dataplatform:28030/subjects
+curl http://dataplatform:8081/subjects
 ```
 
 You should get back the two subjects:
 
 ```
-$ curl http://dataplatform:28030/subjects
+$ curl http://dataplatform:8081/subjects
 ["test-avro-topic-value","test-avro-topic-key"]~
 ```
 
 You can ask for the versions available for a given subject by using the following command
 
 ```
-curl http://dataplatform:28030/subjects/test-avro-topic-value/versions
+curl http://dataplatform:8081/subjects/test-avro-topic-value/versions
 ```
 
 and you should see that there is currently just one version available
 
 ```
-$ curl http://dataplatform:28030/subjects/test-avro-topic-value/versions
+$ curl http://dataplatform:8081/subjects/test-avro-topic-value/versions
 [1]
 ```
 
 To get the schema definition for that schema, use the following command
 
 ```
-curl http://dataplatform:28030/subjects/test-avro-topic-value/versions/1
+curl http://dataplatform:8081/subjects/test-avro-topic-value/versions/1
 ```
 
 and the schema is returned as shown below
 
 ```
-$ curl http://dataplatform:28030/subjects/test-avro-topic-value/versions/1
+$ curl http://dataplatform:8081/subjects/test-avro-topic-value/versions/1
 
 {"subject":"test-avro-topic-value","version":1,"id":1,"schema":"{\"type\":\"record\",
 \"name\":\"Person\",\"namespace\":\"my.test\",\"fields\":[{\"name\":\"id\",\"type\":
@@ -264,7 +264,7 @@ $ curl http://dataplatform:28030/subjects/test-avro-topic-value/versions/1
 
 ### View schemas using Schema Registry UI
 
-To browse the Schema Registry using the browser-based [Landoop Schema Registry UI](http://www.landoop.com/blog/2016/08/schema-registry-ui/), navigate to the following URL: <http://dataplatform:28002>.
+To browse the Schema Registry using the browser-based [Landoop Schema Registry UI](http://www.landoop.com/blog/2016/08/schema-registry-ui/), navigate to the following URL: <http://dataplatform:28102>.
 
 You should see the two schemas registered. If you click on one of them, the Avro Schema will be displayed on the right side:
 
@@ -272,10 +272,15 @@ You should see the two schemas registered. If you click on one of them, the Avro
 
 ### Consuming Avro Messages using Kafkacat 
 
-But what about the output of Kafkacat? We can see that the message is shown, although not very readable. 
+But what about the output of `kafkacat`? 
 
 ```
-> kafkacat -b dataplatform -t test-avro-topic -f "P-%p: %k=%s\n" -Z
+kafkacat -b dataplatform -t test-avro-topic -f "P-%p: %k=%s\n" -Z
+```
+
+We can see that the message is returned, as shown in the output below, although not very readable.
+
+```
 % Auto-selecting Consumer mode (use -P or -C to override)
 P-5:10011001
 Peter
@@ -283,7 +288,15 @@ Peter
 ```     
 
 This is even more problematic if the Avro message is much larger with much more properties. 
-**Kafkacat** cannot yet work with Avro messages. But there is a special version of the `kafka-console-consumer` utility, the `kafka-avro-console-consumer'. 
+Before version 1.5.x, `kafkakat`  did not support working with Avro messages. 
+
+But there is a special version of the `kafka-console-consumer` utility, the `kafka-avro-console-consumer`, which can be used instead. 
+
+With `kafkacat` version 1.5.x and older, you can use the following command for showing Avro messages.
+
+```
+kafkacat -b dataplatform -t test-avro-topic -s avro -sr http://dataplatform:8081
+```
 
 ### Consuming Messages using `kafka-avro-console-consumer`
 
@@ -296,7 +309,7 @@ docker exec -ti schema-registry bash
 and run the `kafka-avro-console-consumer`
 
 ```
-kafka-avro-console-consumer --bootstrap-server kafka-1:9092 --topic test-avro-topic
+kafka-avro-console-consumer --bootstrap-server kafka-1:19092 --topic test-avro-topic
 ```
 
 If you re-run the Avro producer python snippet, then you should see the Avro message in a readable JSON formatted document.

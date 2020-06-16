@@ -537,7 +537,7 @@ The simplest way to consume a topic is just specifying the broker and the topic.
 kafkacat -b dataplatform -t test-topic
 ```
 
-or using containerized kafkacat
+or using containerized kafkacat (which is part of the Data Platform)
 
 ```
 docker exec -ti kafkacat kafkacat -b kafka-1 -t test-topic
