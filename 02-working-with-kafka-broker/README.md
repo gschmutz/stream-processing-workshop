@@ -153,12 +153,7 @@ We can see that there are some technical topics, `_schemas` being the one, where
 Now let's create a new topic. For that we again use the **kafka-topics** utility but this time with the `--create` option. We will create a test topic with 6 partitions and replicated 2 times. The `--if-not-exists` option is handy to avoid errors, if a topic already exists. 
 
 ```
-kafka-topics --create \
-			--if-not-exists \
-			--zookeeper zookeeper-1:2181 \
-			--topic test-topic \
-			--partitions 6 \
-			--replication-factor 2
+kafka-topics --create --if-not-exists --zookeeper zookeeper-1:2181 --topic test-topic --partitions 6 --replication-factor 2
 ```
 
 Re-Run the command to list the topics. You should see the new topic you have just created. 
@@ -188,8 +183,7 @@ Now let's see the topic in use. The most basic way to test it is through the com
 In a new terminal window, first let's run the consumer on the topic `test-topic` we have created before
 
 ```
-kafka-console-consumer --bootstrap-server kafka-1:19092,kafka-2:19093 \
-                       --topic test-topic
+kafka-console-consumer --bootstrap-server kafka-1:19092,kafka-2:19093 --topic test-topic
 ```
 After it is started, the consumer just waits for newly produced messages. 
 
@@ -202,8 +196,7 @@ docker exec -ti kafka-1 bash
 and run the following command to start the producer.   
  
 ```
-kafka-console-producer --broker-list kafka-1:19092,kafka-2:19093 \
-                       --topic test-topic
+kafka-console-producer --broker-list kafka-1:19092,kafka-2:19093 --topic test-topic
 ```
 
 The console producer reads from stdin, and takes a broker list instead of a zookeeper address. We specify 2 of the 3 brokers of the Streaming Platform.
@@ -237,9 +230,7 @@ You can stop the consumer by hitting **Ctrl-C**. If you want to consume from the
 You can also echo a longer message and pipe it into the console producer, as he is reading the next message from the command line:
 
 ```
-echo "This is my first message!" | kafka-console-producer \
-                  --broker-list kafka-1:19092,kafka-2:19093 \
-                  --topic test-topic
+echo "This is my first message!" | kafka-console-producer --broker-list kafka-1:19092,kafka-2:19093 --topic test-topic
 ```
 
 And of course you can send messages inside a bash for loop:
@@ -247,10 +238,7 @@ And of course you can send messages inside a bash for loop:
 ```
 for i in 1 2 3 4 5 6 7 8 9 10
 do
-   echo "This is message $i"| kafka-console-producer \
-                  --broker-list kafka-1:19092,kafka-2:19093 \
-                  --topic test-topic \
-                  --batch-size 1 &
+   echo "This is message $i"| kafka-console-producer --broker-list kafka-1:19092,kafka-2:19093 --topic test-topic --batch-size 1 &
 done 
 ```
 
@@ -265,11 +253,7 @@ A message produced to Kafka always consists of a key and a value, the value bein
 We can check that by re-consuming the messages we have created so far, specifying the option `--from-beginning` together with the option `print.key` and `key.separator` in the console consumer. For that stop the old consumer and restart it again using the following command
 
 ```
-kafka-console-consumer --bootstrap-server kafka-1:19092,kafka-2:19093 \
-							--topic test-topic \
-							--property print.key=true \
-							--property key.separator=, \
-							--from-beginning
+kafka-console-consumer --bootstrap-server kafka-1:19092,kafka-2:19093 --topic test-topic --property print.key=true --property key.separator=, --from-beginning
 ```
 
 We can see that the keys are all `null` because so far we have only created the value part of the messages.
@@ -277,10 +261,7 @@ We can see that the keys are all `null` because so far we have only created the 
 For producing messages also with a key, use the options `parse.key` and `key.separator`. 
 
 ```
-kafka-console-producer --broker-list kafka-1:19092,kafka-2:19093 \
-							--topic test-topic \
-							--property parse.key=true \
-							--property key.separator=,
+kafka-console-producer --broker-list kafka-1:19092,kafka-2:19093 --topic test-topic --property parse.key=true --property key.separator=,
 ```
 
 Enter your messages so that a key and messages are separated by a comma, i.e. `key1,value1`.  Do that for a few messages and check that they are shown in the console consumers as key and value. 
