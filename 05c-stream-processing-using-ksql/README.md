@@ -197,3 +197,6 @@ GROUP BY eventType
 EMIT CHANGES;
 ```
 
+----
+
+[previous part](../05b-iot-data-ingestion-mqtt-to-kafka/README.md)	| 	[top](../05-iot-data-ingestion-and-analytics/README.md) 	| 	[next part](../05d-static-data-ingestion/README.md)

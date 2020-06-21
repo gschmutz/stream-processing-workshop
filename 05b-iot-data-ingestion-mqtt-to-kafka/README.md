@@ -74,7 +74,7 @@ To add the connector implementations, without having to copy them into the docke
 
 So into this folder we have to copy the artefacts of the Kafka connectors we want to use. 
 
-Navigate into the `plugins/kafka-connect` folder 
+Navigate into the `plugins/kafka-connect` folder (which is a sub-folder of the `docker` folder with the `docker-compose.yml` file.
 
 ```
 cd plugins/kafka-connect
@@ -197,3 +197,5 @@ Navigate to the [Kafka Connect UI](http://dataplatform:28103) to see the connect
 
 ![Alt Image Text](./images/kafka-connect-ui.png "Schema Registry UI")
 
+----
+[previous part](../05a-iot-data-ingestion-into-mqtt/README.md)	| 	[top](../05-iot-data-ingestion-and-analytics/README.md) 	| 	[next part](../05c-stream-processing-using-ksql/README.md)

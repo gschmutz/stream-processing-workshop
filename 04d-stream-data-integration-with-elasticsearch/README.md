@@ -4,7 +4,7 @@ In this workshop we will see how we can use Kafka Connect to move data from a Ka
 
 We will implement it using Kafka Connect and use Kibana for the visualization of the data. 
 
-In order to do this workshop, you will have to first finish [Workshop 6: Data Ingestion with Kafka Connect](../06-twitter-data-ingestion-with-kafka-connect/README.md).
+In order to do this workshop, you will have to first finish [Data Ingestion with Kafka Connect](../04c-twitter-data-ingestion-with-kafka-connect/README.md). This workshop will only work with the Kafka Connect solution on the input side, and not with the NiFi and/or StreamSets solution. 
 
 ## Configure the Elasticsearch Connector
 

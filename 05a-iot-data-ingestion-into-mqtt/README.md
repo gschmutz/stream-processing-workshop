@@ -188,3 +188,5 @@ Let's check in the MQTT client that you now get messages for other trucks as wel
 ![Alt Image Text](./images/mqtt-ui-messages-multiple.png "MQTT UI Connect")
 
 
+----
+[top](../05-iot-data-ingestion-and-analytics/README.md) 	| 	[next part](../05b-iot-data-ingestion-mqtt-to-kafka/README.md)
