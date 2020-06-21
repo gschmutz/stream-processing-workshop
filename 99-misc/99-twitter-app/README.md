@@ -54,31 +54,49 @@ Now twitter will send you a confirmation email to the email address registered w
 
 Once you got the confirmation from Twitter, you are ready to create your first Twitter application. 
 
-## tbd
+## Create a Twitter Application
 
-![Alt Image Text](./images/twitter-app-overview.png "Twitter App Overview")
+In a browser window, navigate to <https://developer.twitter.com/en> and you should get to the developer portal. 
 
-Click on **Create an app** in the upper right corner to create a new Twitter application.
+![Alt Image Text](./images/twitter-developer-portal.png "Twitter App Overview")
 
-Enter **Name**, **Description**, **Website** 
+Click on the **Dashboard** link in the upper right corner. 
 
-Click on **Create your Twitter application**.
+![Alt Image Text](./images/twitter-developer-portal-dashboard.png "Twitter App Overview")
 
-![Alt Image Text](./images/twitter-app-create.png "Schema Registry UI")
+Click on **Projects & Apps** to expand and click on **Overview**
 
-Click on **Keys and Access Tokens** to get the credentials.
+![Alt Image Text](./images/twitter-developer-portal-dashboard2.png "Twitter App Overview")
 
-![Alt Image Text](./images/twitter-app-details.png "Schema Registry UI")
+Click on **+ Create App** at the bottom of the page to create a new Twitter application.
 
-Click on **Create my access tokens**
+Enter a unique name (something like `BFHTwitter<your name>`) into the **Type app name here** and click **Complete**. 
 
-![Alt Image Text](./images/twitter-app-credentials.png "Schema Registry UI")
+![Alt Image Text](./images/twitter-developer-portal-dashboard3.png "Twitter App Overview")
 
-The **Access token pair** gets generated and is available to be used. 
+You have successfully created your first Twitter application. You can create a maximum of 10 applications.
 
-![Alt Image Text](./images/twitter-app-credentials-token.png "Schema Registry UI")
+Note that you will need the **API key**, the **API key secret** the **Access Token** and the **Access Token Secret** when using the Twitter API and connecting with OAuth protocol.
 
-Note that you will need the **Consumer Key**, the **Consumer Secret** the **Access Token** and the **Access Token Secret** when using the Twitter API and connecting with OAuth protocol.
+To get the **Consumer Key** and **Consumer Secret**, click on the newly created application in the menu to the left and then navigate to the **Keys and Tokens** menu
+
+![Alt Image Text](./images/twitter-developer-portal-dashboard4.png "Twitter App Overview")
+
+Click on **View Keys** to get the **API key** and **API key secret**. 
+
+To the **Access Token** and the **Access Token Secret**, scroll down to the **Authentication Tokens** section 
+
+![Alt Image Text](./images/twitter-developer-portal-dashboard5.png "Twitter App Overview")
+
+and click on **Generate** right to **Access Token & Scret**. A pop-up window will show up containing the **Access Token** and the **Access Token Secret**.
+
+![Alt Image Text](./images/twitter-developer-portal-dashboard6.png "Twitter App Overview")
+
+
+
+
+
+
 
 
 
