@@ -376,9 +376,10 @@ services:
     environment:
       CORE_CONF_fs_s3a_endpoint: http://minio:9000
       CORE_CONF_fs_s3a_path_style_access: 'true'
+      CORE_CONF_fs_defaultFS: file:///
       SPARK_PUBLIC_DNS: ${PUBLIC_IP}
       INIT_DAEMON_STEP: setup_spark
-      SPARK_DEFAULTS_CONF_spark_jars_packages:
+      SPARK_DEFAULTS_CONF_spark_jars_packages: org.apache.spark:spark-sql-kafka-0-10_2.11:2.4.5,org.postgresql:postgresql:42.2.12
       SPARK_DEFAULTS_CONF_spark_jars:
       SPARK_DEFAULTS_CONF_spark_jars_ivySettings:
       SPARK_DEFAULTS_CONF_spark_hadoop_fs_s3a_impl: org.apache.hadoop.fs.s3a.S3AFileSystem
@@ -388,7 +389,6 @@ services:
       SPARK_DEFAULTS_CONF_spark_yarn_dist_files: /etc/spark/conf/hive-site.xml
       SPARK_DEFAULTS_CONF_spark_driver_extraJavaOptions:
       SPARK_DEFAULTS_CONF_spark_executor_extraJavaOptions:
-#      - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
     volumes:
       - ./data-transfer:/data-transfer
       - ./plugins/spark/jars:/extra-jars
@@ -413,7 +413,8 @@ services:
       SPARK_PUBLIC_DNS: ${PUBLIC_IP}
       CORE_CONF_fs_s3a_endpoint: http://minio:9000
       CORE_CONF_fs_s3a_path_style_access: 'true'
-      SPARK_DEFAULTS_CONF_spark_jars_packages:
+      CORE_CONF_fs_defaultFS: file:///
+      SPARK_DEFAULTS_CONF_spark_jars_packages: org.apache.spark:spark-sql-kafka-0-10_2.11:2.4.5,org.postgresql:postgresql:42.2.12
       SPARK_DEFAULTS_CONF_spark_jars:
       SPARK_DEFAULTS_CONF_spark_jars_ivySettings:
       SPARK_DEFAULTS_CONF_spark_hadoop_fs_s3a_impl: org.apache.hadoop.fs.s3a.S3AFileSystem
@@ -447,7 +448,8 @@ services:
       SPARK_PUBLIC_DNS: ${PUBLIC_IP}
       CORE_CONF_fs_s3a_endpoint: http://minio:9000
       CORE_CONF_fs_s3a_path_style_access: 'true'
-      SPARK_DEFAULTS_CONF_spark_jars_packages:
+      CORE_CONF_fs_defaultFS: file:///
+      SPARK_DEFAULTS_CONF_spark_jars_packages: org.apache.spark:spark-sql-kafka-0-10_2.11:2.4.5,org.postgresql:postgresql:42.2.12
       SPARK_DEFAULTS_CONF_spark_jars:
       SPARK_DEFAULTS_CONF_spark_jars_ivySettings:
       SPARK_DEFAULTS_CONF_spark_hadoop_fs_s3a_impl: org.apache.hadoop.fs.s3a.S3AFileSystem
@@ -477,7 +479,7 @@ services:
     ports:
       - 28117:18080
     environment:
-      SPARK_DEFAULTS_CONF_spark_jars_packages:
+      SPARK_DEFAULTS_CONF_spark_jars_packages: org.apache.spark:spark-sql-kafka-0-10_2.11:2.4.5,org.postgresql:postgresql:42.2.12
       SPARK_DEFAULTS_CONF_spark_jars_ivySettings:
       SPARK_DEFAULTS_CONF_spark_hadoop_fs_s3a_impl: org.apache.hadoop.fs.s3a.S3AFileSystem
       SPARK_DEFAULTS_CONF_spark_hadoop_fs_s3a_endpoint: http://minio:9000
@@ -563,7 +565,8 @@ services:
     environment:
       CORE_CONF_fs_s3a_endpoint: http://minio:9000
       CORE_CONF_fs_s3a_path_style_access: 'true'
-      SPARK_DEFAULTS_CONF_spark_jars_packages:
+      CORE_CONF_fs_defaultFS: file:///
+      SPARK_DEFAULTS_CONF_spark_jars_packages: org.apache.spark:spark-sql-kafka-0-10_2.11:2.4.5,org.postgresql:postgresql:42.2.12
       SPARK_DEFAULTS_CONF_spark_jars:
       SPARK_DEFAULTS_CONF_spark_jars_ivySettings:
       SPARK_DEFAULTS_CONF_spark_hadoop_fs_s3a_impl: org.apache.hadoop.fs.s3a.S3AFileSystem

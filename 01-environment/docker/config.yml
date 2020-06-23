@@ -61,6 +61,7 @@
       #spark
       SPARK_enable: true
       SPARK_workers: 2
+      SPARK_jars_packages: "org.apache.spark:spark-sql-kafka-0-10_2.11:2.4.5,org.postgresql:postgresql:42.2.12"
 
       # misc spark 'addons'
       SPARK_HISTORY_enable: true
@@ -100,6 +101,9 @@
       #nodered
       NODERED_enable: false
       NODERED_volume_map_data: false
+
+      #streamsheets
+      STREAMSHEETS_enable: false
 
       #zeppelin
       ZEPPELIN_enable: true
