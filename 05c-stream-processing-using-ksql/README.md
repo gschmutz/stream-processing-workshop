@@ -1,10 +1,12 @@
-# IoT Data Ingestion - Stream Processing using ksqlDB
+# IoT Data Ingestion and Analytics - Stream Processing using ksqlDB
 
 With the truck data continuously ingested into the `truck_movement` topic, let's now perform some stream processing on the data.
  
 There are many possible solutions for performing analytics directly on the event stream. From the Kafka ecosystem, we can either use Kafka Streams or ksqlDB, a SQL abstraction on top of Kafka Streams. For this workshop we will be using KSQL. 
 
 ![Alt Image Text](./images/stream-processing-with-ksql-overview.png "Schema Registry UI")
+
+We will first use KSQL to change the format of the messages from CSV to JSON and write it to a new topic. With another KSQL statement we will detect drivers not driving around normally (detecting anomalies). 
 
 ## Connect to ksqlDB engine
  
@@ -58,9 +60,9 @@ ksqlDB can be used for doing ad-hoc queries as well as running continuous querie
 Before we can use a KSQL SELECT statement and consume data from a data stream, we have to give the data in the `truck_position` topic a "face", by defining the structure of the data. We do that using the `CREATE STREAM ...` command, as shown below: 
 
 ```
-DROP STREAM truck_position_s;
+DROP STREAM truck_position_csv_s;
 
-CREATE STREAM truck_position_s
+CREATE STREAM truck_position_csv_s
   (ts VARCHAR,
    truckId VARCHAR,
    driverId BIGINT,
@@ -73,7 +75,115 @@ CREATE STREAM truck_position_s
         value_format='DELIMITED');
 ```
 
-With the `truck_position_s` Stream in place, we can use the `SELECT` statement to query live messages while they are being sent to the Kafka topic. 
+We can see from the `value_format` clause that the data in the topic `truck_position` is delimited. 
+
+With the `truck_position_csv_s` Stream in place, we can use the `SELECT` statement to query live messages while they are being sent to the Kafka topic. 
+
+```
+SELECT * FROM truck_position_csv_s EMIT CHANGES;
+```
+
+`EMIT CHANGES` is necessary as it should be a _push query_ that produces a continuously updating stream of current vehicle position coordinates, not just the current state.
+
+The output we get should be similar as shown below:
+
+```
+ksql> select * from truck_position_csv_s emit changes;
++---------------+---------------+---------------+---------------+---------------+---------------+---------------+---------------+---------------+
+|ROWKEY         |TS             |TRUCKID        |DRIVERID       |ROUTEID        |EVENTTYPE      |LATITUDE       |LONGITUDE      |CORRELATIONID  |
++---------------+---------------+---------------+---------------+---------------+---------------+---------------+---------------+---------------+
+|"truck/30/|�15928902|30             |24             |137128276      |Normal         |40.76          |-88.77         |-18829803938785|
+|position0     |08758          |               |               |               |               |               |               |60716          |
+|"truck/12/|�15928902|12             |20             |1927624662     |Normal         |42.21          |-88.64         |-18829803938785|
+|position0     |08858          |               |               |               |               |               |               |60716          |
+|"truck/29/|�15928902|29             |18             |1565885487     |Normal         |39.76          |-90.14         |-18829803938785|
+|position0     |08878          |               |               |               |               |               |               |60716          |
+|"truck/21/|�15928902|21             |28             |160405074      |Normal         |39.76          |-90.14         |-18829803938785|
+|position0     |08938          |               |               |               |               |               |               |60716          |
+|"truck/10/|�15928902|10             |12             |160405074      |Normal         |35.1           |-90.07         |-18829803938785|
+|position0     |09148          |               |               |               |               |               |               |60716          |
+```
+
+As long as we don't stop the query, we get a constant stream of new truck messages.
+
+We can also see that we get a nicely formatted structure back. Compare that to the output of the console consumer or kafkacat. 
+
+```
+> kafkacat -b dataplatform -t truck_position -o end
+% Auto-selecting Consumer mode (use -P or -C to override)
+% Reached end of topic truck_position [0] at offset 16217
+% Reached end of topic truck_position [2] at offset 11528
+% Reached end of topic truck_position [1] at offset 9134
+�1592890510688,29,18,1565885487,Normal,39.77,-93.33,-1882980393878560716
+% Reached end of topic truck_position [3] at offset 13149
+% Reached end of topic truck_position [6] at offset 14709
+�1592890510718,35,16,987179512,Normal,41.72,-91.05,-1882980393878560716
+% Reached end of topic truck_position [0] at offset 16218
+% Reached end of topic truck_position [5] at offset 8971
+% Reached end of topic truck_position [4] at offset 17870
+% Reached end of topic truck_position [6] at offset 14710
+�1592890510827,22,10,1090292248,Normal,36.25,-95.69,-1882980393878560716
+�1592890510870,27,14,1594289134,Normal,34.96,-91.14,-1882980393878560716
+% Reached end of topic truck_position [1] at offset 9135
+�1592890510912,10,12,160405074,Normal,38.98,-93.2,-1882980393878560716
+% Reached end of topic truck_position [4] at offset 17871
+�1592890510947,25,23,160779139,Normal,41.56,-90.64,-1882980393878560716
+% Reached end of topic truck_position [2] at offset 11529
+�1592890510988,33,17,803014426,Normal,39.1,-94.44,-1882980393878560716
+% Reached end of topic truck_position [1] at offset 9136
+�1592890510992,30,24,137128276,Normal,41.74,-91.47,-1882980393878560716
+�1592890511027,14,15,1567254452,Normal,41.71,-91.32,-1882980393878560716
+% Reached end of topic truck_position [7] at offset 16060
+% Reached end of topic truck_position [6] at offset 14711
+�1592890511035,28,31,1594289134,Normal,41.48,-88.07,-1882980393878560716
+```
+
+### Transform the data in JSON
+
+With KSQL it is very easy to translate this into Json format. We just have to create a new stream using the `CREATE STREAM ...` statement using the same SQL statement and specify `JSON` as the `value_format`:
+
+```
+DROP STREAM IF EXISTS truck_position_json_s DELETE TOPIC;
+
+CREATE STREAM truck_position_json_s
+  WITH (kafka_topic='truck_position_json',
+        value_format='JSON', 
+        partitions=8, replicas=3)
+AS 
+SELECT * 
+FROM truck_position_csv_s
+EMIT CHANGES;
+```
+
+With the `CREATE STREAM` statement you don't have to create the topic first. It will be created based on the properties specified in the `WITH` clause. 
+
+With the new stream in place, we can now check the new topic `truck_position_json` to see that it contains in fact messages in JSON. 
+
+```
+> kafkacat -b dataplatform -t truck_position_json -o end -q
+{"TS":"\u0000\u0000\u0000\u0000\u0002�\u00011592891235888","TRUCKID":"21","DRIVERID":28,"ROUTEID":160405074,"EVENTTYPE":"Normal","LATITUDE":35.21,"LONGITUDE":-90.37,"CORRELATIONID":"-1882980393878560716"}
+{"TS":"\u0000\u0000\u0000\u0000\u0002�\u00011592891235998","TRUCKID":"22","DRIVERID":10,"ROUTEID":1090292248,"EVENTTYPE":"Normal","LATITUDE":42.25,"LONGITUDE":-88.96,"CORRELATIONID":"-1882980393878560716"}
+{"TS":"\u0000\u0000\u0000\u0000\u0002�\u00011592891236038","TRUCKID":"34","DRIVERID":22,"ROUTEID":1384345811,"EVENTTYPE":"Normal","LATITUDE":38.43,"LONGITUDE":-90.35,"CORRELATIONID":"-1882980393878560716"}
+{"TS":"\u0000\u0000\u0000\u0000\u0002�\u00011592891236138","TRUCKID":"20","DRIVERID":30,"ROUTEID":1198242881,"EVENTTYPE":"Normal","LATITUDE":41.72,"LONGITUDE":-91.05,"CORRELATIONID":"-1882980393878560716"}
+{"TS":"\u0000\u0000\u0000\u0000\u0002�\u00011592891236168","TRUCKID":"24","DRIVERID":32,"ROUTEID":1962261785,"EVENTTYPE":"Normal","LATITUDE":35.37,"LONGITUDE":-94.57,"CORRELATIONID":"-1882980393878560716"}
+```
+
+----
+**Note:** if you need to drop a STREAM you might get an `Cannot drop XXXX` error message:
+
+```
+Cannot drop TRUCK_POSITION_JSON_S.
+The following queries read from this source: [].
+The following queries write into this source: [CSAS_TRUCK_POSITION_JSON_S_9].
+You need to terminate them before dropping TRUCK_POSITION_JSON_S.
+```
+
+to solve the problem, just use the `TERMINATE` statement to stop the query(s) mentioned in the error message:
+
+```
+TERMINATE CSAS_TRUCK_POSITION_JSON_S_9;
+```
+---
 
 ### Using KSQL to find abnormal driver behaviour
 

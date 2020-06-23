@@ -143,3 +143,6 @@ gus@gusmacbook ~/Downloads> cat truck_position+0+0000000000.json
 "1559500997740,26,14,160405074,Normal,40.76,-88.77,8723575629839349139"
 ...
 ```
+----
+
+[previous part](../05d-static-data-ingestion/README.md)	| 	[top](../05-iot-data-ingestion-and-analytics/README.md) 	

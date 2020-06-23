@@ -1,4 +1,4 @@
-# IoT Data Ingestion - Ingesting and Joining Static Data to Stream
+# IoT Data Ingestion and Analytics - Ingesting and Joining Static Data to Stream
 
 So far we have ingested the truck data from MQTT to Kafka and detected dangerous driving behaviour. But the information only holds the `driverId` but no other information about the driver. 
 
@@ -308,3 +308,7 @@ and check the live stream to see the change.
 |1580450886238       |11                  |11                  |Slow Down Mickey    |Isaacson            |101                 |1962261785          |Overspeed           |40.38               |-89.17              |
 ...
 ```
+
+----
+
+[previous part](../05c-stream-processing-using-ksql/README.md)	| 	[top](../05-iot-data-ingestion-and-analytics/README.md) 	| 	[next part](../05e-stream-data-integration-with-s3/README.md)

@@ -1,4 +1,4 @@
-# IoT Data Ingestion - Sending to MQTT
+# IoT Data Ingestion and Analytics - Sending to MQTT
 
 In this part we will be ingesting the IoT data stream into MQTT first, so that it can be later consumed and moved to a central Kafka topic. The MQTT brokers would act as IoT Gateways, implemented decentrally, whereas the Kafka Topic later will be a central deployment. This is a scenario which makes a lot of sense in real-live for various reasons such as security, connectivity, more lightweight connections and others. 
 
@@ -30,7 +30,7 @@ You have to be in the `docker` folder of the dataplatform, where also the `docke
 docker run -v "${PWD}/data-transfer/logs:/out" --rm trivadis/iot-truck-simulator '-s' 'FILE' '-f' 'CSV' '-d' '2000' '-fs' '25' '-vf' '10' '-fpv'
 ```
 
-We only generate data for vehicle with id `10` into a file in the `/data-transfer/logs` folder using the **CSV** format.
+We only generate data for vehicle with id `10` into a file in the `/data-transfer/logs` folder using the **CSV** format. The flag `-fpv` specifies to write one file per vehicle. 
 
 You should see an output similar to the one below, signalling that messages are produced to MQTT. 
 
@@ -170,12 +170,12 @@ Now let's run the simulator for trucks with id 11 - 70.
 The MQTT broker is exposed on port `1883`. So let's run the following docker command in a new terminal window.
 
 ```
-docker run trivadis/iot-truck-simulator '-s' 'MQTT' '-h' $DOCKER_HOST_IP '-p' '1883' '-f' 'CSV' '-d' '2000' '-fs' '25' '-vf' '11-70' '-fpv'
+docker run trivadis/iot-truck-simulator '-s' 'MQTT' '-h' $DOCKER_HOST_IP '-p' '1883' '-f' 'CSV' '-d' '2000' '-fs' '25' '-vf' '11-70'
 ```
 
 We are also producing the data in **CSV** format to the broker running on the docker host on port 1883. 
 
-You should see an output similar to the one below, signaling that messages are produced to MQTT. 
+You should see an output similar to the one below, signalling that messages are produced to MQTT. 
 
 ```
 Number of Emitters is .....23

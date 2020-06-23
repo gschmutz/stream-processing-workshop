@@ -1,4 +1,4 @@
-# IoT Data Ingestion - Moving Data from MQTT to Kafka
+# IoT Data Ingestion and Analytics - Moving Data from MQTT to Kafka
 
 In this 2nd part of the workshop we we will be moving the data from MQTT into Kafka, so that it can be consumed using the Kafka console consumer, as a preparation for stream analytics to be done in a later part. The data has been sent to MQTT in the first part of this workshop. 
 
