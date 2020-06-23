@@ -8,6 +8,14 @@ There are many possible solutions for performing analytics directly on the event
 
 We will first use KSQL to change the format of the messages from CSV to JSON and write it to a new topic. With another KSQL statement we will detect drivers not driving around normally (detecting anomalies). 
 
+## Optionally: Shortcutting previous steps
+
+If you have not yet done the [previous part](../05b-iot-data-ingestion-mqtt-to-kafka/README.md), or it is no longer available, then you can also configure the IoT Truck Simulator to directly produce to Kafka, by running the following command:
+
+```
+docker run --network docker_default trivadis/iot-truck-simulator '-s' 'KAFKA' '-h' 'kafka-1' '-p' '19092' '-f' 'CSV'
+``` 
+
 ## Connect to ksqlDB engine
  
 An instance of a ksqlDB server is part of the Data Platform and started as service `ksqldb-server-1`. It can be reached on port 8088. Additionally the ksqlDB CLI is also running as service `ksqldb-cli`. 
