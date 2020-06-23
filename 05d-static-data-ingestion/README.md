@@ -69,7 +69,7 @@ kafka-topics --zookeeper zookeeper-1:2181 --create --topic truck_driver --partit
 Still in the bash on the kafka borkerNow let's create a consumer wich reads the new topic from the beginning. There is nothing shown so far, as we don't yet have any data available. 
 
 ```
-kafka-console-consumer --bootstrap-server kafka-1:9092 --topic truck_driver --from-beginning
+kafka-console-consumer --bootstrap-server kafka-1:19092 --topic truck_driver --from-beginning
 ```
 
 Keep it running, we will come back to it in a minute!
@@ -100,11 +100,11 @@ curl -X "DELETE" "http://dataplatform:28013/connectors/jdbc-source"
 
 echo "creating JDBC Source Connector"
 
-curl -X PUT \
-  http://dataplatform:28013/connectors/jdbc-source/config \
-  -H 'Content-Type: application/json' \
-  -H 'Accept: application/json' \
-  -d '{
+curl -X "POST" "$DOCKER_HOST_IP:8083/connectors" \
+     -H "Content-Type: application/json" \
+     -d $'{
+  "name": "jdbc-driver-source",
+  "config": {
     "connector.class": "JdbcSourceConnector",
     "tasks.max": "1",
     "connection.url":"jdbc:postgresql://postgresql/sample?user=sample&password=sample",
@@ -117,11 +117,12 @@ curl -X PUT \
     "key.converter.schemas.enable": "false",
     "value.converter":"org.apache.kafka.connect.json.JsonConverter",
     "value.converter.schemas.enable": "false",
-    "transforms":"createKey,extractInt",
-    "transforms.createKey.type":"org.apache.kafka.connect.transforms.ValueToKey",
-    "transforms.createKey.fields":"id",
-    "transforms.extractInt.type":"org.apache.kafka.connect.transforms.ExtractField$Key",
-    "transforms.extractInt.field":"id"
+    "name": "jdbc-driver-source",
+     "transforms":"createKey,extractInt",
+     "transforms.createKey.type":"org.apache.kafka.connect.transforms.ValueToKey",
+     "transforms.createKey.fields":"id",
+     "transforms.extractInt.type":"org.apache.kafka.connect.transforms.ExtractField$Key",
+     "transforms.extractInt.field":"id"
   }
 }'
 ```
@@ -176,17 +177,20 @@ docker exec -it ksqldb-cli ksql http://ksqldb-server-1:8088
 and create the table over the `truck_driver` topic. It will hold the latest state of all the drivers:
 
 ```
+set 'commit.interval.ms'='5000';
+set 'cache.max.bytes.buffering'='10000000';
+set 'auto.offset.reset'='earliest';
+
 DROP TABLE driver_t;
 
-CREATE TABLE driver_t  \
-   (id BIGINT,  \
-   first_name VARCHAR, \
-   last_name VARCHAR, \
-   available VARCHAR, \
-   birthdate VARCHAR) \
-  WITH (kafka_topic='truck_driver', \
-        value_format='JSON', \
-        KEY = 'id');
+CREATE TABLE driver_t (rowkey VARCHAR PRIMARY KEY,
+   id BIGINT,
+   first_name VARCHAR,  
+   last_name VARCHAR,  
+   available VARCHAR, 
+   birthdate VARCHAR)  
+  WITH (kafka_topic='truck_driver', 
+        value_format='JSON');
 ```
 
 Let's see the data the table contains by using a SELECT on the table created above:
@@ -244,10 +248,10 @@ Make sure that the vehicle simulator is still running, otherwise you won't see a
 We could also perform an outer-join, if we would like to see vehicles with a driver-id, where the driver is not really known or at least not stored in the `driver` database.
 
 ```
-SELECT driverid, first_name, last_name, truckId, routeId, eventType, latitude, longitude 
-FROM dangerous_driving_s 
-LEFT OUTER JOIN driver_t 
-ON dangerous_driving_s.driverId = driver_t.id
+SELECT driverid, first_name, last_name, truckId, routeId ,eventType \
+FROM dangerous_driving_s \
+LEFT JOIN driver_t \
+ON CAST (dangerous_driving_s.driverId AS VARCHAR) = driver_t.ROWKEY;
 EMIT CHANGES;
 ```
 
@@ -258,13 +262,15 @@ Let's create the stream `dangerous_driving_and_driver` using the following KSQL 
 ```
 DROP STREAM dangerous_driving_and_driver_s;
 
-CREATE STREAM dangerous_driving_and_driver_s 
-  WITH (kafka_topic='dangerous_driving_and_driver', 
-        value_format='JSON', partitions=8) 
-AS SELECT driverid, first_name, last_name, truckId, routeId, eventType, latitude, longitude 
-FROM dangerous_driving_s 
-LEFT JOIN driver_t 
-ON dangerous_driving_s.driverId = driver_t.id
+CREATE STREAM dangerous_driving_and_driver_s \
+  WITH (kafka_topic='dangerous_driving_and_driver_ksql', \
+        value_format='JSON', \
+        partitions=8) \
+AS 
+SELECT driverid, first_name, last_name, truckId, routeId ,eventType \
+FROM dangerous_driving_s \
+LEFT JOIN driver_t \
+ON CAST (dangerous_driving_s.driverId AS VARCHAR) = driver_t.ROWKEY;
 EMIT CHANGES;
 ```
 
