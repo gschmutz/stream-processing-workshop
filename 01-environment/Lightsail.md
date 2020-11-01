@@ -18,6 +18,11 @@ Keep **Linux/Unix** for the **Select a platform** and click on **OS Only** and s
 Scroll down to **Launch script** and add the following script 
 
 ```
+# allow login by password
+sudo sed -i "s/.*PasswordAuthentication.*/PasswordAuthentication yes/g" /etc/ssh/sshd_config
+echo "ubuntu:ubuntu"|chpasswd
+sudo service sshd restart
+
 # Install Docker
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
 add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable edge"
@@ -29,10 +34,6 @@ curl -L "https://github.com/docker/compose/releases/download/1.25.3/docker-compo
 chmod +x /usr/local/bin/docker-compose
 ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
 
-# Prepare Environment Variables
-export PUBLIC_IP=$(curl ipinfo.io/ip)
-export DOCKER_HOST_IP=$(ip addr show eth0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
-
 # needed for elasticsearch
 sudo sysctl -w vm.max_map_count=262144   
 
@@ -42,8 +43,19 @@ git clone https://github.com/gschmutz/stream-processing-workshop.git
 chown -R ubuntu:ubuntu stream-processing-workshop
 cd stream-processing-workshop/01-environment/docker
 
+# Prepare Environment Variables 
+export PUBLIC_IP=$(curl ipinfo.io/ip)
+export DOCKER_HOST_IP=$(ip addr show eth0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
+
+# Prepare Environment Variables into .bash_profile file
+printf "export PUBLIC_IP=$PUBLIC_IP\n" >> /home/ubuntu/.bash_profile
+printf "export DOCKER_HOST_IP=$DOCKER_HOST_IP\n" >> /home/ubuntu/.bash_profile
+printf "export DATAPLATFORM_HOME=$PWD\n" >> /home/ubuntu/.bash_profile
+printf "\n" >> /home/ubuntu/.bash_profile
+sudo chown ubuntu:ubuntu /home/ubuntu/.bash_profile
+
 # Startup Environment
-sudo -E docker-compose up -d
+docker-compose up -d
 ```
 
 into the **Launch Script** edit field
@@ -91,6 +103,7 @@ Click on the **Networking** tab/link to navigate to the network settings.
 Click on **Add rule** to add a new Firewall rule. 
 
 For simplicity reasons, we allow all TCP traffic by selecting **All TCP** on port range **0 - 65535**. To increase security, you can restrict incoming traffic to one or more IP addresses by selecting the option **Restrict to IP address** and adding the IP address of your client as the **Source IP address**.	
+
 ![Alt Image Text](./images/lightsail-image-networking-add-firewall-rule-1.png "Lightsail Homepage")
 
 In a browser, navigate to <https://www.ipify.org/> to learn your IP Address. 
