@@ -3,8 +3,8 @@
  # or to know about the different variables available for the generator
       platys:
         platform-name: 'default'
-        stack-image-name: 'trivadis/platys-modern-data-platform'
-        stack-image-version: '1.6.0-preview'
+        platform-stack: 'trivadis/platys-modern-data-platform'
+        platform-stack-version: '1.9.0-preview'
         structure: 'flat'
 
       #zookeeper
@@ -15,7 +15,7 @@
       #kafka
       KAFKA_enable: true
       # one of enterprise, community
-      KAFKA_edition: 'community'
+      KAFKA_edition: 'enterprise'
       KAFKA_volume_map_data: false
       KAFKA_broker_nodes: 3
       KAFKA_delete_topic_enable: true
@@ -38,7 +38,7 @@
       KAFKA_KSQLDB_nodes: 1
 
       # Kafka Confluent Control Center
-      KAFKA_CCC_enable: false
+      KAFKA_CCC_enable: true
 
       KAFKA_RESTPROXY_enable: false
       KAFKA_MQTTPROXY_enable: false
@@ -185,9 +185,10 @@
       FTP_enable: false
 
       # Container Mgmt
-      PORTAINER_enable: false
+      PORTAINER_enable: true
       CADVISOR_enable: false
-
+      WEBTTY_enable: true
+      
       # Python image
       PYTHON_enable: false
       PYTHON_script_folder: ''
