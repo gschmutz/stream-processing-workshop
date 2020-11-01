@@ -187,7 +187,7 @@
       # Container Mgmt
       PORTAINER_enable: true
       CADVISOR_enable: false
-      WEBTTY_enable: true
+      WETTY_enable: true
       
       # Python image
       PYTHON_enable: false
