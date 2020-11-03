@@ -524,6 +524,7 @@ or using containerized kafkacat (which is part of the Data Platform)
 docker exec -ti kafkacat kafkacat -b kafka-1 -t test-topic
 ```
 
+All the sample statements below are shown using a locally-installed version of `kafkacat`. Make sure to add the `docker exec -ti kafkacat` in front of each command if the dockerized version should be used (which is part of the Data Platform).
 
 If you want to start at the end of the topic, i.e. only show new messages, add the `-o` option. 
 
