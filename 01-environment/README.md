@@ -50,4 +50,5 @@ Management | ksqlDB Rest Service | <http://dataplatform:8088>
 Management | Elasticsearch Rest Service | <http://dataplatform:9200>
 Management | Adminer RDBMS UI | <http://dataplatform:28131>
 Management | MQTT UI | <http://dataplatform:28136>
+Management | WeTTY | <http://dataplatform:3001>
 
