@@ -305,13 +305,13 @@ You can install **kafkacat** directly on the Ubuntu environment. First let's ins
 Install the Confluent public key, which is used to sign the packages in the APT repository:
 
 ```
-wget -qO - https://packages.confluent.io/deb/5.4/archive.key | sudo apt-key add -
+wget -qO - https://packages.confluent.io/deb/6.0/archive.key | sudo apt-key add -
 ```
 
 Add the repository to the `/etc/apt/sources.list`:
 
 ```
-sudo add-apt-repository "deb [arch=amd64] https://packages.confluent.io/deb/5.4 stable main"
+sudo add-apt-repository "deb [arch=amd64] https://packages.confluent.io/deb/6.0 stable main"
 ```
 
 Run apt-get update and install the 2 dependencies as well as **kafkacat**
@@ -530,6 +530,7 @@ or using containerized kafkacat (which is part of the Data Platform)
 docker exec -ti kafkacat kafkacat -b kafka-1 -t test-topic
 ```
 
+All the sample statements below are shown using a locally-installed version of `kafkacat`. Make sure to add the `docker exec -ti kafkacat` in front of each command if the dockerized version should be used (which is part of the Data Platform).
 
 If you want to start at the end of the topic, i.e. only show new messages, add the `-o` option. 
 
