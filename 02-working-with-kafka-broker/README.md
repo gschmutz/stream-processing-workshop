@@ -180,7 +180,13 @@ Topic:test-topic	PartitionCount:6	ReplicationFactor:2	Configs:
 
 Now let's see the topic in use. The most basic way to test it is through the command line. Kafka comes with two handy utilities `kafka-console-consumer` and `kafka-console-producer` to consume and produce messages through the command line. 
 
-In a new terminal window, first let's run the consumer on the topic `test-topic` we have created before
+In a new terminal window, first let's run the consumer on the topic `test-topic` we have created before. First connect into the `kafka-1` container
+
+```
+docker exec -ti kafka-1 bash
+```
+
+and then start the `kafka-console-consumer` utility:
 
 ```
 kafka-console-consumer --bootstrap-server kafka-1:19092,kafka-2:19093 --topic test-topic
