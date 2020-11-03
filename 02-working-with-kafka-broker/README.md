@@ -299,13 +299,13 @@ You can install **kafkacat** directly on the Ubuntu environment. First let's ins
 Install the Confluent public key, which is used to sign the packages in the APT repository:
 
 ```
-wget -qO - https://packages.confluent.io/deb/5.4/archive.key | sudo apt-key add -
+wget -qO - https://packages.confluent.io/deb/6.0/archive.key | sudo apt-key add -
 ```
 
 Add the repository to the `/etc/apt/sources.list`:
 
 ```
-sudo add-apt-repository "deb [arch=amd64] https://packages.confluent.io/deb/5.4 stable main"
+sudo add-apt-repository "deb [arch=amd64] https://packages.confluent.io/deb/6.0 stable main"
 ```
 
 Run apt-get update and install the 2 dependencies as well as **kafkacat**
