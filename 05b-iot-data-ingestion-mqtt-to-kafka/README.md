@@ -77,7 +77,7 @@ So into this folder we have to copy the artefacts of the Kafka connectors we wan
 Navigate into the `plugins/kafka-connect` folder (which is a sub-folder of the `docker` folder with the `docker-compose.yml` file.
 
 ```
-cd $DATAPLAFORM/plugins/kafka-connect
+cd $DATAPLAFORM_HOME/plugins/kafka-connect
 ```
 
 and download the `kafka-connect-mqtt-1.2.6-2.1.0-all.tar.gz` file from the [Landoop Stream-Reactor Project](https://github.com/Landoop/stream-reactor/tree/master/kafka-connect-mqtt) project.
