@@ -31,7 +31,7 @@ cd $DATAPLATFORM_HOME
 Now running the simulator is a simle as starting the `trivadis/iot-truck-simulator` docker image, providing some parameters.
 
 ```
-docker run -v -d "${PWD}/data-transfer/logs:/out" trivadis/iot-truck-simulator "-s" "FILE" "-f" "CSV" "-d" "2000" "-fs" "25" "-vf" "10" "-fpv"
+docker run -d -v "${PWD}/data-transfer/logs:/out" trivadis/iot-truck-simulator "-s" "FILE" "-f" "CSV" "-d" "2000" "-fs" "25" "-vf" "10" "-fpv"
 ```
 
 **Note:** if you are running docker on windows, you have to replace the `${PWD}` by the absolute path to the `data-transfer` folder.  
