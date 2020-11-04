@@ -73,7 +73,7 @@ You should see a new record being added every one second. The output should look
 
 Now let's create a StreamSets DataCollector pipeline, which retrieves the data from the File, using a tail operation similar to the one shown from the console and send the data to an MQTT Topic. We will use Streamsets Data Collector Edge, as this pipeline would run directly on the truck, where the file is being created.
 
-In a browser window, navigate to <http://analyticsplatform:18630/> to open StreamSets Data Collector UI. 
+In a browser window, navigate to <http://dataplatform:18630/> to open StreamSets Data Collector UI. 
 
 Click on **Create New Pipeline** button to create a new empty pipeline. Set the **Title** field to `File_to_MQTT` and select the **Data Collector Edge Pipeline** option. 
 
