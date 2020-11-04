@@ -13,7 +13,7 @@ We will first use KSQL to change the format of the messages from CSV to JSON and
 If you have not yet done the [previous part](../05b-iot-data-ingestion-mqtt-to-kafka/README.md), or it is no longer available, then you can also configure the IoT Truck Simulator to directly produce to Kafka, by running the following command:
 
 ```
-docker run --network docker_default trivadis/iot-truck-simulator '-s' 'KAFKA' '-h' 'kafka-1' '-p' '19092' '-f' 'CSV'
+docker run --network stream-processing-workshop_default trivadis/iot-truck-simulator '-s' 'KAFKA' '-h' 'kafka-1' '-p' '19092' '-f' 'CSV'
 ``` 
 
 ## Connect to ksqlDB engine
