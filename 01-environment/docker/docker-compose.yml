@@ -23,7 +23,7 @@ services:
     restart: unless-stopped
 #  ================================== Kafka ========================================== #
   kafka-1:
-    image: confluentinc/cp-enterprise-kafka:6.0.0
+    image: confluentinc/cp-kafka:6.0.0
     container_name: kafka-1
     hostname: kafka-1
     depends_on:
@@ -40,10 +40,6 @@ services:
       KAFKA_LISTENERS: LISTENER_INTERNAL://kafka-1:19092,LISTENER_DOCKERHOST://kafka-1:29092,LISTENER_EXTERNAL://kafka-1:9092
       KAFKA_ADVERTISED_LISTENERS: LISTENER_INTERNAL://kafka-1:19092,LISTENER_DOCKERHOST://localhost:29092,LISTENER_EXTERNAL://${PUBLIC_IP:-127.0.0.1}:9092
       KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_INTERNAL
-      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
-      KAFKA_CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: kafka-1:19092,kafka-2:19093,kafka-3:19094
-      KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 3
-      KAFKA_CONFLUENT_LOG_PLACEMENT_CONSTRAINTS: '{}'
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
@@ -59,7 +55,7 @@ services:
       - ./data-transfer:/data-transfer
     restart: unless-stopped
   kafka-2:
-    image: confluentinc/cp-enterprise-kafka:6.0.0
+    image: confluentinc/cp-kafka:6.0.0
     container_name: kafka-2
     hostname: kafka-2
     depends_on:
@@ -76,10 +72,6 @@ services:
       KAFKA_LISTENERS: LISTENER_INTERNAL://kafka-2:19093,LISTENER_DOCKERHOST://kafka-2:29093,LISTENER_EXTERNAL://kafka-2:9093
       KAFKA_ADVERTISED_LISTENERS: LISTENER_INTERNAL://kafka-2:19093,LISTENER_DOCKERHOST://localhost:29093,LISTENER_EXTERNAL://${PUBLIC_IP:-127.0.0.1}:9093
       KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_INTERNAL
-      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
-      KAFKA_CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: kafka-1:19092,kafka-2:19093,kafka-3:19094
-      KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 3
-      KAFKA_CONFLUENT_LOG_PLACEMENT_CONSTRAINTS: '{}'
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
@@ -95,7 +87,7 @@ services:
       - ./data-transfer:/data-transfer
     restart: unless-stopped
   kafka-3:
-    image: confluentinc/cp-enterprise-kafka:6.0.0
+    image: confluentinc/cp-kafka:6.0.0
     container_name: kafka-3
     hostname: kafka-3
     depends_on:
@@ -112,10 +104,6 @@ services:
       KAFKA_LISTENERS: LISTENER_INTERNAL://kafka-3:19094,LISTENER_DOCKERHOST://kafka-3:29094,LISTENER_EXTERNAL://kafka-3:9094
       KAFKA_ADVERTISED_LISTENERS: LISTENER_INTERNAL://kafka-3:19094,LISTENER_DOCKERHOST://localhost:29094,LISTENER_EXTERNAL://${PUBLIC_IP:-127.0.0.1}:9094
       KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_INTERNAL
-      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
-      KAFKA_CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: kafka-1:19092,kafka-2:19093,kafka-3:19094
-      KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 3
-      KAFKA_CONFLUENT_LOG_PLACEMENT_CONSTRAINTS: '{}'
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
@@ -298,33 +286,6 @@ services:
       - ./data-transfer:/data-transfer
     entrypoint: /bin/sh
     tty: true
-  #  ================================== Confluent Control Center ========================================== #
-  control-center:
-    image: confluentinc/cp-enterprise-control-center:6.0.0
-    hostname: control-center
-    container_name: control-center
-    labels:
-      com.mdps.service.webui.url: http://${PUBLIC_IP}:9021
-    depends_on:
-      - zookeeper-1
-      - kafka-1
-    ports:
-      - 9021:9021
-    environment:
-      CONTROL_CENTER_BOOTSTRAP_SERVERS: kafka-1:19092,kafka-2:19093,kafka-3:19094
-      CONTROL_CENTER_ZOOKEEPER_CONNECT: zookeeper-1:2181
-      CONTROL_CENTER_CONNECT_CLUSTER: kafka-connect-1:8083
-      CONTROL_CENTER_KSQL_URL: http://ksql-server-1:8088
-      CONTROL_CENTER_KSQL_ADVERTISED_URL: http://${PUBLIC_IP}:8088
-      CONTROL_CENTER_SCHEMA_REGISTRY_URL: http://schema-registry-1:8081
-      CONTROL_CENTER_REPLICATION_FACTOR: 3
-      CONTROL_CENTER_INTERNAL_TOPICS_PARTITIONS: 3
-      CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS: 3
-      CONFLUENT_METRICS_TOPIC_REPLICATION: 3
-      PORT: 9021
-    volumes:
-      - ./data-transfer:/data-transfer
-    restart: unless-stopped
   #  ================================== Kafkacat  ========================================== #
   kafkacat:
     image: edenhill/kafkacat:1.6.0
