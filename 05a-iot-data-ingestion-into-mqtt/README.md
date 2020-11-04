@@ -22,9 +22,13 @@ For simulating truck data, we are going to use a Java program (adapted from Hort
 
 The simulator can produce data to various data sinks, such as **File**, **MQTT** or event **Kafka**. For our workshop here, we will be using **File** and **MQTT** as the target, but first let's use it in **File** mode. 
 
-Running the simulator is as simple as running the `trivadis/iot-truck-simulator` docker image, providing some parameters.
+First make sure that you are located in the `docker` folder of the dataplatform, where the `docker-compose.yml` can be found. You can easily navigate to the right place by using the `$DATAPLATFORM_HOME` environment variable (if set).
 
-You have to be in the `docker` folder of the dataplatform, where also the `docker-compose.yml` can be found. 
+```
+cd $DATAPLATFORM_HOME
+```
+
+Now running the simulator is a simle as starting the `trivadis/iot-truck-simulator` docker image, providing some parameters.
 
 ```
 docker run -v "${PWD}/data-transfer/logs:/out" --rm trivadis/iot-truck-simulator "-s" "FILE" "-f" "CSV" "-d" "2000" "-fs" "25" "-vf" "10" "-fpv"
