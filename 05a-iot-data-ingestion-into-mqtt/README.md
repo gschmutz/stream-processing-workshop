@@ -31,7 +31,7 @@ cd $DATAPLATFORM_HOME
 Now running the simulator is a simle as starting the `trivadis/iot-truck-simulator` docker image, providing some parameters.
 
 ```
-docker run -v "${PWD}/data-transfer/logs:/out" --rm trivadis/iot-truck-simulator "-s" "FILE" "-f" "CSV" "-d" "2000" "-fs" "25" "-vf" "10" "-fpv"
+docker run -v -d "${PWD}/data-transfer/logs:/out" trivadis/iot-truck-simulator "-s" "FILE" "-f" "CSV" "-d" "2000" "-fs" "25" "-vf" "10" "-fpv"
 ```
 
 **Note:** if you are running docker on windows, you have to replace the `${PWD}` by the absolute path to the `data-transfer` folder.  
@@ -176,7 +176,7 @@ Now let's run the simulator for trucks with id 11 - 70.
 The MQTT broker is exposed on port `1883`. So let's run the following docker command in a new terminal window.
 
 ```
-docker run trivadis/iot-truck-simulator "-s" "MQTT" "-h" $DOCKER_HOST_IP "-p" "1883" "-f" "CSV" "-d" "2000" "-fs" "25" "-vf" "11-70"
+docker run -d trivadis/iot-truck-simulator "-s" "MQTT" "-h" $DOCKER_HOST_IP "-p" "1883" "-f" "CSV" "-d" "2000" "-fs" "25" "-vf" "11-70"
 ```
 
 We are also producing the data in **CSV** format to the broker running on the docker host on port 1883. 
