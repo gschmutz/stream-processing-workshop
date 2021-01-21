@@ -2,9 +2,9 @@
  # this file can be used as a template for a custom configuration
  # or to know about the different variables available for the generator
       platys:
-        platform-name: 'default'
+        platform-name: 'streaming-platform'
         platform-stack: 'trivadis/platys-modern-data-platform'
-        platform-stack-version: '1.9.0-preview'
+        platform-stack-version: '1.10.0'
         structure: 'flat'
 
       #zookeeper
@@ -188,6 +188,8 @@
       PORTAINER_enable: true
       CADVISOR_enable: false
       WETTY_enable: true
+
+      MARKDOWN_VIEWER_enable: true
       
       # Python image
       PYTHON_enable: false
