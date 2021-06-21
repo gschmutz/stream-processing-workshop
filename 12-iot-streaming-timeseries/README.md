@@ -1,4 +1,4 @@
-# Streaming Data Integration of Senor Data into Timeseries DB
+# Streaming Data Integration of Sensor Data into Timeseries DB
 
 In this workshop we will be ingesting data from simulated IoT devices into InfluxDB, a popular timeseries database
 

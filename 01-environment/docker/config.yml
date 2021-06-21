@@ -4,7 +4,7 @@
       platys:
         platform-name: 'streaming-platform'
         platform-stack: 'trivadis/platys-modern-data-platform'
-        platform-stack-version: '1.10.0'
+        platform-stack-version: '1.12.1'
         structure: 'flat'
 
       #zookeeper
@@ -110,7 +110,7 @@
       ZEPPELIN_volume_map_data: false
 
       #jupyter
-      JUPYTER_enable: true
+      JUPYTER_enable: false
       # one of 'minimal', 'r', 'scipy', 'tensorflow', 'datascience', 'all_spark'
       JUPYTER_edition: 'minimal'
       JUPYTER_volume_map_data: false
@@ -185,7 +185,7 @@
       FTP_enable: false
 
       # Container Mgmt
-      PORTAINER_enable: true
+      PORTAINER_enable: false
       CADVISOR_enable: false
       WETTY_enable: true
 
