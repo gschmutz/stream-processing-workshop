@@ -4,7 +4,7 @@
       platys:
         platform-name: 'streaming-platform'
         platform-stack: 'trivadis/platys-modern-data-platform'
-        platform-stack-version: '1.12.1'
+        platform-stack-version: '1.13.0-preview'
         structure: 'flat'
 
       #zookeeper
@@ -47,6 +47,7 @@
 
       KAFKA_SCHEMA_REGISTRY_UI_enable: true
       KAFKA_CONNECT_UI_enable: true
+      KAFKA_CONNECT_UI_use_public_ip: false
 
       KAFKA_CMAK_enable: true
       KAFKA_KAFDROP_enable: false
@@ -117,7 +118,7 @@
 
       # Visualization
       GRAFANA_enable: false
-      KIBANA_enable: false   #needs to have elasticsearch enabled to work
+      KIBANA_enable: false #needs to have elasticsearch enabled to work
       
       # NoSQL
       REDIS_enable: false
