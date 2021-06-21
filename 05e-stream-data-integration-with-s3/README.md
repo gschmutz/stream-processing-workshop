@@ -57,7 +57,7 @@ curl -X "POST" "$DOCKER_HOST_IP:8083/connectors" \
       "s3.region": "us-east-1",
       "s3.bucket.name": "kafka-logistics",
       "s3.part.size": "5242880",
-      "store.url": "http://minio:9000",
+      "store.url": "http://minio-1:9000",
       "key.converter": "org.apache.kafka.connect.storage.StringConverter",
       "value.converter": "org.apache.kafka.connect.storage.StringConverter"
   }

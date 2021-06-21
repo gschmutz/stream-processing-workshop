@@ -99,7 +99,7 @@ Create a new pipeline and name it `IoT_Kafka_to_InfluxDB`. On the Pipeline canva
 
 Configure the **Kafka Multitopic Consumer** using the following settings
 
-* **Broker URI**: `kafka-1:9092`
+* **Broker URI**: `kafka-1:19092`
 * **Topic List**: `iot-v1`
 * **Data Format**: `JSON`
 
