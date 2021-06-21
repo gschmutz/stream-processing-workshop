@@ -12,7 +12,7 @@ networks:
 services:
   #  ================================== Zookeeper ========================================== #
   zookeeper-1:
-    image: confluentinc/cp-zookeeper:6.2.0
+    image: confluentinc/cp-zookeeper:6.1.0
     container_name: zookeeper-1
     hostname: zookeeper-1
     ports:
@@ -28,7 +28,7 @@ services:
     restart: unless-stopped
 #  ================================== Kafka ========================================== #
   kafka-1:
-    image: confluentinc/cp-kafka:6.2.0
+    image: confluentinc/cp-kafka:6.1.0
     container_name: kafka-1
     hostname: kafka-1
     depends_on:
@@ -41,11 +41,11 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_BROKER_RACK: dc1
-      KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_INTERNAL
       KAFKA_ZOOKEEPER_CONNECT: zookeeper-1:2181
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: LISTENER_INTERNAL:PLAINTEXT,LISTENER_DOCKERHOST:PLAINTEXT,LISTENER_EXTERNAL:PLAINTEXT
       KAFKA_LISTENERS: LISTENER_INTERNAL://kafka-1:19092,LISTENER_DOCKERHOST://kafka-1:29092,LISTENER_EXTERNAL://kafka-1:9092
       KAFKA_ADVERTISED_LISTENERS: LISTENER_INTERNAL://kafka-1:19092,LISTENER_DOCKERHOST://localhost:29092,LISTENER_EXTERNAL://${PUBLIC_IP:-127.0.0.1}:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
@@ -61,7 +61,7 @@ services:
       - ./data-transfer:/data-transfer
     restart: unless-stopped
   kafka-2:
-    image: confluentinc/cp-kafka:6.2.0
+    image: confluentinc/cp-kafka:6.1.0
     container_name: kafka-2
     hostname: kafka-2
     depends_on:
@@ -74,11 +74,11 @@ services:
     environment:
       KAFKA_BROKER_ID: 2
       KAFKA_BROKER_RACK: dc1
-      KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_INTERNAL
       KAFKA_ZOOKEEPER_CONNECT: zookeeper-1:2181
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: LISTENER_INTERNAL:PLAINTEXT,LISTENER_DOCKERHOST:PLAINTEXT,LISTENER_EXTERNAL:PLAINTEXT
       KAFKA_LISTENERS: LISTENER_INTERNAL://kafka-2:19093,LISTENER_DOCKERHOST://kafka-2:29093,LISTENER_EXTERNAL://kafka-2:9093
       KAFKA_ADVERTISED_LISTENERS: LISTENER_INTERNAL://kafka-2:19093,LISTENER_DOCKERHOST://localhost:29093,LISTENER_EXTERNAL://${PUBLIC_IP:-127.0.0.1}:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
@@ -94,7 +94,7 @@ services:
       - ./data-transfer:/data-transfer
     restart: unless-stopped
   kafka-3:
-    image: confluentinc/cp-kafka:6.2.0
+    image: confluentinc/cp-kafka:6.1.0
     container_name: kafka-3
     hostname: kafka-3
     depends_on:
@@ -107,11 +107,11 @@ services:
     environment:
       KAFKA_BROKER_ID: 3
       KAFKA_BROKER_RACK: dc1
-      KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_INTERNAL
       KAFKA_ZOOKEEPER_CONNECT: zookeeper-1:2181
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: LISTENER_INTERNAL:PLAINTEXT,LISTENER_DOCKERHOST:PLAINTEXT,LISTENER_EXTERNAL:PLAINTEXT
       KAFKA_LISTENERS: LISTENER_INTERNAL://kafka-3:19094,LISTENER_DOCKERHOST://kafka-3:29094,LISTENER_EXTERNAL://kafka-3:9094
       KAFKA_ADVERTISED_LISTENERS: LISTENER_INTERNAL://kafka-3:19094,LISTENER_DOCKERHOST://localhost:29094,LISTENER_EXTERNAL://${PUBLIC_IP:-127.0.0.1}:9094
+      KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
@@ -128,7 +128,7 @@ services:
     restart: unless-stopped
   #  ================================== Schema Registry ========================================== #
   schema-registry-1:
-    image: confluentinc/cp-schema-registry:6.2.0
+    image: confluentinc/cp-schema-registry:6.1.0
     hostname: schema-registry-1
     container_name: schema-registry-1
     labels:
@@ -148,7 +148,7 @@ services:
     restart: unless-stopped
   #  ================================== Kafka Connect ========================================== #
   kafka-connect-1:
-    image: confluentinc/cp-kafka-connect:6.2.0
+    image: confluentinc/cp-kafka-connect:6.1.0
     container_name: kafka-connect-1
     labels:
       com.platys.restapi.title: Kafka Connect REST API
@@ -207,7 +207,7 @@ services:
         #
         sleep infinity
   kafka-connect-2:
-    image: confluentinc/cp-kafka-connect:6.2.0
+    image: confluentinc/cp-kafka-connect:6.1.0
     container_name: kafka-connect-2
     labels:
       com.platys.restapi.title: Kafka Connect REST API
@@ -282,6 +282,7 @@ services:
       KSQL_RESPONSE_HTTP_HEADERS_CONFIG: ''
       KSQL_KSQL_CONNECT_URL: http://kafka-connect-1:8083
       KSQL_KSQL_SCHEMA_REGISTRY_URL: http://schema-registry-1:8081
+      KSQL_KSQL_SCHEMA_REGISTRY_BASIC_AUTH_CREDENTIALS_SOURCE: USER_INFO
       KSQL_KSQL_INTERNAL_TOPIC_REPLICAS: 1
       KSQL_KSQL_STREAMS_REPLICATION_FACTOR: 1
       KSQL_KSQL_QUERY_PULL_METRICS_ENABLED: 'true'
@@ -327,7 +328,7 @@ services:
   schema-registry-ui:
     image: landoop/schema-registry-ui:latest
     container_name: schema-registry-ui
-    hostname: schema-registry-ui
+    hostname: sc  hema-registry-ui
     labels:
       com.platys.webui.title: Confluent Schema Registry UI
       com.platys.webui.url: http://${PUBLIC_IP}:28102
@@ -584,7 +585,7 @@ services:
       - 18630:18630
     environment:
       SDC_OFFSET_DIRECTORY: /data/custom-offset-el
-      SDC_INSTALL_STAGES: streamsets-datacollector-apache-kafka_2_7-lib,
+      SDC_INSTALL_STAGES: streamsets-datacollector-apache-kafka_2_6-lib
       SDC_INSTALL_ENTERPRISE_STAGES: ''
       SDC_JAVA_OPTS: -Xmx2g -Xms2g
       SDC_JAVA8_OPTS: -XX:+UseG1GC
