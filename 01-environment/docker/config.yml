@@ -46,6 +46,7 @@
       KAFKACAT_enable: true
 
       KAFKA_SCHEMA_REGISTRY_UI_enable: true
+      KAFKA_SCHEMA_REGISTRY_UI_use_public_ip: false
       KAFKA_CONNECT_UI_enable: true
       KAFKA_CONNECT_UI_use_public_ip: false
 
