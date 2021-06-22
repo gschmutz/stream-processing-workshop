@@ -83,7 +83,7 @@ curl -X "DELETE" http://dataplatform:28013/connectors/tweet-source"
 
 echo "creating Twitter Source Connector"
 
-curl -X "POST" http://dataplatform:28013/connectors \
+curl -X "POST" http://dataplatform:8083/connectors \
   -H 'Content-Type: application/json' \
   -d '{
   "name": "tweet-source",
