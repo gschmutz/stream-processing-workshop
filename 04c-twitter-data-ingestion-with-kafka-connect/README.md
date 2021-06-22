@@ -125,12 +125,7 @@ Before we can run the pipeline, we have to create the Kafka topic.
 
 Create the topic in Kafka, if it does not yet exist, using the `kafka-topics` command. 
 ```
-kafka-topics --create \
-			--if-not-exists \
-			--zookeeper zookeeper:2181 \
-			--topic tweet-avro-v1 \
-			--partitions 8 \
-			--replication-factor 3
+kafka-topics --create --if-not-exists --zookeeper zookeeper-1:2181 --topic tweet-avro-v1 --partitions 8 --replication-factor 3
 ```
 
 Alternatively you can also use KafkaHQ or Conduktor to create a topic. 
