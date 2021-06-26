@@ -62,7 +62,7 @@ to start consuming messages from the newly created `truck_position` topic. There
 
 For transporting messages from MQTT to Kafka, in this workshop we will be using Kafka Connect. We could also use StreamSets or Apache NiFi to achieve the same result. 
 
-Luckily, there are multiple Kafka Source Connectors available for consuming from MQTT. We can either use the one provided by [Confluent Inc.](https://www.confluent.io/connector/kafka-connect-mqtt/) (available as evaluation license on Confluent Hub) or the one provided as part of the [Landoop Stream-Reactor Project](https://github.com/Landoop/stream-reactor/tree/master/kafka-connect-mqtt) available on GitHub. We will be using the later one here. 
+Luckily, there are multiple Kafka Source Connectors available for consuming from MQTT. We can either use the one provided by [Confluent Inc.](https://www.confluent.io/connector/kafka-connect-mqtt/) (which is part of Confluent Enterprise but available as evaluation license on Confluent Hub) or the one provided as part of the [Landoop Stream-Reactor Project](https://github.com/Landoop/stream-reactor/tree/master/kafka-connect-mqtt) available on GitHub. We will be using the later one here. 
 
 Check-out the [IoT Truck Demo Tutorial](https://github.com/gschmutz/iot-truck-demo) to see the Confluent MQTT Connector in Action. 
 
@@ -83,14 +83,14 @@ cd $DATAPLATFORM_HOME/plugins/kafka-connect
 and download the `kafka-connect-mqtt-1.2.6-2.1.0-all.tar.gz` file from the [Landoop Stream-Reactor Project](https://github.com/Landoop/stream-reactor/tree/master/kafka-connect-mqtt) project.
 
 ```
-wget https://github.com/Landoop/stream-reactor/releases/download/1.2.6/kafka-connect-mqtt-1.2.6-2.1.0-all.tar.gz
+wget https://github.com/Landoop/stream-reactor/releases/download/2.1.3/kafka-connect-mqtt-2.1.3-2.5.0-all.tar.gz
 ```
 
 Once it is successfully downloaded, uncompress it using this `tar` command and remove the file. 
 
 ```
-mkdir kafka-connect-mqtt-1.2.6-2.1.0-all && tar xvf kafka-connect-mqtt-1.2.6-2.1.0-all.tar.gz -C kafka-connect-mqtt-1.2.6-2.1.0-all
-rm kafka-connect-mqtt-1.2.6-2.1.0-all.tar.gz
+mkdir kafka-connect-mqtt-2.1.3-2.5.0-all && tar xvf kafka-connect-mqtt-2.1.3-2.5.0-all.tar.gz -C kafka-connect-mqtt-2.1.3-2.5.0-all
+rm kafka-connect-mqtt-2.1.3-2.5.0-all.tar.gz
 ```
 
 Now let's restart Kafka connect in order to pick up the new connector. 
