@@ -4,62 +4,11 @@ In this workshop we will be using Kafka Connect to get the messages from Twitter
 
 Luckily, there is a [Kafka Connector](https://github.com/jcustenborder/kafka-connect-twitter) available for retrieving live Tweets. So all we have to do here is configure it and bring it to action!
 
-## Adding the Twitter Kafka Connector 
+There are two instances of the Kafka Connect service instance running as part of the Data Platform, `kafka-connect-1` and `kafka-connect-2`. 
 
-There are two instances of the Kafka Connect service instance running as part of the Modern Data Platform, `kafka-connect-1` and `kafka-connect-2`. 
+## Twitter Kafka Connector 
 
-To add the connector implementations, without having to copy them into the docker container (or even create a dedicated docker image holding the jar), both connect services are configured to use additional implementations from the local folder `/etc/kafka-connect/custom-plugins` inside the docker container. This folder is mapped as a volume to the `plugins/kafka-connect` folder outside of the container on the docker host. 
-
-Into this folder we have to copy the artefacts of the Kafka connectors we want to use. 
-
-### Download and deploy the Connector
-
-Navigate into the `plugins/kafka-connect` folder 
-
-```
-cd plugins/kafka-connect
-```
-
-and download the `kafka-connect-twitter-0.2.26.tar.gz` file from the [kafka-connect-twitter](https://github.com/jcustenborder/kafka-connect-twitter) Github project.
-
-```
-wget https://github.com/jcustenborder/kafka-connect-twitter/releases/download/0.2.26/kafka-connect-twitter-0.2.26.tar.gz
-```
-
-Once it is successfully downloaded, uncompress it using this `tar` command and remove the file. 
-
-```
-mkdir kafka-connect-twitter-0.2.26 && tar -xvzf kafka-connect-twitter-0.2.26.tar.gz -C kafka-connect-twitter-0.2.26 
-rm kafka-connect-twitter-0.2.26.tar.gz 
-```
-
-Now we have to restart both connect service instances in order to pick up the new connector. 
-
-```
-docker-compose restart kafka-connect-1 kafka-connect-2
-```
-
-The connector should now get registered to the Kafka connect cluster. You can confirm that by checking the log file of the two containers
-
-```
-docker-compose logs -f kafka-connect-1 kafka-connect-2
-```
-
-After a while you should see an output similar to the one below with a message that the Twitter connector was added and later that the connector finished starting ...
-
-```
-kafka-connect-1       | [2020-01-28 21:35:38,777] INFO Added plugin 'io.confluent.connect.security.ConnectSecurityExtension' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
-kafka-connect-1       | [2020-01-28 21:35:38,777] INFO Loading plugin from: /usr/share/java/acl (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
-kafka-connect-1       | [2020-01-28 21:35:42,923] INFO Registered loader: PluginClassLoader{pluginLocation=file:/usr/share/java/acl/} (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
-kafka-connect-1       | [2020-01-28 21:35:42,923] INFO Loading plugin from: /usr/share/java/rest-utils (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
-kafka-connect-1       | [2020-01-28 21:35:43,582] INFO Registered loader: PluginClassLoader{pluginLocation=file:/usr/share/java/rest-utils/} (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
-kafka-connect-1       | [2020-01-28 21:35:43,583] INFO Loading plugin from: /etc/kafka-connect/custom-plugins/kafka-connect-twitter-0.2.26 (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
-kafka-connect-1       | [2020-01-28 21:35:44,028] INFO Registered loader: PluginClassLoader{pluginLocation=file:/etc/kafka-connect/custom-plugins/kafka-connect-twitter-0.2.26/} (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
-kafka-connect-1       | [2020-01-28 21:35:44,028] INFO Added plugin 'com.github.jcustenborder.kafka.connect.twitter.TwitterSourceConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
-kafka-connect-1       | [2020-01-28 21:35:49,958] INFO Registered loader: sun.misc.Launcher$AppClassLoader@764c12b6 (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
-
-...
-```
+The [Twitter Source Connector](https://www.confluent.io/hub/jcustenborder/kafka-connect-twitter) has already been installed as part of the setup of the platform. 
 
 ## Configure the Twitter Connector
 
