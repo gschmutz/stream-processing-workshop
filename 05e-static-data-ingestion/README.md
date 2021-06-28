@@ -317,4 +317,4 @@ and check the live stream to see the change.
 
 ----
 
-[previous part](../05c-stream-processing-using-ksql/README.md)	| 	[top](../05-iot-data-ingestion-and-analytics/README.md) 	| 	[next part](../05e-stream-data-integration-with-s3/README.md)
+[previous part](../05d-stream-processing-using-faust/README.md)	| 	[top](../05-iot-data-ingestion-and-analytics/README.md) 	| 	[next part](../05f-stream-data-integration-with-s3/README.md)

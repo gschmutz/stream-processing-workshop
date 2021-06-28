@@ -4,7 +4,7 @@ With the truck data continuously ingested into the `truck_position` topic, let's
  
 There are many possible solutions for performing analytics directly on the event stream. [Faust](https://faust.readthedocs.io/en/latest/index.html) is a library for building streaming applications in Python.
 
-![Alt Image Text](./images/stream-processing-with-ksql-overview.png "Schema Registry UI")
+![Alt Image Text](./images/stream-processing-with-faust-overview.png "Schema Registry UI")
 
 We will use the `truck_position_json` topic created in the previous step.
 
