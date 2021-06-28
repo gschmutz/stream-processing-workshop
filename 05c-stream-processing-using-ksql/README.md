@@ -1,6 +1,6 @@
 # IoT Data Ingestion and Analytics - Stream Processing using ksqlDB
 
-With the truck data continuously ingested into the `truck_movement` topic, let's now perform some stream processing on the data.
+With the truck data continuously ingested into the `truck_position` topic, let's now perform some stream processing on the data.
  
 There are many possible solutions for performing analytics directly on the event stream. From the Kafka ecosystem, we can either use Kafka Streams or ksqlDB, a SQL abstraction on top of Kafka Streams. For this workshop we will be using KSQL. 
 
