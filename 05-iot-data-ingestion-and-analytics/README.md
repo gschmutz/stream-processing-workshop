@@ -11,5 +11,6 @@ We will implement this end-to-end demo case step by step using different technol
 1. [Ingesting IoT Datastream into MQTT](../05a-iot-data-ingestion-into-mqtt/README.md)
 2. [Moving Data from MQTT into Kafka](../05b-iot-data-ingestion-mqtt-to-kafka/README.md)
 3. [Stream Processing using ksqlDB](../05c-stream-processing-using-ksql/README.md)
-4. [Ingesting and Joining Static Data to Stream](../05d-static-data-ingestion/README.md)
-5. [Moving Data from Kafka to Object Storage](../05e-stream-data-integration-with-s3/README.md)
+3. [Stream Processing using Faust](../05d-stream-processing-using-faust/README.md)
+4. [Ingesting and Joining Static Data to Stream](../05e-static-data-ingestion/README.md)
+5. [Moving Data from Kafka to Object Storage](../05f-stream-data-integration-with-s3/README.md)
