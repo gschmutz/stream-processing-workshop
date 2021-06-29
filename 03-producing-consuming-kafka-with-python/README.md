@@ -36,12 +36,16 @@ You can work with scripts and store each code block in a file. You can then exec
 
 ## Working with Text Messages
 
-Now lets write a simple program in Python which produces a message to the Kafka topic test-topic. This topic has been created in [Getting started with Apache Kafka](../02-working-with-kafka-broker/README.md).
+Now lets write a simple program in Python which produces a message to the Kafka topic test-topic. This topic has been created in [Getting started with Apache Kafka](../02-working-with-kafka-broker/README.md). If you need to reacreate it, execute the following commnand
+
+```
+docker exec -ti kafka-1 kafka-topics --create --zookeeper zookeeper-1:2181 --topic test-topic --replication-factor 3 --partitions 8
+```
 
 First we will produce messages. In order to see the results, run `kafkacat` in a separate terminal window and print the partition, key and value of each message:
 
 ```
-kafkacat -b dataplatform -t test-topic -f "P-%p: %k=%s\n" -Z 
+kafkacat -b dataplatform:29092 -t test-topic -f "P-%p: %k=%s\n" -Z 
 ``` 
 
 The following code segments assume that they are run inside the Zeppelin docker container. If you want to run them from the Docker Host, you have to replace kafka-1 and kafka-2 by the IP Address of the Docker Host.
@@ -141,18 +145,13 @@ The Confluent Python client also supports working with Avro formatted messages. 
 In order to separate the Avro tests from the other tests, lets create a new topic:
 
 ```
-kafka-topics --create \
-			--if-not-exists \
-			--zookeeper zookeeper-1:2181 \
-			--topic test-avro-topic \
-			--partitions 8 \
-			--replication-factor 3
+docker exec -ti kafka-1 kafka-topics --create --if-not-exists --zookeeper zookeeper-1:2181 --topic test-avro-topic --partitions 8 --replication-factor 3
 ```
 
 Make sure that you change the `kafkacat` command to consume from the new topic.
 
 ```
-kafkacat -b dataplatform -t test-avro-topic -f "P-%p: %k=%s\n" -Z 
+kafkacat -b dataplatform:29092 -t test-avro-topic -f "P-%p: %k=%s\n" -Z 
 ``` 
 
 The following Python code produces an Avro message 
