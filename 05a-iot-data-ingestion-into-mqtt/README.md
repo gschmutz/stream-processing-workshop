@@ -105,7 +105,7 @@ Navigate to the **Data Format** tab and set the **Data Format** to `Text`.
 
 ![Alt Image Text](./images/streamsets-create-edge-pipeline-6.png "Schema Registry UI")
 
-Next let's configure the `MQTT Publisher 1'. Click on the destination and navigate to the **MQTT** tab. Enter `tcp://mosquitto-1:1883` into the **Broker URL** field and `truck/10/position` into the **Topic** field. We are hardcoding the driver id in the Topic hierarchy, in real-life this would have to be taken from either the message or the file name. 
+Next let's configure the `MQTT Publisher 1`. Click on the destination and navigate to the **MQTT** tab. Enter `tcp://mosquitto-1:1883` into the **Broker URL** field and `truck/10/position` into the **Topic** field. We are hardcoding the driver id in the Topic hierarchy, in real-life this would have to be taken from either the message or the file name. 
 
 ![Alt Image Text](./images/streamsets-create-edge-pipeline-7.png "Schema Registry UI")
 
@@ -113,7 +113,7 @@ Navigate to the **Data Format** tab and set the **Data Format** to `Text`.
 
 ![Alt Image Text](./images/streamsets-create-edge-pipeline-8.png "Schema Registry UI")
 
-Now the pipeline is ready to be run in preview mode. Because it is an Edge Pipeline, we also have to configure the URL of a StreamSets Data Collector Edge engine. The Data Platform runs one on port `18633`. To configure the Data Collector Edge URL, click on the canvas outside of any of the components to navigate to pipeline level and then select the **General** tab. Enter `http://streamsets-edge-1:18633` into the ** Data Collector Edge URL** field. 
+Now the pipeline is ready to be run in preview mode. Because it is an Edge Pipeline, we also have to configure the URL of a StreamSets Data Collector Edge engine. The Data Platform runs one on port `18633`. To configure the Data Collector Edge URL, click on the canvas outside of any of the components to navigate to pipeline level and then select the **General** tab. Enter `http://streamsets-edge-1:18633` into the **Data Collector Edge URL** field. 
 
 ![Alt Image Text](./images/streamsets-create-edge-pipeline-9.png "Schema Registry UI")
 
