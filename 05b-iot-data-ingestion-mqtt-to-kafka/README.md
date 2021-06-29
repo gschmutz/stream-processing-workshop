@@ -93,7 +93,7 @@ mkdir kafka-connect-mqtt-2.1.3-2.5.0-all && tar xvf kafka-connect-mqtt-2.1.3-2.5
 rm kafka-connect-mqtt-2.1.3-2.5.0-all.tar.gz
 ```
 
-Now let's restart Kafka connect in order to pick up the new connector. 
+Now let's restart Kafka connect in order to pick up the new connector (Make sure to navigate back to the docker folder first, either using `cd $DATAPLATFORM` or `cd ../..`)
 
 ```
 docker-compose restart kafka-connect-1 kafka-connect-2
