@@ -119,14 +119,14 @@
 
       # Visualization
       GRAFANA_enable: false
-      KIBANA_enable: false #needs to have elasticsearch enabled to work
+      KIBANA_enable: true #needs to have elasticsearch enabled to work
       
       # NoSQL
       REDIS_enable: false
       CASSANDRA_enable: false
       MONGO_enable: false
       SOLR_enable: false
-      ELASTICSEARCH_enable: false
+      ELASTICSEARCH_enable: true
 
       NEO4J_enable: false
       NEO4J_volume_map_data: false
