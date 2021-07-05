@@ -19,7 +19,7 @@ docker exec -ti postgresql bash
 and run the `psql` command line utility to connect to the Postgresql database as user `sample`.
 
 ```
-psql -d sample -U sample
+psql -d demodb -U demo
 ```
 
 Now let's first create the table `driver`
@@ -66,10 +66,10 @@ and then perform the `kafka-topics --create` command to create the topic `truck_
 kafka-topics --zookeeper zookeeper-1:2181 --create --topic truck_driver --partitions 8 --replication-factor 2 --config cleanup.policy=compact --config segment.ms=100 --config delete.retention.ms=100 --config min.cleanable.dirty.ratio=0.001
 ```
 
-Still in the bash on the kafka borkerNow let's create a consumer wich reads the new topic from the beginning. There is nothing shown so far, as we don't yet have any data available. 
+Now let's create a consumer wich reads the new topic from the beginning. Because we will be producing Avro, we need to use the `kafka-avro-console-consumer` from the `schema-registry`. There is nothing shown so far, as we don't yet have any data available. 
 
 ```
-kafka-console-consumer --bootstrap-server kafka-1:19092 --topic truck_driver --from-beginning
+docker exec -ti schema-registry-1 kafka-avro-console-consumer --bootstrap-server kafka-1:19092 --topic truck_driver --from-beginning
 ```
 
 Keep it running, we will come back to it in a minute!
@@ -107,15 +107,16 @@ curl -X "POST" "$DOCKER_HOST_IP:8083/connectors" \
   "config": {
     "connector.class": "JdbcSourceConnector",
     "tasks.max": "1",
-    "connection.url":"jdbc:postgresql://postgresql/sample?user=sample&password=sample",
+    "connection.url":"jdbc:postgresql://postgresql/demodb?user=demo&password=abc123!",
     "mode": "timestamp",
     "timestamp.column.name":"last_update",
     "table.whitelist":"driver",
     "validate.non.null":"false",
     "topic.prefix":"truck_",
-    "key.converter":"org.apache.kafka.connect.storage.StringConverter",
+    "key.converter":"org.apache.kafka.connect.converters.LongConverter",
     "key.converter.schemas.enable": "false",
-    "value.converter":"org.apache.kafka.connect.json.JsonConverter",
+    "value.converter":"io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url":"http://schema-registry-1:8081",
     "value.converter.schemas.enable": "false",
     "name": "jdbc-driver-source",
      "transforms":"createKey,extractInt",
@@ -183,14 +184,13 @@ set 'auto.offset.reset'='earliest';
 
 DROP TABLE driver_t;
 
-CREATE TABLE driver_t (rowkey VARCHAR PRIMARY KEY,
-   id BIGINT,
+CREATE TABLE driver_t (id BIGINT PRIMARY KEY,
    first_name VARCHAR,  
    last_name VARCHAR,  
    available VARCHAR, 
    birthdate VARCHAR)  
   WITH (kafka_topic='truck_driver', 
-        value_format='JSON');
+        value_format='AVRO');
 ```
 
 Let's see the data the table contains by using a SELECT on the table created above:

@@ -13,6 +13,8 @@ We will first use KSQL to change the format of the messages from CSV to JSON and
 If you have not yet done the [previous part](../05b-iot-data-ingestion-mqtt-to-kafka/README.md), or it is no longer available, then you can also configure the IoT Truck Simulator to directly produce to Kafka, by running the following command:
 
 ```
+docker exec -ti kafka-1 kafka-topics --zookeeper zookeeper-1:2181 --create --topic truck_position --partitions 8 --replication-factor 3
+
 docker run --network streaming-platform trivadis/iot-truck-simulator '-s' 'KAFKA' '-h' 'kafka-1' '-p' '19092' '-f' 'CSV'
 ``` 
 
@@ -71,7 +73,8 @@ Before we can use a KSQL SELECT statement and consume data from a data stream, w
 DROP STREAM truck_position_csv_s;
 
 CREATE STREAM truck_position_csv_s
-  (ts VARCHAR,
+  (mqttTopic VARCHAR KEY,
+  ts VARCHAR,
    truckId VARCHAR,
    driverId BIGINT,
    routeId BIGINT, 
@@ -158,8 +161,17 @@ CREATE STREAM truck_position_json_s
         value_format='JSON', 
         partitions=8, replicas=3)
 AS 
-SELECT * 
-FROM truck_position_csv_s
+SELECT tp.truckId	AS key
+, 	tp.ts
+,	AS_VALUE(truckId)	AS truckId
+,  tp.driverId
+,  tp.routeId
+,  tp.eventType
+,  tp.latitude
+,  tp.longitude
+,  tp.correlationId
+FROM truck_position_csv_s	tp
+PARTITION BY truckId
 EMIT CHANGES;
 ```
 
@@ -206,7 +218,7 @@ This is not that much different from using the `kafka-console-consumer` or `kafk
 So let's start using the WHERE clause, so that we only view the events where the event type is not `Normal`. 
 
 ```
-SELECT * FROM truck_position_s 
+SELECT * FROM truck_position_json_s 
 WHERE eventType != 'Normal'
 EMIT CHANGES;
 ```
@@ -242,7 +254,7 @@ CREATE STREAM dangerous_driving_s
         partitions=8)
 AS 
 SELECT * 
-FROM truck_position_s
+FROM truck_position_json_s
 WHERE eventtype != 'Normal'
 EMIT CHANGES;
 ```
@@ -259,21 +271,21 @@ which should return an output similar to the one shown below:
 
 ```
 ksql> DESCRIBE dangerous_driving_s;
+
 Name                 : DANGEROUS_DRIVING_S
- Field         | Type
--------------------------------------------
- ROWTIME       | BIGINT           (system)
- ROWKEY        | VARCHAR(STRING)  (system)
- TS            | VARCHAR(STRING)
- TRUCKID       | VARCHAR(STRING)
- DRIVERID      | BIGINT
- ROUTEID       | BIGINT
- EVENTTYPE     | VARCHAR(STRING)
- LATITUDE      | DOUBLE
- LONGITUDE     | DOUBLE
- CORRELATIONID | VARCHAR(STRING)
--------------------------------------------
-For runtime statistics and query details run: DESCRIBE EXTENDED <Stream,Table>;
+ Field         | Type                   
+----------------------------------------
+ KEY           | VARCHAR(STRING)  (key) 
+ TS            | VARCHAR(STRING)        
+ TRUCKID       | VARCHAR(STRING)        
+ DRIVERID      | BIGINT                 
+ ROUTEID       | BIGINT                 
+ EVENTTYPE     | VARCHAR(STRING)        
+ LATITUDE      | DOUBLE                 
+ LONGITUDE     | DOUBLE                 
+ CORRELATIONID | VARCHAR(STRING)        
+----------------------------------------
+For runtime statistics and query details run: DESCRIBE <Stream,Table> EXTENDED;
 ```
 
 Now it's much easier to get the abnormal behaviour. All we have to do is selecting that new stream `truck_position_s`. 
@@ -308,7 +320,7 @@ You should see the same abnormal driving behaviour data as before in the ksqlDB 
 Let's see how many abnormal events do we get per 20 seconds tumbling window
 
 ```
-SELECT eventType, count(*) 
+SELECT eventType, count(*) AS nof
 FROM dangerous_driving_s 
 WINDOW TUMBLING (size 20 seconds)
 GROUP BY eventType
