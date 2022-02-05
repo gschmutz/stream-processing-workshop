@@ -109,6 +109,6 @@ kafkacat -b dataplatform:9092 -t tweet-avro-v1
 This is not very readable, as the Twitter Connector is using Avro for the serializer. But we can tell `kafkacat` to do the same for serialization, using the `-s` together with the `-r` option:
 
 ```
-kafkacat -b dataplatform:9092 -t tweet-avro-v1 -s avro -r http://dataplatform:28030
+kafkacat -b dataplatform:9092 -t tweet-avro-v1 -s avro -r http://dataplatform:8081
 ```
 
