@@ -328,7 +328,7 @@ Enter your messages so that a key and messages are separated by a comma, i.e. `k
 A Kafka topic can be dropped using the `kafka-topics` utility with the `--delete` option. 
 
 ```
-kafka-topics --zookeeper zookeeper-1:2181 --delete --topic test-topic
+kafka-topics --bootstrap-server kafka-1:19092 --delete --topic test-topic
 ```
 
 ## Working with the Kafkacat utility

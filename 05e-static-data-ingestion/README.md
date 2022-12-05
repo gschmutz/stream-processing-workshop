@@ -57,7 +57,7 @@ Let's create a new topic `truck_driver`, which will hold the latest information 
 Perform the `kafka-topics --create` command to create the topic `truck_driver` and configure it to be a **log compacted** topic:
 
 ```
-docker exec -ti kafka-1 kafka-topics --zookeeper zookeeper-1:2181 --create --topic truck_driver --partitions 8 --replication-factor 2 --config cleanup.policy=compact --config segment.ms=100 --config delete.retention.ms=100 --config min.cleanable.dirty.ratio=0.001
+docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092--create --topic truck_driver --partitions 8 --replication-factor 2 --config cleanup.policy=compact --config segment.ms=100 --config delete.retention.ms=100 --config min.cleanable.dirty.ratio=0.001
 ```
 
 Now let's create a consumer wich reads the new topic from the beginning. Because we will be producing Avro, we need to use the `kafka-avro-console-consumer` from the `schema-registry`. There is nothing shown so far, as we don't yet have any data available. 

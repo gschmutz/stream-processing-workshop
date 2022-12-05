@@ -39,7 +39,7 @@ You can work with scripts and store each code block in a file. You can then exec
 Now lets write a simple program in Python which produces a message to the Kafka topic test-topic. This topic has been created in [Getting started with Apache Kafka](../02-working-with-kafka-broker/README.md). If you need to reacreate it, execute the following commnand
 
 ```
-docker exec -ti kafka-1 kafka-topics --create --zookeeper zookeeper-1:2181 --topic test-topic --replication-factor 3 --partitions 8
+docker exec -ti kafka-1 kafka-topics --create --bootstrap-server kafka-1:19092 --topic test-topic --replication-factor 3 --partitions 8
 ```
 
 First we will produce messages. In order to see the results, run `kafkacat` in a separate terminal window and print the partition, key and value of each message:

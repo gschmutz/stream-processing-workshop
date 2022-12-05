@@ -15,7 +15,7 @@ If you have not yet done the [previous part](../05b-iot-data-ingestion-mqtt-to-k
 Create the topic;
 
 ```
-docker exec -ti kafka-1 kafka-topics --zookeeper zookeeper-1:2181 --create --topic truck_position --partitions 8 --replication-factor 3
+docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic truck_position --partitions 8 --replication-factor 3
 ```
 
 Run the simulator to directly produce into the Kafka topic
@@ -119,10 +119,10 @@ async def process(positions):
             await dangerousDrivingTopic.send( value=position)   
 ```
 
-Create the new topic `dangerous_driving_faust` where the dangerous drving behaviour will be published to:
+Create the new topic `dangerous_driving_faust` where the dangerous driving behaviour will be published to:
 
 ```
-docker exec -ti kafka-1 kafka-topics --zookeeper zookeeper-1:2181 --create --topic dangerous_driving_faust --partitions 8 --replication-factor 3
+docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic dangerous_driving_faust --partitions 8 --replication-factor 3
 ```
 
 Run the application

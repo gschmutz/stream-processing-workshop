@@ -78,7 +78,7 @@ Create the topic using the `kafka-topics` command.
 ```
 kafka-topics --create \
 			--if-not-exists \
-			--zookeeper zookeeper-1:2181 \
+			--bootstrap-server kafka-1:19092 \
 			--topic tweet-json \
 			--partitions 6 \
 			--replication-factor 2

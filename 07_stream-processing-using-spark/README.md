@@ -112,7 +112,7 @@ query2.stop
 Create a new topic
 
 ```
-docker exec -ti kafka-1 kafka-topics --create --zookeeper zookeeper-1:2181 --topic dangerous_driving_spark --partitions 8 --replication-factor 3
+docker exec -ti kafka-1 kafka-topics --create --bootstrap-server kafka-1:19092 --topic dangerous_driving_spark --partitions 8 --replication-factor 3
 ```
 
 ```python

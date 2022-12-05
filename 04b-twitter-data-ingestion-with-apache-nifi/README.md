@@ -107,7 +107,7 @@ Create the topic in Kafka, if it does not yet exist, using the `kafka-topics` co
 ```
 docker exec -ti kafka-1 kafka-topics --create \
 			--if-not-exists \
-			--zookeeper zookeeper-1:2181 \
+			--bootstrap-server kafka-1:19092 \
 			--topic tweet-json-topic \
 			--partitions 6 \
 			--replication-factor 2

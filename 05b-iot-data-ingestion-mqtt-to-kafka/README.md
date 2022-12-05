@@ -21,13 +21,13 @@ docker exec -ti kafka-1 bash
 As we have learned in a previous workshop, we can list all existing topics using `kafka-topics`. 
 
 ```
-kafka-topics --zookeeper zookeeper-1:2181 --list
+kafka-topics --bootstrap-server kafka-1:19092 --list
 ```
 
 Now let's create the `truck_position` topic, which should hold the messages from all the different MQTT topics (remember, there is one MQTT topic by vehicle). 
 
 ```
-kafka-topics --zookeeper zookeeper-1:2181 --create --topic truck_position --partitions 8 --replication-factor 3
+kafka-topics --bootstrap-server kafka-1:19092 --create --topic truck_position --partitions 8 --replication-factor 3
 ```
 
 Make sure to exit from the container after the topic has been created successfully.

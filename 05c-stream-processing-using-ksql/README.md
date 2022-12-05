@@ -13,7 +13,7 @@ We will first use KSQL to change the format of the messages from CSV to JSON and
 If you have not yet done the [previous part](../05b-iot-data-ingestion-mqtt-to-kafka/README.md), or it is no longer available, then you can also configure the IoT Truck Simulator to directly produce to Kafka, by running the following command:
 
 ```
-docker exec -ti kafka-1 kafka-topics --zookeeper zookeeper-1:2181 --create --topic truck_position --partitions 8 --replication-factor 3
+docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic truck_position --partitions 8 --replication-factor 3
 
 docker run --network streaming-platform trivadis/iot-truck-simulator '-s' 'KAFKA' '-h' 'kafka-1' '-p' '19092' '-f' 'CSV'
 ``` 
@@ -240,7 +240,7 @@ docker exec -ti kafka-1 bash
 and perform the following command to create the `dangerous_driving_ksql` topic in Kafka.
 
 ```
-kafka-topics --zookeeper zookeeper-1:2181 --create --topic dangerous_driving_ksql --partitions 8 --replication-factor 3
+kafka-topics --bootstrap-server kafka-1:19092 --create --topic dangerous_driving_ksql --partitions 8 --replication-factor 3
 ```
 
 Now let's publish to that topic from KSQL. For that we can create a new Stream. Instead of creating it on an existing topic as we have done before, we use the `CREATE STREAM ... AS SELECT ...` variant. 
