@@ -21,34 +21,9 @@ These steps are necessary after the starting the docker environment.
 To simplify working with the Data Platform and for the links below to work, add the following entry to your local `/etc/hosts` file. 
 
 ```
-40.91.195.92		dataplaform	streamingplatform
+40.91.195.92		dataplaform
 ```
 
 Replace the IP address by the public IP address of the docker host. 
 
-## Services accessible on Data Platform
-
-The following service are available as part of the platform:
-
-Type | Service | Url
-------|------- | -------------
-Development | StreamSets Data Collector | <http://dataplatform:18630>
-Development | Apache NiFi | <http://dataplatform:18080/nifi>
-Development | Apache Zeppelin | <http://dataplatform:28080>
-Development | Jupyter | <http://dataplatform:28888>
-Development | Kibana | <http://dataplatform:5601>
-Datastore | Neo4J | <http://dataplatform:7474>
-Datastore | Minio | <http://dataplatform:9000>
-Governance | Schema Registry UI  | <http://dataplatform:28102>
-Governance | Schema Registry Rest API  | <http://dataplatform:8081>
-Management | Kafka Connect UI | <http://dataplatform:28103>
-Management | Cluster Manager for Apache Kafka (CMAK)  | <http://dataplatform:28104>
-Management | AKHQ  | <http://dataplatform:28107>
-Management | Kafka Rest Service | <http://dataplatform:18086>
-Management | Kafka Connect Rest Service | <http://dataplatform:8083>
-Management | ksqlDB Rest Service | <http://dataplatform:8088>
-Management | Elasticsearch Rest Service | <http://dataplatform:9200>
-Management | Adminer RDBMS UI | <http://dataplatform:28131>
-Management | MQTT UI | <http://dataplatform:28136>
-Management | WeTTY | <http://dataplatform:3001>
 
