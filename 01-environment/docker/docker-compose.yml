@@ -201,7 +201,7 @@ services:
       - |
         echo "Installing Connectors"
         mkdir -p /etc/kafka-connect/cflthub-plugins
-        for i in $$(echo "confluentinc/kafka-connect-jdbc:10.6.3,confluentinc/kafka-connect-elasticsearch:14.0.4,jcustenborder/kafka-connect-twitter:0.3.34" | sed "s/,/ /g")
+        for i in $$(echo "confluentinc/kafka-connect-jdbc:10.6.3,confluentinc/kafka-connect-elasticsearch:14.0.4,jcustenborder/kafka-connect-twitter:0.3.34,debezium/debezium-connector-postgresql:1.9.2" | sed "s/,/ /g")
         do
           confluent-hub install --no-prompt --component-dir /etc/kafka-connect/cflthub-plugins --verbose "$$i"
         done
@@ -732,11 +732,12 @@ services:
     volumes:
       - ./data-transfer:/data-transfer
 #      - ./conf/minio/config.json:/root/.mc/config.json
+      - ./scripts/docker/wait-for-it.sh:/usr/src/app/wait-for-it.sh
     entrypoint:
       - /bin/sh
       - -c
       - |
-        sleep 10
+        /usr/src/app/wait-for-it.sh -t 180 minio-1:9000
         mc alias set minio-1 http://minio-1:9000 V42FCGRVMK24JJ8DHUYG bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza
         mc mb --ignore-existing minio-1/admin-bucket
            for i in $$(echo "" | sed "s/,/ /g")
