@@ -1,4 +1,5 @@
 # Data Ingestion with Apache NiFi
+
 ### Create a new pipeline
 In a browser navigate to <http://dataplatform:28080/nifi>. This should bring up the NiFi User Interface, which at this point is a blank canvas for orchestrating a data flow.
 

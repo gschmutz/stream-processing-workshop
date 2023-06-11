@@ -4,7 +4,7 @@
       platys:
           platform-name: 'data-platform'
           platform-stack: 'trivadis/platys-modern-data-platform'
-          platform-stack-version: '1.16.0-preview'
+          platform-stack-version: '1.17.0-preview'
           structure: 'flat'
       # ========================================================================
       # Global configuration, valid for all or a group of services
