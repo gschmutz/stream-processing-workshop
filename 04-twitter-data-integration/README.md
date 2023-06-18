@@ -1,4 +1,4 @@
-# Twitter Workshop
+# Twitter Workshop (outdated, as there is no longer a free version of the streaming API)
 
 In this workshop we will implement a streaming pipeline which gets live data from Twitter and sends it through a Kafka topic to an Elasticsearch database for later retrieval. The solution architecture is shown in the diagram below.
 
