@@ -619,6 +619,7 @@ services:
     environment:
       JUPYTER_ENABLE_LAB: "'yes'"
       GRANT_SUDO: "'yes'"
+      JUPYTER_TOKEN: abc123!
       DOCKER_STACKS_JUPYTER_CMD: lab
       CORE_CONF_fs_s3a_endpoint: http://minio-1:9000
       CORE_CONF_fs_s3a_path_style_access: 'true'

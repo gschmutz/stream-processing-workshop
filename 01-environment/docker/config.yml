@@ -613,7 +613,7 @@
       JUPYTER_python_packages: ''
       JUPYTER_spark_jars_packages: ''
       JUPYTER_tokenless: false
-      JUPYTER_token: ''
+      JUPYTER_token: 'abc123!'
       JUPYTER_nb_user: ''
       # JUPYTER_notebook_args: '--log-level='DEBUG' --dev-mode'
       JUPYTER_notebook_args: ''
