@@ -589,7 +589,7 @@ services:
       ZEPPELIN_INTERPRETER_CONNECT_TIMEOUT: 120000
       ZEPPELIN_INTERPRETER_DEP_MVNREPO: https://repo.maven.apache.org/maven2
       ZEPPELIN_ADMIN_USERNAME: admin
-      ZEPPELIN_ADMIN_PASSWORD: changeme
+      ZEPPELIN_ADMIN_PASSWORD: abc123!
       ZEPPELIN_USER_USERNAME: zeppelin
       ZEPPELIN_USER_PASSWORD: changeme
       # set spark-master for Zeppelin interpreter

@@ -594,7 +594,7 @@
       ZEPPELIN_enable: true
       ZEPPELIN_volume_map_data: false
       ZEPPELIN_admin_username: admin
-      ZEPPELIN_admin_password: changeme
+      ZEPPELIN_admin_password: abc123!
       ZEPPELIN_user_username: zeppelin
       ZEPPELIN_user_password: changeme
       ZEPPELIN_spark_cores_max:
