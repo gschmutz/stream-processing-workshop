@@ -1,12 +1,12 @@
 # =======================================================================
-# Platform Name            data-platform
+# Platform Name            streaming-data-platform
 # Platform Stack:          trivadis/platys-modern-data-platform
 # Platform Stack Version:  1.17.0-preview
 # =======================================================================
 version: '3.5'
 networks:
   default:
-    name: data-platform
+    name: streaming-data-platform
 # enforce some dependencies
 # enforce some dependencies
 # enforce some dependencies
@@ -865,7 +865,7 @@ services:
       PUBLIC_IP: ${PUBLIC_IP}
       DOCKER_HOST_IP: ${DOCKER_HOST_IP}
       DATAPLATFORM_HOME: ${DATAPLATFORM_HOME}
-      PLATYS_PLATFORM_NAME: data-platform
+      PLATYS_PLATFORM_NAME: streaming-data-platform
       PLATYS_PLATFORM_STACK: trivadis/platys-modern-data-platform
       PLATYS_PLATFORM_STACK_VERSION: 1.17.0-preview
       PLATYS_COPY_COOKBOOK_DATA: 'True'
