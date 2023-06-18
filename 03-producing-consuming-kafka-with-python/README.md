@@ -4,17 +4,11 @@
 
 In this workshop we will learn how to use the [Confluent Python client for Apache Kafka](https://github.com/confluentinc/confluent-kafka-python).
 
-You can perform this part of the workshop using either the Python installation of the Virtual Machine your Docker Host is running or use the Python as part of the Apache Zeppelin container, running as part of the Streaming Platform. 
-
-To use Python inside the Apache Zeppelin container, use docker exec to connect into the container:
-
-```bash
-docker exec -ti zeppelin bash
-```
+You can perform this part of the workshop using either the Python installation of the Virtual Machine on the Docker Host or use the Python as part of the [Apache Zeppelin](http://dataplatform:28080) (User `admin` and password `abc123!`) or [Jupyter](http://dataplatform:28888) (token `abc123!`) container, running as part of the Data Platform. 
 
 ## Installing the Confluent Python Client
 
-If you are using the Python environment on the virtual machine, you first have to install PIP. 
+If you are using the Python environment on the virtual machine, you first have to install PIP.  This is not needed when using Zeppelin or Jupyter. 
 
 ```bash
 sudo apt install python-pip
@@ -26,23 +20,30 @@ After that you can install the self-contained binaries of the Confluent Python c
 pip install confluent-kafka
 ```
 
-To install support for Avro, also perform the following step:
-
-```bash
-pip install confluent-kafka[avro]
-``` 
-
-You can work with scripts and store each code block in a file. You can then execute it using `python script-name.py`. Or you can use the Apache Zeppelin notebook-based environment and just add each code block as a paragraph into a notebook and execute it from there.
+You can work with scripts and store each code block in a file. You can then execute it using `python script-name.py`. Or you can use the Apache Zeppelin or Jupyter notebook-based environment and just add each code block as a paragraph into a notebook and execute it from there.
 
 ## Working with Text Messages
 
-Now lets write a simple program in Python which produces a message to the Kafka topic test-topic. This topic has been created in [Getting started with Apache Kafka](../02-working-with-kafka-broker/README.md).
+Now let's write a simple program in Python which produces a message to the Kafka topic test-topic. This topic has been created in [Getting started with Apache Kafka](../02-working-with-kafka-broker/README.md).
 
-First we will produce messages. In order to see the results, run `kafkacat` in a separate terminal window and print the partition, key and value of each message:
+First we will produce messages. Let's create the topic to use for that
+
+```bash
+docker exec -ti kafka-1 kafka-topics --create --bootstrap-server kafka-1:19092 --topic test-topic --replication-factor 3 --partitions 6
+```
+
+In order to see the results, run `kafkacat` in a separate terminal window and print the partition, key and value of each message:
 
 ```bash
 kafkacat -b dataplatform -t test-topic -f "P-%p: %k=%s\n" -Z 
 ``` 
+
+or to use the dockerized `kcat` instead use
+
+```bash
+docker exec -ti kcat kcat -b kafka-1:19092 -t test-topic  -f "P-%p: %k=%s\n" -Z 
+```
+
 
 The following code segments assume that they are run inside the Zeppelin docker container. If you want to run them from the Docker Host, you have to replace broker-1 and broker-2 by the IP Address of the Docker Host.
 
@@ -78,15 +79,74 @@ for data in messages:
 p.flush()
 ```
 
+and you should see the following 3 messages on the `kcat` output
+
+```bash
+docker exec -ti kcat kcat -b kafka-1:19092 -t test-topic  -f "P-%p: %k=%s\n" -Z 
+% Auto-selecting Consumer mode (use -P or -C to override)
+% Reached end of topic test-topic [0] at offset 0
+% Reached end of topic test-topic [1] at offset 0
+% Reached end of topic test-topic [2] at offset 0
+% Reached end of topic test-topic [5] at offset 4
+% Reached end of topic test-topic [4] at offset 1
+% Reached end of topic test-topic [3] at offset 1
+P-3: NULL=message1
+P-3: NULL=message3
+P-4: NULL=message2
+```
+
 ### Producing messages with a key and value
 
 To also produce a key, you have to also use the parameter `key` together with the parameter `value`.
 
 ```python
-    p.produce('test-topic'
-             , key="1"
-             , value = data.encode('utf-8')
-             , callback=delivery_report)
+from confluent_kafka import Producer
+
+p = Producer({'bootstrap.servers': 'kafka-1:19092,kafka-2:19093'})
+messages = ["message1","message2","message3"]
+
+def delivery_report(err, msg):
+    """ Called once for each message produced to indicate delivery result.
+        Triggered by poll() or flush(). """
+    if err is not None:
+        print('Message delivery failed: {}'.format(err))
+    else:
+        print('Message delivered to {} [{}]'.format(msg.topic(), msg.partition()))
+
+for data in messages:
+    # Trigger any available delivery report callbacks from previous produce() calls
+    p.poll(0)
+
+    # Asynchronously produce a message, the delivery report callback
+    # will be triggered from poll() above, or flush() below, when the message has
+    # been successfully delivered or failed permanently.
+    p.produce('test-topic', key='1', value=data.encode('utf-8'), callback=delivery_report)
+
+# Wait for any outstanding messages to be delivered and delivery report
+# callbacks to be triggered.
+p.flush()
+```
+
+and you should see 3 additional messages on the `kcat` output now all in the same partition and with a key (`1`)
+
+```bash
+ubuntu@ip-172-26-15-121:~$ docker exec -ti kcat kcat -b kafka-1:19092 -t test-topic  -f "P-%p: %k=%s\n" -Z 
+% Auto-selecting Consumer mode (use -P or -C to override)
+% Reached end of topic test-topic [0] at offset 0
+% Reached end of topic test-topic [1] at offset 0
+% Reached end of topic test-topic [2] at offset 0
+% Reached end of topic test-topic [5] at offset 4
+% Reached end of topic test-topic [4] at offset 1
+% Reached end of topic test-topic [3] at offset 1
+P-3: NULL=message1
+P-3: NULL=message3
+P-4: NULL=message2
+% Reached end of topic test-topic [3] at offset 3
+% Reached end of topic test-topic [4] at offset 2
+P-5: 1=message1
+P-5: 1=message2
+P-5: 1=message3
+% Reached end of topic test-topic [5] at offset 7
 ```
 
 ### Consuming messages
@@ -97,7 +157,7 @@ To consume text messages through python, use the following code segment. Make su
 from confluent_kafka import Consumer, KafkaError
 
 c = Consumer({
-    'bootstrap.servers': 'dataplatform:9092, dataplatform:9093',
+    'bootstrap.servers': 'kafka-1:19092, kafka-1:19093',
     'group.id': 'test-consumer-group',
     'default.topic.config': {
         'auto.offset.reset': 'largest'
@@ -126,22 +186,42 @@ while go_on:
 c.close()
 ```
 
-When started, this code block will consume messages in an endless loop, so if you use it in the same Zeppelin notebook, you will have to run the producer externally, i.e. using Kafkacat in order to see some messages. 
+When started, this code block will consume messages in an endless loop, so if you use it in the same Zeppelin notebook, you will have to run the producer externally, i.e. using `kafkacat` or `kcat` as shown before but this time with the `-P` option to run it as a producer. 
 
 ```bash
-kafkacat -P -b dataplatform -t test-topic
+docker exec -ti kcat kcat -P -b kafka-1:19092 -t test-topic 
 ```
+
+Add a few messages and then enter `ctrl-D` to send the messages
+
+```bash
+ubuntu@ip-172-26-15-121:~$ docker exec -ti kcat kcat -P -b  kafka-1:19092 -t test-topic 
+hello
+world!
+```
+
+you should see the 2 messages appear in the python consumer
+
+![](./images/python-consumer.png)
+
+Send another message with the value of `STOP` to terminate the consumer. 
 
 ## Working with Avro Messages
 
 The Confluent Python client also supports working with Avro formatted messages. It works together with the [Confluent Schema Registry](https://docs.confluent.io/current/schema-registry/docs/index.html). 
 
-## Produce Avro Messages
+To install support for Avro, perform the following step:
+
+```bash
+pip install confluent-kafka[avro]
+``` 
+
+### Produce Avro Messages
 
 In order to separate the Avro tests from the other tests, lets create a new topic:
 
 ```bash
-kafka-topics --create \
+docker exec -ti kafka-1 kafka-topics --create \
              --if-not-exists \
              --bootstrap-server kafka-1:19092 \
              --topic test-avro-topic \
@@ -149,17 +229,28 @@ kafka-topics --create \
              --replication-factor 3
 ```
 
-Make sure that you change the **kafkacat** command to consume from the new topic.
+Make sure that you change the **kcat** command to consume from the new topic.
 
 ```bash
 kafkacat -b dataplatform -t test-avro-topic -f "P-%p: %k=%s\n" -Z 
 ``` 
 
+or to use the dockerized `kcat` instead use
+
+```bash
+docker exec -ti kcat kcat -b kafka-1:19092 -t test-avro-topic  -f "P-%p: %k=%s\n" -Z 
+```
+
 The following Python code produces an Avro message 
 
 ```python
-from confluent_kafka import avro
-from confluent_kafka.avro import AvroProducer
+import os
+from uuid import uuid4
+
+from confluent_kafka import Producer
+from confluent_kafka.serialization import StringSerializer, SerializationContext, MessageField
+from confluent_kafka.schema_registry import SchemaRegistryClient
+from confluent_kafka.schema_registry.avro import AvroSerializer
 
 value_schema_str = """
 {
@@ -183,36 +274,97 @@ value_schema_str = """
 }
 """
 
-key_schema_str = """
-{
-   "namespace": "my.test",
-   "name": "PersonKey",
-   "type": "record",
-   "fields" : [
-     {
-       "name" : "id",
-       "type" : "string"
-     }
-   ]
-}
-"""
+class Person(object):
+    """
+    Person record
+
+    Args:
+        id (str): Person's id
+
+        firstName (str): Person's firstname
+        
+        lastName (str): Person's lastname
+    """
+
+    def __init__(self, id, firstName, lastName):
+        self.id = id
+        self.firstName = firstName
+        self.lastName = lastName
+
+def person_to_dict(person, ctx):
+    """
+    Returns a dict representation of a Person instance for serialization.
+
+    Args:
+        person (Person): Person instance.
+
+        ctx (SerializationContext): Metadata pertaining to the serialization
+            operation.
+
+    Returns:
+        dict: Dict populated with person attributes to be serialized.
+    """
+
+    return dict(id=person.id,
+                firstName=person.firstName,
+                lastName=person.lastName)
+
+def delivery_report(err, msg):
+    """
+    Reports the failure or success of a message delivery.
+
+    Args:
+        err (KafkaError): The error that occurred on None on success.
+
+        msg (Message): The message that was produced or failed.
+
+    Note:
+        In the delivery report callback the Message.key() and Message.value()
+        will be the binary format as encoded by any configured Serializers and
+        not the same object that was passed to produce().
+        If you wish to pass the original object(s) for key and value to delivery
+        report callback we recommend a bound callback or lambda where you pass
+        the objects along.
+    """
+
+    if err is not None:
+        print("Delivery failed for User record {}: {}".format(msg.key(), err))
+        return
+    print('User record {} successfully produced to {} [{}] at offset {}'.format(
+        msg.key(), msg.topic(), msg.partition(), msg.offset()))
+
 
 value_schema = avro.loads(value_schema_str)
 key_schema = avro.loads(key_schema_str)
-value = {"id":"1001", "firstName": "Peter", "lastName": "Muster"}
-key = {"id": "1001"}
 
-avroProducer = AvroProducer({
-    'bootstrap.servers': 'dataplatform:9092,dataplatform:9093',
-    'schema.registry.url': 'http://dataplatform:8081',
-    'compression.codec': 'snappy'
-    }, default_key_schema=key_schema, default_value_schema=value_schema)
+schema_registry_conf = {'url': 'http://schema-registry-1:8081'}
+schema_registry_client = SchemaRegistryClient(schema_registry_conf)
 
-avroProducer.produce(topic='test-avro-topic', value=value, key=key)
-avroProducer.flush()
+avro_serializer = AvroSerializer(schema_registry_client,
+                                     value_schema_str,
+                                     person_to_dict)
+string_serializer = StringSerializer('utf_8')
+
+person = Person(id='1001',
+                        firstName='Peter',
+                        lastName='Muster')
+
+producer_conf = {'bootstrap.servers': 'kafka-1:19092'}
+producer = Producer(producer_conf)
+topic = 'test-avro-topic'
+
+producer.produce(topic=topic,
+                             key=string_serializer(str(person.id)),
+                             value=avro_serializer(person, SerializationContext(topic, MessageField.VALUE)),
+                             on_delivery=delivery_report)
+producer.flush()                     
 ```
 
-When producing an Avro message, the library will check if the Avro Schema for the key and the value part is already registered and if it is, it checks if the one provided has a change and if yes, if this change is compatible. 
+You should get the following message showing successful publish of the Avro message:
+
+`User record b'1001' successfully produced to test-avro-topic [1] at offset 2`
+
+When producing an Avro message, the library will check if the Avro Schema is already registered and if it is, it checks if the one provided has a change and if yes, if this change is compatible. 
 
 If a schema does not exist at all, then it is registered. You can check the registry through the REST API or the Schema Registry UI. 
 
@@ -265,30 +417,41 @@ $ curl http://dataplatform:8081/subjects/test-avro-topic-value/versions/1
 
 ### View schemas using Schema Registry UI
 
-To browse the Schema Registry using the browser-based [Landoop Schema Registry UI](http://www.landoop.com/blog/2016/08/schema-registry-ui/), navigate to the following URL: <http://dataplatform:8081>.
+To browse the Schema Registry using the browser-based [Landoop Schema Registry UI](http://www.landoop.com/blog/2016/08/schema-registry-ui/), navigate to the following URL: <http://dataplatform:28102>.
 
 You should see the two schemas registered. If you click on one of them, the Avro Schema will be displayed on the right side:
 
 ![Alt Image Text](./images/schema-registry-ui-1.png "Schema Registry UI")
 
-### Consuming Avro Messages using Kafkacat 
+### Consuming Avro Messages using `kcat` 
 
-But what about the output of Kafkacat? We can see that the message is shown, although not very readable. 
+But what about the output of `kcat`? We can see that the message is shown, although not very readable. 
 
 ```bash
-> kafkacat -b dataplatform -t test-avro-topic -f "P-%p: %k=%s\n" -Z
-% Auto-selecting Consumer mode (use -P or -C to override)
+> docker exec -ti kcat kcat -b kafka-1:19092 -t test-avro-topic  -f "P-%p: %k=%s\n" -Z 
+> % Auto-selecting Consumer mode (use -P or -C to override)
 P-5:10011001
 Peter
      Muster
 ```     
 
-This is even more problematic if the Avro message is much larger with much more properties. 
-**Kafkacat** cannot yet work with Avro messages. But there is a special version of the `kafka-console-consumer` utility, the `kafka-avro-console-consumer'. 
+This is even more problematic if the Avro message is much larger with much more properties. To work with Avro messages from `kcat` you have to add some additional parameters:
+
+```bash
+docker exec -ti kcat kcat -b kafka-1:19092 -t test-avro-topic  -f "P-%p: %k=%s\n" -Z -s value=avro -r http://schema-registry-1:8081
+```
+
+and you should see the avro message formatted as a JSON string
+
+```
+ubuntu@ip-172-26-15-121:~$ docker exec -ti kcat kcat -b kafka-1:19092 -t test-avro-topic  -f "P-%p: %k=%s\n" -Z -s value=avro -r http://schema-registry-1:8081
+% Auto-selecting Consumer mode (use -P or -C to override)
+P-1: 1001={"id": "1001", "firstName": "Peter", "lastName": "Muster"}
+```
 
 ### Consuming Messages using `kafka-avro-console-consumer`
 
-On the Streaming Platform, this is part of the schema registry docker container. Let's connect to the docker container:
+Instead of using `kcat` to consume Avro messages, there is also a `kafka-avro-console-consumer`. On the Data Platform, this is part of the schema registry docker container. Let's connect to the docker container:
 
 ```bash
 docker exec -ti schema-registry bash
