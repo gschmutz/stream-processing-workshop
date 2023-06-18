@@ -334,9 +334,6 @@ def delivery_report(err, msg):
         msg.key(), msg.topic(), msg.partition(), msg.offset()))
 
 
-value_schema = avro.loads(value_schema_str)
-key_schema = avro.loads(key_schema_str)
-
 schema_registry_conf = {'url': 'http://schema-registry-1:8081'}
 schema_registry_client = SchemaRegistryClient(schema_registry_conf)
 
@@ -469,4 +466,115 @@ If you re-run the Avro producer python snippet, then you should see the Avro mes
 {"id":"1001","firstName":"Peter","lastName":"Muster"}
 ```
 
+### Consuming Avro Messages from Python
+
+Now let's write a python script to consume the Avro messages as well.
+
+```python
+import os
+from uuid import uuid4
+
+from confluent_kafka import Consumer
+from confluent_kafka.serialization import SerializationContext, MessageField
+from confluent_kafka.schema_registry import SchemaRegistryClient
+from confluent_kafka.schema_registry.avro import AvroDeserializer
+
+
+value_schema_str = """
+{
+   "namespace": "my.test",
+   "name": "Person",
+   "type": "record",
+   "fields" : [
+     {
+       "name" : "id",
+       "type" : "string"
+     },
+     {
+       "name" : "firstName",
+       "type" : "string"
+     },
+     {
+       "name" : "lastName",
+       "type" : "string"
+     }
+   ]
+}
+"""
+
+class Person(object):
+    """
+    Person record
+
+    Args:
+        id (str): Person's id
+
+        firstName (str): Person's firstname
+        
+        lastName (str): Person's lastname
+    """
+
+    def __init__(self, id, firstName, lastName):
+        self.id = id
+        self.firstName = firstName
+        self.lastName = lastName
+
+def dict_to_person(obj, ctx):
+    """
+    Converts object literal(dict) to a Person instance.
+
+    Args:
+        obj (dict): Object literal(dict)
+
+        ctx (SerializationContext): Metadata pertaining to the serialization
+            operation.
+
+    Returns:
+        dict: Dict populated with person attributes to be serialized.
+    """
+
+    if obj is None:
+        return None
+
+    return Person(id=obj['id'],
+                firstName=obj['firstName'],
+                lastName=obj['lastName'])
+
+
+schema_registry_conf = {'url': 'http://schema-registry-1:8081'}
+schema_registry_client = SchemaRegistryClient(schema_registry_conf)
+
+avro_deserializer = AvroDeserializer(schema_registry_client,
+                                         value_schema_str,
+                                         dict_to_person)
+
+consumer_conf = {'bootstrap.servers': 'kafka-1:19092',
+                     'group.id': 'test-avro-topic-cg',
+                     'auto.offset.reset': "earliest"}
+consumer = Consumer(consumer_conf)
+
+topic = 'test-avro-topic'
+consumer.subscribe([topic])
+
+while True:
+    try:
+         # SIGINT can't be handled when polling, limit timeout to 1 second.
+         msg = consumer.poll(1.0)
+         if msg is None:
+             continue
+
+         perosn = avro_deserializer(msg.value(), SerializationContext(msg.topic(), MessageField.VALUE))
+         if person is not None:
+             print("Person record {}: id: {}\n"
+                      "\tfirstName: {}\n"
+                      "\tlastName: {}\n"
+                      .format(msg.key(), person.id,
+                              person.firstName,
+                              person.lastName))
+    except KeyboardInterrupt:
+         break
+
+consumer.close()
+
+```
 
