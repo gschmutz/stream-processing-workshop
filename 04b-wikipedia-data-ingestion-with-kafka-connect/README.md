@@ -88,7 +88,7 @@ You can use [Kafka Connect UI](http://dataplatform:28038/) to check if the conne
 
 ![Alt Image Text](./images/kafka-connect-ui.png "Kafka Connect UI") 
 
-## Use kafkacat to see the mssage on the console
+## Use kafkacat to show the messages on the console
 
 Now let's start a `kafkacat` consumer on the new topic:
 
