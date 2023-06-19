@@ -1,10 +1,10 @@
-# Storing Tweets into Elasticsearch using Kafka Connect
+# Storing Wikipedia Recent Changes into Elasticsearch using Kafka Connect
 
 In this workshop we will see how we can use Kafka Connect to move data from a Kafka topic to an [Elasticserach NoSQL datastore](https://www.elastic.co/products/elastic-stack). 
 
 We will implement it using Kafka Connect and use Kibana for the visualization of the data. 
 
-In order to do this workshop, you will have to first finish [Data Ingestion with Kafka Connect](../04c-twitter-data-ingestion-with-kafka-connect/README.md). This workshop will only work with the Kafka Connect solution on the input side, and not with the NiFi and/or StreamSets solution. 
+In order to do this workshop, you will have to first finish [Data Ingestion with Kafka Connect](../04b-wikipedia-data-ingestion-with-kafka-connect/README.md). This workshop will only work with the Kafka Connect solution on the input side, and not with the NiFi and/or StreamSets solution. 
 
 ## Configure the Elasticsearch Connector
 
@@ -101,7 +101,7 @@ Click on the drop-down arrow on the index name and from the drop-down menue sele
  "Elastic Serach Connector") 
 
 The mapping describes how a document, and the fields it contains, are stored and indexed in Elsticsearch. For instance it defines which string fields should be treated as full text fields, which fields contain numbers or dates and the format of date values. 
-It has been created based on the Avro Schema for the Twitter message.
+It has been created based on the Avro Schema for the Wikipedia Recent Change message.
 
 The generated mapping is very usable, but there is a problem with the mapping of the `CreatedAt` property:
  

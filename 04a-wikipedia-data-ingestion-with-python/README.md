@@ -1,4 +1,4 @@
-# Wikipedia Data Ingestion with Kafka Connect
+# Wikipedia Data Ingestion with Python
 
 In this workshop we will be using Kafka Connect to get the data from the Wikipedia Recent Changes stream into Kafka. 
 
@@ -23,27 +23,35 @@ cd scripts
 
 In the `scripts` folder, create a file `start-twitter.sh` and add the code below.  
 
+```python
+import json
+
+from kafka import KafkaProducer
+from sseclient import SSEClient as EventSource
+
+
+def produce_events_from_url(url: str, topic: str) -> None:
+    for event in EventSource(url):
+        if event.event == "message":
+            try:
+                parsed_event = json.loads(event.data)
+            except ValueError:
+                pass
+            else:
+                key = parsed_event["server_name"]
+                # Partiton by server_name
+                producer.send(topic, value=json.dumps(parsed_event).encode("utf-8"), key=key.encode("utf-8"))
+
+
+if __name__ == "__main__":
+    producer = KafkaProducer(
+        bootstrap_servers="localhost:63248", client_id="wikidata-producer"
+    )
+    produce_events_from_url(
+        url="https://stream.wikimedia.org/v2/stream/recentchange", topic="wikipedia"
+    )
 ```
-#!/bin/bash
 
-echo "removing Twitter Source Connector"
-
-curl -X "DELETE" http://dataplatform:28013/connectors/tweet-source"
-
-echo "creating Twitter Source Connector"
-
-curl -X "POST" http://dataplatform:8083/connectors \
-  -H 'Content-Type: application/json' \
-  -d '{
-  "name": "wikipedia-source",
-  "config": {
-    "connector.class": "de.codecentric.kafka.playground.connect.source.ServerSentEventSourceConnector",
-    "topic": "wikipedia-via-connect",
-    "sse.uri": "https://stream.wikimedia.org/v2/stream/recentchange",
-    "tasks.max": "1"
-  }
-}' 
-```
 Make sure that you replace the `oauth.xxxxx` settings with the value of your Twittter application (created [here](https://developer.twitter.com/en/apps)).
 
 Also create a separate script `stop-twitter.sh` for just stopping the connector and add the following code:

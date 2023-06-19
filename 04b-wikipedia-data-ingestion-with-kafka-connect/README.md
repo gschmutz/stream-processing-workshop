@@ -80,7 +80,7 @@ Now we are ready to run the Wikipedia Connector.
 
 Finally let's start the connector by running the `start-twitter` script.
 
-```
+```bash
 ./scripts/start-twitter.sh
 ```
 
@@ -92,13 +92,8 @@ You can use [Kafka Connect UI](http://dataplatform:28038/) to check if the conne
 
 Now let's start a `kafkacat` consumer on the new topic:
 
-```
+```bash
 docker exec -ti kcat kcat -b kafka-1:19092 -t wikipedia-recent-changes-v1
 ```
 
-This is not very readable, as the Twitter Connector is using Avro for the serializer. But we can tell `kafkacat` to do the same for serialization, using the `-s` together with the `-r` option:
-
-```
-kafkacat -b dataplatform:9092 -t tweet-avro-v1 -s avro -r http://dataplatform:8081
-```
 
