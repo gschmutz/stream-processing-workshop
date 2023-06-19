@@ -95,7 +95,7 @@
       # ===== Kafka Connect ========
       #
       KAFKA_CONNECT_enable: true
-      KAFKA_CONNECT_nodes: 1
+      KAFKA_CONNECT_nodes: 2
       KAFKA_CONNECT_connectors: 'confluentinc/kafka-connect-jdbc:10.6.3,confluentinc/kafka-connect-elasticsearch:14.0.4,jcustenborder/kafka-connect-twitter:0.3.34,debezium/debezium-connector-postgresql:1.9.2'
       KAFKA_CONNECT_config_providers: 'file'
       KAFKA_CONNECT_config_providers_classes: 'org.apache.kafka.common.config.provider.FileConfigProvider'
