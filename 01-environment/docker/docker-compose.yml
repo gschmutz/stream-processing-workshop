@@ -514,8 +514,8 @@ services:
       - KAFKA_BOOTSTRAP_SERVER=kafka-1:19092,kafka-2:19093,kafka-3:19094
       - LICENSE_KEY=
       - ORGANISATION_NAME=default
-      - CDK_ADMIN_EMAIL=admin
-      - CDK_ADMIN_PASSWOED=abc123!
+      - ADMIN_EMAIL=admin
+      - ADMIN_PSW=abc123!
       - SCHEMA_REGISTRY_URL=http://schema-registry-1:8081
       - KAFKA_CONNECT_URL=http://kafka-connect-1:8083
     volumes:
