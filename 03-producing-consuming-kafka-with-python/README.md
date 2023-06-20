@@ -157,7 +157,7 @@ To consume text messages through python, use the following code segment. Make su
 from confluent_kafka import Consumer, KafkaError
 
 c = Consumer({
-    'bootstrap.servers': 'kafka-1:19092, kafka-1:19093',
+    'bootstrap.servers': 'kafka-1:19092, kafka-2:19093',
     'group.id': 'test-consumer-group',
     'default.topic.config': {
         'auto.offset.reset': 'largest'
@@ -530,7 +530,7 @@ def dict_to_person(obj, ctx):
             operation.
 
     Returns:
-        dict: Dict populated with person attributes to be serialized.
+        dict: Dict populated with person attributes to be serialiszed.
     """
 
     if obj is None:
