@@ -370,15 +370,21 @@ By setting an alias, we can work with the dockerized version of `kcat` as it wou
 alias kcat='docker run --tty --network streaming-data-platform edenhill/kcat:1.7.1 kcat'
 ```
 
+The other option for using `kcat` is as part of the Data Platform, where `kcat` is running as a container. This method will be used in the other workshops.
+
+```bash
+docker exec -ti kcat kcat
+```
+
 Check the [Running in Docker](https://github.com/edenhill/kcat#running-in-docker) to see more options for using `kcat` with Docker. 
 
 #### Windows
 
-There is no official support to run Kafkacat on Windows. You might try the following link to run it on Windows: <https://ci.appveyor.com/project/edenhill/kafkacat/builds/23675338/artifacts>.
+There is no official support to run `kcat` on Windows. You might try the following link to run it on Windows: <https://ci.appveyor.com/project/edenhill/kafkacat/builds/23675338/artifacts>.
 
 An other option for Windows is to run it as a Docker container as shown above. 
 
-### Display kcat options
+### Display `kcat` options
 
 `kcat` has many options. If you just enter `kcat` without any options, all the options with a short description is shown on the console. Additionally kcat will show the version which is installed. This is currently **1.7.0** if installed on Mac and **1.6.0** if on Ubuntu. 
 
@@ -566,7 +572,7 @@ Query offset by timestamp:
 
 Now let's use it to Produce and Consume messages.
 
-### Consuming messages using Kcat
+### Consuming messages using `kcat`
 
 All the examples below are shown using `kcat`. If you are still on the older version (before `1.7` replace `kcat` with `kafkacat`). 
 
