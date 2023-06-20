@@ -201,7 +201,7 @@ services:
       - |
         echo "Installing Connectors"
         mkdir -p /etc/kafka-connect/cflthub-plugins
-        for i in $$(echo "jcustenborder/kafka-connect-json-schema:latest,redhatinsights/expandjsonsmt:0.0.7,confluentinc/kafka-connect-json-schema-converter:7.4.0,confluentinc/kafka-connect-jdbc:10.6.3,confluentinc/kafka-connect-elasticsearch:14.0.4,debezium/debezium-connector-postgresql:1.9.2,cjmatta/kafka-connect-sse:1.0" | sed "s/,/ /g")
+        for i in $$(echo "jcustenborder/kafka-connect-json-schema:0.2.5,redhatinsights/expandjsonsmt:0.0.7,confluentinc/kafka-connect-json-schema-converter:7.4.0,confluentinc/kafka-connect-jdbc:10.6.3,confluentinc/kafka-connect-elasticsearch:14.0.4,debezium/debezium-connector-postgresql:1.9.2,cjmatta/kafka-connect-sse:1.0" | sed "s/,/ /g")
         do
           confluent-hub install --no-prompt --component-dir /etc/kafka-connect/cflthub-plugins --verbose "$$i"
         done
@@ -267,7 +267,7 @@ services:
       - |
         echo "Installing Connectors"
         mkdir -p /etc/kafka-connect/cflthub-plugins
-        for i in $$(echo "jcustenborder/kafka-connect-json-schema:latest,redhatinsights/expandjsonsmt:0.0.7,confluentinc/kafka-connect-json-schema-converter:7.4.0,confluentinc/kafka-connect-jdbc:10.6.3,confluentinc/kafka-connect-elasticsearch:14.0.4,debezium/debezium-connector-postgresql:1.9.2,cjmatta/kafka-connect-sse:1.0" | sed "s/,/ /g")
+        for i in $$(echo "jcustenborder/kafka-connect-json-schema:0.2.5,redhatinsights/expandjsonsmt:0.0.7,confluentinc/kafka-connect-json-schema-converter:7.4.0,confluentinc/kafka-connect-jdbc:10.6.3,confluentinc/kafka-connect-elasticsearch:14.0.4,debezium/debezium-connector-postgresql:1.9.2,cjmatta/kafka-connect-sse:1.0" | sed "s/,/ /g")
         do
           confluent-hub install --no-prompt --component-dir /etc/kafka-connect/cflthub-plugins --verbose "$$i"
         done
