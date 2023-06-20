@@ -361,13 +361,13 @@ brew install kcat
 There is also a Docker container from Confluent which can be used to run `kcat`
 
 ```bash
-docker run --tty --network kafka-workshop edenhill/kcat:1.7.0 kcat
+docker run --tty --network streaming-data-platform edenhill/kcat:1.7.1 kcat
 ```
 
 By setting an alias, we can work with the dockerized version of `kcat` as it would be a local command. All further examples assume that this is the case. 
 
 ```bash
-alias kcat='docker run --tty --network kafka-workshop edenhill/kcat:1.7.0 kcat'
+alias kcat='docker run --tty --network streaming-data-platform edenhill/kcat:1.7.1 kcat'
 ```
 
 Check the [Running in Docker](https://github.com/edenhill/kcat#running-in-docker) to see more options for using `kcat` with Docker. 
