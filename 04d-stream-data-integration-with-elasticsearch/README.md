@@ -1,4 +1,4 @@
-# Storing Wikipedia Recent Changes into Elasticsearch using Kafka Connect
+# Storing Wikipedia Recent Changes into Elasticsearch using Kafka Connect (t.b.d)
 
 In this workshop we will see how we can use Kafka Connect to move data from a Kafka topic to an [Elasticserach NoSQL datastore](https://www.elastic.co/products/elastic-stack). 
 

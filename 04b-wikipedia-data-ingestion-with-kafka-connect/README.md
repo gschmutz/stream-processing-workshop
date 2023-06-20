@@ -1,8 +1,10 @@
 # Wikipedia Data Ingestion with Kafka Connect
 
-In this workshop we will be using Kafka Connect to get the data from the Wikipedia Recent Changes stream into Kafka. 
+In this workshop we will be using Kafka Connect to get the data from the [Wikipedia Recent Changes stream](https://wikitech.wikimedia.org/wiki/Event_Platform/EventStreams) into Kafka. Wikipedia EventStreams is a web service that exposes continuous streams of structured event data. It does so over HTTP using chunked transfer encoding following the Server-Sent Events protocol (SSE). 
 
-Luckily, there is a [Kafka Connector](https://github.com/jcustenborder/kafka-connect-twitter) available for retrieving live Wkikpedia Recent Changes. So all we have to do here is configure it and bring it to action!
+Luckily, there is a [Kafka Connector](https://github.com/codecentric/streaming-wikipedia-with-kafka/tree/main/kafka-playground-connect) available for retrieving live Wikipedia Recent Changes. But it is not available as a downloadable resource from [Confluent Hub](https://www.confluent.io/hub/), so we had to build it first and provide it together with the Data Platform. So all we have to do here is configure it and bring it to action!
+
+There is another option using the 
 
 There are two instances of the Kafka Connect service instance running as part of the Data Platform, `kafka-connect-1` and `kafka-connect-2`. 
 
@@ -23,7 +25,7 @@ cd scripts
 
 In the `scripts` folder, create a file `start-wikipedia.sh` and add the code below.  
 
-```
+```bash
 #!/bin/bash
 
 echo "removing Wikipedia Source Connector"
