@@ -1,13 +1,13 @@
 # Wikipedia Data Ingestion with Python
 
-In this workshop we will be using Python to get the data from the Wikipedia Recent Changes stream into Kafka. 
+In this workshop we will be using Python to get the data from the [Wikipedia Recent Changes stream](https://wikitech.wikimedia.org/wiki/Event_Platform/EventStreams) into Kafka. Wikipedia EventStreams is a web service that exposes continuous streams of structured event data. It does so over HTTP using chunked transfer encoding following the Server-Sent Events protocol (SSE). 
 
 ## Create the topic in Kafka
 
 Create the topic in Kafka, if it does not yet exist, using the `kafka-topics` command. 
 
 ```bash
-docker exec -ti kafka-1 kafka-topics --create --if-not-exists --bootstrap-server kafka-1:19092 --topic wikipedia-recent-changes-v1 --partitions 8 --replication-factor 3
+docker exec -ti kafka-1 kafka-topics --create --if-not-exists --bootstrap-server kafka-1:19092 --topic wikipedia-recent-changes-python-v1 --partitions 8 --replication-factor 3
 ```
 
 Alternatively you can also use AKHQ to create a topic.
@@ -50,7 +50,7 @@ if __name__ == "__main__":
         bootstrap_servers="kafka-1:19092", client_id="wikidata-producer"
     )
     produce_events_from_url(
-        url="https://stream.wikimedia.org/v2/stream/recentchange", topic="wikipedia-recent-changes-v1"
+        url="https://stream.wikimedia.org/v2/stream/recentchange", topic="wikipedia-recent-changes-python-v1"
     )
 ```
 
@@ -59,5 +59,5 @@ if __name__ == "__main__":
 Now let's start a `kcat` consumer on the new topic:
 
 ```bash
-docker exec -ti kcat kcat -b kafka-1:19092 -t wikipedia-recent-changes-v1
+docker exec -ti kcat kcat -b kafka-1:19092 -t wikipedia-recent-changes-python-v1
 ```
