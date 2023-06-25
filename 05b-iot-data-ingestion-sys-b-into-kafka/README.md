@@ -381,8 +381,7 @@ we can see that the key part is still empty but we now get one Kafka message for
 91 - SystemB,1687727637617,91,18,1567254452,Normal,42.25:-88.96,8517215614002503388
 ```
 
-
-## Creating a StreamSets DataCollector Edge pipeline
+## Creating a StreamSets DataCollector Edge pipeline (t.b.d)
 
 Now let's create a StreamSets DataCollector pipeline, which retrieves the data from the File, using a tail operation similar to the one shown from the console and send the data to an MQTT Topic. We will use Streamsets Data Collector Edge, as this pipeline would run directly on the truck, where the file is being created.
 
@@ -440,71 +439,6 @@ On the **Preview Configuration** select the **Show Record/Field Header** option 
 So everything looks good. So let's stop the preview and run the pipeline on the Data Collector Edge by clicking on green **Start** button in the upper right corner. 
 
 ![Alt Image Text](./images/streamsets-create-edge-pipeline-12.png "Schema Registry UI")
-
-## Using an MQTT Client to view messages
-
-For viewing the messages in MQTT, we need something similar to the `kafkacat` and `kafka-console-consumer` utilities. There are multiple options available. 
-
-In this workshop we will present two alternative options for consuming from MQTT
- 
- * use dockerized MQTT client in the terminal
- * use browser-based HiveMQ Web UI
-
-### Using dockerized MQTT Client
-
-To start consuming using through a command line, perform the following docker command:
-
-```
-docker run -it --rm efrecon/mqtt-client sub -h $DOCKER_HOST_IP -p 1883 -t "truck/+/position" -v
-```
-
-The consumed messages will show up on the terminal window as shown below.
-
-![Alt Image Text](./images/mqtt-client-docker.png "MQTT UI Connect")
-
-### Using HiveMQ Web UI  
-
-To start consuming using the MQTT UI ([HiveMQ Web UI](https://www.hivemq.com/docs/3.4/web-ui/introduction.html)), navigate to <http://dataplatform:28136> and connect using `dataplatform` for the **Host** field, `9101` for the **Port** field and then click on **Connect**: 
-
-![Alt Image Text](./images/mqtt-ui-connect.png "MQTT UI Connect")
-	
-When successfully connected, click on Add New Topic Subscription and enter `truck/+/position` into **Topic** field and click **Subscribe**:
-	
-![Alt Image Text](./images/mqtt-ui-subscription.png "MQTT UI Connect")
-
-You should again see the messages as they are being sent to MQTT.
-
-![Alt Image Text](./images/mqtt-ui-messages.png "MQTT UI Connect")
-
-Alternatively you can also use the [MQTT.fx](https://mqttfx.jensd.de/) or the [MQTT Explorer](https://mqtt-explorer.com/) applications to browse for the messages on the MQTT broker. They are both available for installation on Mac or Windows. 
-
-In the subscription pattern of we have used `truck/+/position`, where the `+` sign acts as a placeholder for all the various truck ids. But so far we only have one truck. Let's add some other trucks by starting another simulator, which will send directly to MQTT. 
-
-
-## Running the Truck Simulator to publish directly to MQTT
-
-Now let's run the simulator for trucks with id 11 - 70. 
-
-The MQTT broker is exposed on port `1883`. So let's run the following docker command in a new terminal window.
-
-```
-docker run -d trivadis/iot-truck-simulator "-s" "MQTT" "-h" $DOCKER_HOST_IP "-p" "1883" "-f" "CSV" "-d" "2000" "-fs" "25" "-vf" "11-70"
-```
-
-We are also producing the data in **CSV** format to the broker running on the docker host on port 1883. 
-
-You should see an output similar to the one below, signalling that messages are produced to MQTT. 
-
-```
-Number of Emitters is .....23
-akka://EventSimulator/user/eventCollector
-Connecting to MQTT broker: tcp://172.16.252.11:28100
-```
-
-Let's check in the MQTT client that you now get messages for other trucks as well. 
-
-![Alt Image Text](./images/mqtt-ui-messages-multiple.png "MQTT UI Connect")
-
 
 ----
 [top](../05-iot-data-ingestion-and-analytics/README.md) 	| 	[next part](../05b-iot-data-ingestion-mqtt-to-kafka/README.md)
