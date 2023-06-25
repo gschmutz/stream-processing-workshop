@@ -117,3 +117,30 @@ This is not very readable, as the Twitter Connector is using Avro for the serial
 ```
 docker exec -ti kcat kcat -b kafka-1:19092 -t wikipedia-recent-changes-avro.v1 -s avro -r http://schema-registry-1:8081
 ```
+
+we can see that a [Wikipedia Recent Change](https://stream.wikimedia.org/?doc#/) message looks as follows:
+
+```json
+{
+  "bot": false,
+  "comment": "[[:File:Mr. Duck.jpg]] added to category",
+  "id": 2229019642,
+  "meta": {
+    "domain": "commons.wikimedia.org",
+    "dt": "2023-06-25T09:16:47Z",
+    "id": "a3ebfdac-df9b-4239-a22e-f46623e84b4e",
+    "request_id": "d9c1fcd4-0424-4cd5-b8c4-d62d9f60d2f6",
+    "stream": "mediawiki.recentchange",
+    "uri": "https://commons.wikimedia.org/wiki/Category:Images_from_Wiki_Loves_Earth_missing_SDC_participant_in"
+  },
+  "namespace": 14,
+  "parsedcomment": "<a href=\"/wiki/File:Mr._Duck.jpg\" title=\"File:Mr. Duck.jpg\">File:Mr. Duck.jpg</a> added to category",
+  "server_name": "commons.wikimedia.org",
+  "server_url": "https://commons.wikimedia.org",
+  "timestamp": 1687684607,
+  "title": "Category:Images from Wiki Loves Earth missing SDC participant in",
+  "type": "categorize",
+  "user": "Vanja Kovac",
+  "wiki": "commonswiki"
+}
+```
