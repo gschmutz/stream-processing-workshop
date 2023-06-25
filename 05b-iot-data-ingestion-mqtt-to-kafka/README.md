@@ -14,26 +14,16 @@ The Kafka cluster is configured with `auto.topic.create.enable` set to `false`. 
 
 We can easily get access to the `kafka-topics` CLI by navigating into one of the containers for the 3 Kafka Brokers. Let's use `kafka-1`
 
-```
-docker exec -ti kafka-1 bash
-```
-
 As we have learned in a previous workshop, we can list all existing topics using `kafka-topics`. 
 
 ```
-kafka-topics --bootstrap-server kafka-1:19092 --list
+docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --list
 ```
 
 Now let's create the `truck_position` topic, which should hold the messages from all the different MQTT topics (remember, there is one MQTT topic by vehicle). 
 
 ```
-kafka-topics --bootstrap-server kafka-1:19092 --create --topic truck_position --partitions 8 --replication-factor 3
-```
-
-Make sure to exit from the container after the topic has been created successfully.
-
-```
-exit
+docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic truck_position --partitions 8 --replication-factor 3
 ```
 
 If you don't want to work with the CLI, you can also create the Kafka topics using the [Cluster Manager for Apache Kafka (CMAK) GUI](http://dataplatform:28104) browser-based application. 
