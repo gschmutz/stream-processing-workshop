@@ -342,9 +342,9 @@ Let's configure the new processor. Double-click on the `ExtractText` and navigat
 
 Add a new property using the **+** sign. Enter `kafka.key` into the **Property Name** field and click **OK**. Enter the following regular expression `,.*?,(.*?),` into the expression field and click **OK**. This will extract the 3rd field of the CSV line (truck id) and use it for the key. 
 
-Drag a connection from **Extract Text** to the **PublishKafka\_2\_6** processor and select the **matched** check box below **For Relationships** and click **ADD**. 
+Drag a connection from **ExtractText** to the **PublishKafka\_2\_6** processor and select the **matched** check box below **For Relationships** and click **ADD**. 
 
-Double-click on **ExtractText** processor and navigate to **RELATIONSHIPSç** tab and click on **terminate** for **Unmatched** relationship and click **APPLY**.
+Double-click on **ExtractText** processor and navigate to **RELATIONSHIPS** tab and click on **terminate** for **Unmatched** relationship and click **APPLY**.
 
 Let's realign the 4 processors
 
@@ -356,7 +356,7 @@ Now let's run all 4 processors and check that the Kafka messages also include a 
 docker exec -ti kcat kcat -b kafka-1 -t vehicle_tracking_sysB -f "%k - %s" -q
 ```
 
-we can see that the key part is still empty but we now get one Kafka message for each vehicle message.
+we can see that the key part is no longer empty
 
 ```bash
 59 - SystemB,1687727635817,59,30,160779139,Normal,41.71:-91.32,8517215614002503388

@@ -303,7 +303,78 @@ Select the 2 processor and click on the start arrow to run the data flow. All th
 if you check for the output in `kcat` where we output both the key and the value of the Kafka message
 
 ```
-docker exec -ti kcat kcat -b kafka-1 -t vehicle_tracking_sysA -f "%k - %s" -q
+docker exec -ti kcat kcat -b kafka-1 -t vehicle_tracking_sysA -f "%k - %s\n" -q
+```
+
+we can see that the key part is empty and that we have more than one message in the value
+
+```bash
+ - {"timestamp":1687815661835,"truckId":21,"driverId":30,"routeId":803014426,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":41.92,"longitude":-89.03}
+ - {"timestamp":1687815661854,"truckId":30,"driverId":14,"routeId":160779139,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":38.67,"longitude":-94.38}
+ - {"timestamp":1687815661884,"truckId":15,"driverId":21,"routeId":137128276,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":38.65,"longitude":-90.2}
+ - {"timestamp":1687815681324,"truckId":23,"driverId":23,"routeId":1325712174,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":38.0,"longitude":-90.24}
+ - {"timestamp":1687815682014,"truckId":44,"driverId":22,"routeId":1090292248,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":42.21,"longitude":-88.64}
+ - {"timestamp":1687815689555,"truckId":44,"driverId":22,"routeId":1090292248,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":42.04,"longitude":-88.02}
+ - {"timestamp":1687815690145,"truckId":21,"driverId":30,"routeId":803014426,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":41.7,"longitude":-91.59}
+ - {"timestamp":1687815691564,"truckId":23,"driverId":23,"routeId":1325712174,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":37.2,"longitude":-89.56}
+ - {"timestamp":1687815691724,"truckId":48,"driverId":26,"routeId":1962261785,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":38.31,"longitude":-91.07}
+ - {"timestamp":1687815691905,"truckId":32,"driverId":12,"routeId":1384345811,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":41.62,"longitude":-90.7}
+ - {"timestamp":1687815692008,"truckId":35,"driverId":10,"routeId":1390372503,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":38.31,"longitude":-91.07}
+ - {"timestamp":1687815696834,"truckId":15,"driverId":21,"routeId":137128276,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":41.11,"longitude":-88.42}
+ - {"timestamp":1687815697014,"truckId":21,"driverId":30,"routeId":803014426,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":41.74,"longitude":-92.19}
+ - {"timestamp":1687815697114,"truckId":44,"driverId":22,"routeId":1090292248,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":41.89,"longitude":-87.66}
+ - {"timestamp":1687815699404,"truckId":35,"driverId":10,"routeId":1390372503,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":38.14,"longitude":-91.3}
+ - {"timestamp":1687815700137,"truckId":15,"driverId":21,"routeId":137128276,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":40.76,"longitude":-88.77}
+ - {"timestamp":1687815702264,"truckId":48,"driverId":26,"routeId":1962261785,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":38.09,"longitude":-91.44}
+ - {"timestamp":1687815702684,"truckId":35,"driverId":10,"routeId":1390372503,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":38.09,"longitude":-91.44}
+ - {"timestamp":1687815702764,"truckId":32,"driverId":12,"routeId":1384345811,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":41.74,"longitude":-91.47}
+ - {"timestamp":1687815706393,"truckId":32,"driverId":12,"routeId":1384345811,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":41.72,"longitude":-91.63}
+ - {"timestamp":1687815706444,"truckId":15,"driverId":21,"routeId":137128276,"eventType":"Overspeed","correlationId":"-1928220346492852690","latitude":39.84,"longitude":-89.63}
+```
+
+The **PublishKafka\_2\_6** by default uses the attribute `kafka.key` as the kafka key. So we have to set it to the value we want to use for the key, which we can do by extracting the value from the flow file. 
+
+### Add a `EvaluateJsonPath` processor to extract a value
+
+Stop all running processors and drag a new Processor onto the Canvas, just below the **ConsumeMQTT** processor. 
+
+Enter **EvaluateJ** into the Filter and select the **EvaluateJsonPath** processor and click on **ADD** to add it to the canvas as well. 
+
+Drag the connection (blue end) away from the  **PublishKafka\_2\_6** processor and connect it with the **EvaluateJsonPath** processor
+
+![Alt Image Text](./images/nifi-extract-text.png "Schema Registry UI")
+
+Let's configure the new processor. Double-click on the `EvaluateJsonPath` and navigate to **PROPERTIES**. Configure the properties for publishing to Kafka.
+
+Add a new property using the **+** sign. Enter `kafka.key` into the **Property Name** field and click **OK**. Enter the following JSON Patch expression `$.truckId` into the expression field and click **OK**. This will extract the `truckId` field from the JSON formatted message and use it for the key. 
+
+Drag a connection from **EvaluateJsonPath** to the **PublishKafka\_2\_6** processor and select the **matched** check box below **For Relationships** and click **ADD**. 
+
+Double-click on **EvaluateJsonPath** processor and navigate to **RELATIONSHIPS** tab and click on **terminate** for **failure** and **unmatched** relationship and click **APPLY**.
+
+Now let's run all 3 processors again and check that the Kafka messages also include a valid key portion. 
+
+```
+docker exec -ti kcat kcat -b kafka-1 -t vehicle_tracking_sysB -f "%k - %s" -q
+```
+
+we can see that the key part is no longer empty
+
+```bash
+15 - {"timestamp":1687816746483,"truckId":15,"driverId":21,"routeId":137128276,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":41.89,"longitude":-87.66}
+26 - {"timestamp":1687816747114,"truckId":26,"driverId":15,"routeId":1567254452,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":41.87,"longitude":-87.67}
+35 - {"timestamp":1687816747324,"truckId":35,"driverId":10,"routeId":1390372503,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":36.37,"longitude":-95.5}
+23 - {"timestamp":1687816747134,"truckId":23,"driverId":23,"routeId":1325712174,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":41.59,"longitude":-90.2}
+48 - {"timestamp":1687816748134,"truckId":48,"driverId":26,"routeId":1962261785,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":41.87,"longitude":-87.67}
+44 - {"timestamp":1687816747595,"truckId":44,"driverId":22,"routeId":1090292248,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":40.96,"longitude":-90.29}
+32 - {"timestamp":1687816748274,"truckId":32,"driverId":12,"routeId":1384345811,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":41.72,"longitude":-91.05}
+30 - {"timestamp":1687816747684,"truckId":30,"driverId":14,"routeId":160779139,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":34.96,"longitude":-91.14}
+21 - {"timestamp":1687816748944,"truckId":21,"driverId":30,"routeId":803014426,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":37.15,"longitude":-97.32}
+15 - {"timestamp":1687816750425,"truckId":15,"driverId":21,"routeId":137128276,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":42.04,"longitude":-88.02}
+26 - {"timestamp":1687816750254,"truckId":26,"driverId":15,"routeId":1567254452,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":41.48,"longitude":-88.07}
+35 - {"timestamp":1687816750395,"truckId":35,"driverId":10,"routeId":1390372503,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":36.25,"longitude":-95.69}
+23 - {"timestamp":1687816750504,"truckId":23,"driverId":23,"routeId":1325712174,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":41.56,"longitude":-90.64}
+48 - {"timestamp":1687816751507,"truckId":48,"driverId":26,"routeId":1962261785,"eventType":"Normal","correlationId":"-1928220346492852690","latitude":41.48,"longitude":-88.07}
 ```
 
 ----
