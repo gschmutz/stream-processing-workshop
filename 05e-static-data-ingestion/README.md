@@ -1,10 +1,10 @@
-# IoT Data Ingestion and Analytics - Ingesting and Joining Static Data to Stream
+# Ingest IoT Vehicle Data - Ingesting Static Data to Stream
 
-So far we have ingested the truck data from MQTT to Kafka and detected dangerous driving behaviour. But the information only holds the `driverId` but no other information about the driver. 
+So far we have ingested the truck data from MQTT to Kafka. 
 
-In this workshop we will ingest information about the drivers into another Kafka topic and then use that information and join it with the `dangerous_driving_s` stream using ksqlDB. 
+In this part of the workshop we will ingest information about the drivers into another Kafka topic which we will later use to enrich our iot data stream using ksqlDB. 
 
-![Alt Image Text](./images/joining-static-data-with-ksql-overview.png "Schema Registry UI")
+![Alt Image Text](./images/ingesting-static-data-with-ksql-overview.png "Schema Registry UI")
 
 ## Create the `driver` table and load some data
 
@@ -221,93 +221,9 @@ if you perform another `UPDATE` on the table, setting the `available` flag back 
 UPDATE "driver" SET "available" = 'Y', "last_update" = CURRENT_TIMESTAMP  WHERE "id" = 21;
 ```
 
-then you will see a new message appearing in the result of the KSQL SELECT. This shows that a table contains the currrent view of information for all the drivers as well as it informs about changes on the driver while the statement is running. 
+then you will see a new message appearing in the result of the KSQL SELECT. This shows that a table contains the current view of information for all the drivers as well as it informs about changes on the driver while the statement is running. 
 
 With that table at hand, let's join it to the data stream we get from the vehicles. 
-
-## Join Stream with Table
-
-Let's execute the `SELECT .. JOIN ...` statement in an ad-hoc manner, as we have seen in the previous workshop. That helps us developing the statment and we can easily see if the resulting data is correct. 
-
-```
-SELECT driverid, first_name, last_name, truckId, routeId, eventType, latitude, longitude
-FROM dangerous_driving_s
-LEFT JOIN driver_t
-ON dangerous_driving_s.driverId = driver_t.id
-EMIT CHANGES;
-```
-
-Make sure that the vehicle simulator is still running, otherwise you won't see any new results appearing. Because we join the table to the `dangerous_driving_s` stream, a new row is only shown when there is an abnormal driving beaviour.
-
-We could also perform an outer-join, if we would like to see vehicles with a driver-id, where the driver is not really known or at least not stored in the `driver` database.
-
-```
-SELECT driverid, first_name, last_name, truckId, routeId ,eventType \
-FROM dangerous_driving_s \
-LEFT JOIN driver_t \
-ON CAST (dangerous_driving_s.driverId AS VARCHAR) = driver_t.ROWKEY;
-EMIT CHANGES;
-```
-
-Again, selecting and viewing the data in the ksqlDB CLI is very helpful while devloping and debugging a statement. Once you are happy with the result, you want to provide it to other potential subscribers, by creating a new stream.
-
-Let's create the stream `dangerous_driving_and_driver` using the following KSQL statement. 
-
-```
-DROP STREAM dangerous_driving_and_driver_s;
-
-CREATE STREAM dangerous_driving_and_driver_s \
-  WITH (kafka_topic='dangerous_driving_and_driver_ksql', \
-        value_format='JSON', \
-        partitions=8) \
-AS 
-SELECT driverid, first_name, last_name, truckId, routeId ,eventType \
-FROM dangerous_driving_s \
-LEFT JOIN driver_t \
-ON CAST (dangerous_driving_s.driverId AS VARCHAR) = driver_t.ROWKEY;
-EMIT CHANGES;
-```
-
-Now we can get the same data by just selecting from the new stream just created:
-
-```
-SELECT * FROM dangerous_driving_and_driver_s
-EMIT CHANGES;
-```
-
-Of course we can also conditionally retrieve only the messages for driver 11:
-
-```
-SELECT * FROM dangerous_driving_and_driver_s 
-WHERE driverid = 11
-EMIT CHANGES;
-```
-
-While the KSQL statement is running, perform another update on the `first_name` of the `driver` table in PostgreSQL. Connecto to the PostgreSQL shell
-
-```
-docker exec -ti postgresql psql -d sample -U sample
-```
-
-perform the SQL UPDATE on the table
-
-```
-UPDATE "driver" SET "first_name" = 'Slow Down Mickey', "last_update" = CURRENT_TIMESTAMP  WHERE "id" = 11;
-```
-
-and check the live stream to see the change.
-
-```
-...
-|1580431526616       |11                  |11                  |Micky               |Isaacson            |78                  |1325712174          |Unsafe tail distance|37.02               |-94.54              |
-|1580431560114       |11                  |11                  |Micky               |Isaacson            |78                  |1325712174          |Lane Departure      |37.8                |-92.48              |
-|1580431595643       |11                  |11                  |Micky               |Isaacson            |78                  |1325712174          |Overspeed           |38.46               |-90.86              |
-|1580431630484       |11                  |11                  |Micky               |Isaacson            |78                  |1325712174          |Unsafe following dis|38.31               |-91.07              |
-|1580431664922       |11                  |11                  |Micky               |Isaacson            |78                  |1325712174          |Overspeed           |37.7                |-92.61              |
-|1580450850718       |11                  |11                  |Slow Down Mickey    |Isaacson            |101                 |1962261785          |Unsafe tail distance|41.48               |-88.07              |
-|1580450886238       |11                  |11                  |Slow Down Mickey    |Isaacson            |101                 |1962261785          |Overspeed           |40.38               |-89.17              |
-...
-```
 
 ----
 
