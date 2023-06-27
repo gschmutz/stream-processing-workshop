@@ -16,10 +16,15 @@ Alternatively you can also use AKHQ to create a topic.
 
 Navigate to Jupyter: <http://dataplatform:28888>
 
-In the first cell, install the SSE and Kafka modules
+In the first cell, install the SSE 
+
+```bash
+pip install sseclient
+```
+
+and a second cell, install the Kafka client
 
 ```
-pip install sseclient
 pip install kafka-python
 ``` 
 
