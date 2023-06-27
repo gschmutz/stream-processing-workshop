@@ -425,26 +425,6 @@ services:
       - ./data-transfer:/data-transfer
       - ./conf/resolv.conf:/etc/resolv.conf:ro
     restart: unless-stopped
-  #  ================================== Cluster Manager for Apache Kafka (CMAK) ========================================== #
-  cmak:
-    image: trivadis/cmak:latest
-    container_name: cmak
-    hostname: cmak
-    labels:
-      com.platys.name: cmak
-      com.platys.webui.title: Cluster Manager for Apache Kafka UI
-      com.platys.webui.url: http://${PUBLIC_IP}:28104
-    ports:
-      - 28104:9000
-    environment:
-      ZK_HOSTS: zookeeper-1:2181
-      APPLICATION_SECRET: abc123!
-      KAFKA_MANAGER_AUTH_ENABLED: 'false'
-      KAFKA_MANAGER_USERNAME: admin
-      KAFKA_MANAGER_PASSWORD: abc123!
-    volumes:
-      - ./data-transfer:/data-transfer
-    restart: unless-stopped
   #  ================================== Apache Kafka HQ (AKHQ) ========================================== #
   akhq:
     image: tchiotludo/akhq:latest
@@ -489,38 +469,6 @@ services:
                   url: "http://ksqldb-server-1:8088"
     volumes:
       - ./data-transfer:/data-transfer
-    restart: unless-stopped
-  #  ================================== Conduktor Platform ========================================== #
-  conduktor-platform:
-    image: conduktor/conduktor-platform:latest
-    container_name: conduktor-platform
-    hostname: conduktor-platform
-    labels:
-      com.platys.name: conduktor-platform
-      com.platys.webui.title: Conduktor Platform UI
-      com.platys.webui.url: http://${PUBLIC_IP}:28285
-    ports:
-      - 28285:8080
-    environment:
-      - RUN_MODE=nano
-      - CDK_LISTENING_PORT=8080
-      - CONSOLE_ENABLED=true
-      - TESTING_ENABLED=true
-      - MONITORING_ENABLED=true
-      - DATA_MASKING_ENABLED=false
-      - SCANNER_ENABLED=false
-      - GOVERNANCE_ENABLED=false
-      - CDK_IN_CONF_FILE=/etc/platform-config.yaml
-      - KAFKA_BOOTSTRAP_SERVER=kafka-1:19092,kafka-2:19093,kafka-3:19094
-      - LICENSE_KEY=
-      - ORGANISATION_NAME=default
-      - ADMIN_EMAIL=admin
-      - ADMIN_PSW=abc123!
-      - SCHEMA_REGISTRY_URL=http://schema-registry-1:8081
-      - KAFKA_CONNECT_URL=http://kafka-connect-1:8083
-    volumes:
-      - ./data-transfer:/data-transfer
-      - ./conf/conduktor-platform/platform-config.yaml:/etc/platform-config.yaml
     restart: unless-stopped
   #  ================================== StreamSets DataCollector ========================================== #
   streamsets-1:

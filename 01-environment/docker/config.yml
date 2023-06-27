@@ -233,7 +233,7 @@
       #
       # ===== Cluster Manager for Apache Kafka ========
       #
-      CMAK_enable: true
+      CMAK_enable: false
       CMAK_auth_enabled: "'false'"
       CMAK_username: admin
       CMAK_password: abc123!
@@ -295,7 +295,7 @@
       #
       # ===== Conduktor Platform ========
       #
-      CONDUKTOR_PLATFORM_enable: true
+      CONDUKTOR_PLATFORM_enable: false
       CONDUKTOR_PLATFORM_license_key: ""
       CONDUKTOR_PLATFORM_organisation_name: "default"
       CONDUKTOR_PLATFORM_admin_email: "admin"
