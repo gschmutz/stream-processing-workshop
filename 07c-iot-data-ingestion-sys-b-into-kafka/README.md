@@ -435,6 +435,6 @@ So everything looks good. So let's stop the preview and run the pipeline on the 
 ![Alt Image Text](./images/streamsets-create-edge-pipeline-12.png "Schema Registry UI")
 
 ----
-[previous part](../05b-iot-data-ingestion-mqtt-to-kafka-with-connect/README.md)
-[top](../05-iot-data-ingestion-and-transformation/README.md) 
-| 	[next part](../05b-iot-data-ingestion-mqtt-to-kafka/README.md)
+[previous part](../07b-iot-data-ingestion-mqtt-to-kafka-with-connect/README.md)
+[top](../07-iot-data-ingestion-and-transformation/README.md) 
+| 	[next part](../07d-iot-data-normalization-using-ksqldb/README.md)

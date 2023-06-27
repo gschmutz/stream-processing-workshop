@@ -227,4 +227,4 @@ With that table at hand, let's join it to the data stream we get from the vehicl
 
 ----
 
-[previous part](../05d-stream-processing-using-faust/README.md)	| 	[top](../05-iot-data-ingestion-and-analytics/README.md) 	| 	[next part](../05f-stream-data-integration-with-s3/README.md)
+[previous part](../07e-iot-queryable-data/README.md)	| 	[top](../07-iot-data-ingestion-and-analytics/README.md) 

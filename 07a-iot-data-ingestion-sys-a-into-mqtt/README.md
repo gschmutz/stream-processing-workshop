@@ -91,4 +91,4 @@ Alternatively you can also use the [MQTT.fx](https://mqttfx.jensd.de/) or the [M
 In the subscription pattern of we have used `truck/+/position`, where the `+` sign acts as a placeholder for all the various truck ids. As you can see that for each vehicle there is a separate topic being used in MQTT.
 
 ----
-[top](../05-iot-data-ingestion-and-transformation/README.md) 	| 	[next part](../05b-iot-data-ingestion-mqtt-to-kafka-with-connect/README.md)
+[top](../07-iot-data-ingestion-and-transformation/README.md) 	| 	[next part](../07b-iot-data-ingestion-mqtt-to-kafka-with-connect/README.md)

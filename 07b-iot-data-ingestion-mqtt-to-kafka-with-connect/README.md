@@ -378,4 +378,4 @@ we can see that the key part is no longer empty
 ```
 
 ----
-[previous part](../05a-iot-data-ingestion-sys-a-into-mqtt/README.md)	| 	[top](../05-iot-data-ingestion-and-transformation/README.md) 	| 	[next part](../05c-iot-data-ingestion-sys-b-into-kafka/README.md)
+[previous part](../07a-iot-data-ingestion-sys-a-into-mqtt/README.md)	| 	[top](../07-iot-data-ingestion-and-transformation/README.md) 	| 	[next part](../07c-iot-data-ingestion-sys-b-into-kafka/README.md)

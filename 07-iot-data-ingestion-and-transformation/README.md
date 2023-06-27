@@ -13,9 +13,9 @@ The simulator can produce data to various data sinks, such as **File**, **MQTT**
 
 We will implement this end-to-end demo case step by step using different technologies. The links to the separate documents can be found as follows:
 
-1. [Ingesting simulated IoT from System A into MQTT](../05a-iot-data-ingestion-sys-a-into-mqtt/README.md)
-2. [Moving Data from MQTT into Kafka using Kafka Connect or Apache NiFi](../05b-iot-data-ingestion-mqtt-to-kafka-with-connect/README.md)
-3. [Ingesting simulated IoT from System B into Kafka](../05c-iot-data-ingestion-sys-b-into-kafka/README.md)
-3. [Refining data into a normalized topic using ksqlDB](../05d-iot-data-normalization-using-ksqldb/README.md)
-4. [Using Pull query to get data](../05e-iot-queryable-data/README.md)
-4. [Ingesting Static Data](../05e-static-data-ingestion/README.md)
+1. [Ingesting simulated IoT from System A into MQTT](../07a-iot-data-ingestion-sys-a-into-mqtt/README.md)
+2. [Moving Data from MQTT into Kafka using Kafka Connect or Apache NiFi](../07b-iot-data-ingestion-mqtt-to-kafka-with-connect/README.md)
+3. [Ingesting simulated IoT from System B into Kafka](../07c-iot-data-ingestion-sys-b-into-kafka/README.md)
+3. [Refining data into a normalized topic using ksqlDB](../07d-iot-data-normalization-using-ksqldb/README.md)
+4. [Using Pull query to get data](../07e-iot-queryable-data/README.md)
+4. [Ingesting Static Data](../07f-static-data-ingestion/README.md)

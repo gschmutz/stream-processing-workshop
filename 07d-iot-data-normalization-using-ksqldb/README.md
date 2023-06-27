@@ -231,7 +231,7 @@ EMIT CHANGES;
 
 
 ----
-[previous part](../05c-iot-data-ingestion-sys-b-into-kafka/README.md)
-[top](../05-iot-data-ingestion-and-transformation/README.md) 
-| 	[next part](../05b-iot-data-ingestion-mqtt-to-kafka/README.md)
+[previous part](../07c-iot-data-ingestion-sys-b-into-kafka/README.md)
+[top](../07-iot-data-ingestion-and-transformation/README.md) 
+| 	[next part](../07b-iot-data-ingestion-mqtt-to-kafka/README.md)
 

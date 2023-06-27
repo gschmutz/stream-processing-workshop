@@ -136,6 +136,6 @@ SELECT * FROM vehicle_tracking_refined_t WHERE vehicleId = 42;
 ```
 
 ----
-[previous part](../05d-iot-data-normalization-using-ksqldb/README.md)
-| 	[top](../05-iot-data-ingestion-and-transformation/README.md) 
-| 	[next part](../05e-iot-queryable-data/README.md)
+[previous part](../07d-iot-data-normalization-using-ksqldb/README.md)
+| 	[top](../07-iot-data-ingestion-and-transformation/README.md) 
+| 	[next part](../07e-iot-queryable-data/README.md)
