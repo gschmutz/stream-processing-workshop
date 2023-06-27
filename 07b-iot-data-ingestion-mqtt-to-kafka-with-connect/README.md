@@ -342,9 +342,11 @@ Enter **EvaluateJ** into the Filter and select the **EvaluateJsonPath** processo
 
 Drag the connection (blue end) away from the  **PublishKafka\_2\_6** processor and connect it with the **EvaluateJsonPath** processor
 
-![Alt Image Text](./images/nifi-extract-text.png "Schema Registry UI")
+![Alt Image Text](./images/nifi-evaluate-json.png "Schema Registry UI")
 
 Let's configure the new processor. Double-click on the `EvaluateJsonPath` and navigate to **PROPERTIES**. Configure the properties for publishing to Kafka.
+
+  * **Destination**: `flowfile-attribute`
 
 Add a new property using the **+** sign. Enter `kafka.key` into the **Property Name** field and click **OK**. Enter the following [JSONPath expression](https://jsonpath.com/) `$.truckId` into the edit field and click **OK**. This will extract the `truckId` field from the JSON formatted message and use it for the key. 
 
