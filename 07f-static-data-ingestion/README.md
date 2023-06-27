@@ -2,7 +2,7 @@
 
 So far we have ingested the truck data from MQTT to Kafka. 
 
-In this part of the workshop we will ingest information about the drivers into another Kafka topic which we will later use to enrich our iot data stream using ksqlDB. 
+In this part of the workshop we will ingest information about the drivers into another Kafka topic which we will later use to enrich our IoT data stream using ksqlDB. 
 
 ![Alt Image Text](./images/ingesting-static-data-with-ksql-overview.png "Schema Registry UI")
 
@@ -194,7 +194,7 @@ SELECT * FROM driver_t
 EMIT CHANGES; 
 ```
 
-This is also a continous query statement, but there is no data being shown. Why is that, shouldn't there be data in the `truck_topic`, as we have seen in the console consumer. The reason why we don't see any data is because the query starts at th end of the topic, waiting for new data to arrive. If we perform another update on the source (the PostgreSQL table), keeping the ksql select running
+This is also a continous query statement, but there is no data being shown. Why is that, shouldn't there be data in the `truck_topic`, as we have seen in the console consumer. The reason why we don't see any data is because the query starts at the end of the topic, waiting for new data to arrive. If we perform another update on the source (the PostgreSQL table), keeping the ksqldb select running
 
 ```
 UPDATE "driver" SET "available" = 'N', "last_update" = CURRENT_TIMESTAMP  WHERE "id" = 27;
