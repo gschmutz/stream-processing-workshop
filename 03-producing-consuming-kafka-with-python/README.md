@@ -451,7 +451,7 @@ P-1: 1001={"id": "1001", "firstName": "Peter", "lastName": "Muster"}
 Instead of using `kcat` to consume Avro messages, there is also a `kafka-avro-console-consumer`. On the Data Platform, this is part of the schema registry docker container. Let's connect to the docker container:
 
 ```bash
-docker exec -ti schema-registry bash
+docker exec -ti schema-registry-1 bash
 ```
 
 and run the `kafka-avro-console-consumer`
