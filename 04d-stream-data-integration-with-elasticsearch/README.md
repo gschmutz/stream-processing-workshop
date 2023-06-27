@@ -124,7 +124,7 @@ We can see the first few documents which are stored by Elasticsearch, in a not v
 
 You can check the index and the registered mapping by navigating to the [Kibana Dev Tools UI](http://192.168.1.120:5601/app/dev_tools#/console). In the console enter `GET /wikipedia-recent-changes-avro.v1/_mapping` and execute it. 
 
-![Alt Image Text](./images/kibana-dev-tools.png "Elasticserach Connector") 
+![Alt Image Text](./images/kibana-dev-tools.png "Elasticsearch Connector") 
 
 The mapping describes how a document, and the fields it contains, are stored and indexed in Elasticsearch. For instance it defines which string fields should be treated as full text fields, which fields contain numbers or dates and the format of date values. 
 It has been created based on the Avro Schema for the Wikipedia Recent Change message.
