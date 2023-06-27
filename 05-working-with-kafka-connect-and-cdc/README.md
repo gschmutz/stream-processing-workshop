@@ -70,11 +70,11 @@ docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create -
 Now let's start two consumers, one on each topic, in separate terminal windows
 
 ```bash
-kcat -b kafka-1:19092 -t priv.person.cdc.v1 -f '[%p] %k: %s\n' -q
+docker exec -ti kcat kcat -b kafka-1:19092 -t priv.person.cdc.v1 -f '[%p] %k: %s\n' -q
 ```
 
 ```bash
-kcat -b kafka-1:19092 -t priv.address.cdc.v1 -f '[%p] %k: %s\n' -q
+docker exec -ti kcat kcat -b kafka-1:19092 -t priv.address.cdc.v1 -f '[%p] %k: %s\n' -q
 ```
 
 By using the `-f` option we tell `kcat` to also print the partition number and the key for each message.
@@ -260,7 +260,7 @@ curl -X PUT \
 Now let's start two consumers, one on each topic, in separate terminal windows. This time the data is in Avro, as we did not overwrite the serializers. By default the topics are formatted using this naming convention: `<db-host>.<schema>.<table>`
 
 ```bash
-kcat -b kafka-1:19092 -t postgresql.cdc_demo.person -f '[%p] %k: %s\n' -q -s avro -r http://schema-registry-1:8081
+docker exec -ti kcat kcat -b kafka-1:19092 -t postgresql.cdc_demo.person -f '[%p] %k: %s\n' -q -s avro -r http://schema-registry-1:8081
 ```
 
 and you should get the change record for `person` table
@@ -274,7 +274,7 @@ We can see that the key is also Avro-serialized (`{"id": 1}`).
 Now do the same for the `postgresql.cdc_demo.address` topic
 
 ```bash
-kcat -b kafka-1:19092 -t postgresql.cdc_demo.address -f '[%p] %k: %s\n' -q -s avro -r http://schema-registry-1:8081 
+docker exec -ti kcat kcat -b kafka-1:19092 -t postgresql.cdc_demo.address -f '[%p] %k: %s\n' -q -s avro -r http://schema-registry-1:8081 
 ```
 
 and you should get the change record for the `address` table.
@@ -282,7 +282,7 @@ and you should get the change record for the `address` table.
 Let's use `jq` to format the value only (by removing the `-f` parameter). 
 
 ```
-kcat -b kafka-1:19092 -t postgresql.cdc_demo.person -f '%s\n' -q -s avro -r http://schema-registry-1:8081 -u | jq
+docker exec -ti kcat kcat -b kafka-1:19092 -t postgresql.cdc_demo.person -f '%s\n' -q -s avro -r http://schema-registry-1:8081 -u | jq
 ```
 
 we can see that the change record is wrapped inside the `after` field. The `op` field show the operation, which shows `c` for create/insert.
@@ -492,7 +492,7 @@ UPDATE cdc_demo.address SET street = UPPER(street);
 ```
 
 ```bash
-kcat -b kafka-1:19092 -t postgresql.cdc_demo.address -f '[%p] %k: %s\n' -q -s avro -r http://schema-registry-1:8081 
+docker exec -ti kcat kcat -b kafka-1:19092 -t postgresql.cdc_demo.address -f '[%p] %k: %s\n' -q -s avro -r http://schema-registry-1:8081 
 ```
 
 You should see a very minimal latency between doing the update and the message in Kafka.
@@ -550,7 +550,7 @@ UPDATE cdc_demo.person SET first_name = UPPER(first_name);
 to see the new topic `priv.person.cdc.v2` created
 
 ```bash
-kcat -b kafka-1:19092 -t priv.person.cdc.v2 -f '[%p] %k: %s\n' -q -s avro -r http://schema-registry-1:8081 
+docker exec -ti kcat kcat -b kafka-1:19092 -t priv.person.cdc.v2 -f '[%p] %k: %s\n' -q -s avro -r http://schema-registry-1:8081 
 ```
 
 #### Remove the connector
@@ -655,7 +655,7 @@ VALUES (gen_random_uuid(), 13256, current_timestamp, 'CustomerMoved', '{"custome
 this will end up in a new topic named `priv.CustomerMoved.event.v1`
 
 ```bash
-kcat -b kafka-1:19092 -t priv.CustomerMoved.event.v1 -f '[%p] %k: %s\n' -q -s avro -r http://schema-registry-1:8081 
+docker exec -ti kcat kcat -b kafka-1:19092 -t priv.CustomerMoved.event.v1 -f '[%p] %k: %s\n' -q -s avro -r http://schema-registry-1:8081 
 ```
 
 ```bash
