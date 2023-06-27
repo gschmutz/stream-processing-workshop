@@ -30,9 +30,9 @@ In the `scripts` folder, create a file `start-wikipedia.sh` and add the code bel
 
 echo "removing Wikipedia Source Connector"
 
-curl -X "DELETE" http://dataplatform:28013/connectors/wikipedia-source"
+curl -X "DELETE" http://dataplatform:8083/connectors/wikipedia-source
 
-echo "creating Twitter Source Connector"
+echo "creating Wikipedia Source Connector"
 
 curl -X "POST" http://dataplatform:8083/connectors \
   -H 'Content-Type: application/json' \
@@ -54,7 +54,7 @@ Also create a separate script `stop-wikipedia.sh` for just stopping the connecto
 
 echo "removing Wikipedia Source Connector"
 
-curl -X "DELETE" http://dataplatform:28013/connectors/wikipedia-source"
+curl -X "DELETE" http://dataplatform:8083/connectors/wikipedia-source
 ```
 
 Make sure that the both scripts are executable
@@ -80,10 +80,10 @@ Now we are ready to run the Wikipedia Connector.
 
 ## Start the Wikipedia connector
 
-Finally let's start the connector by running the `start-twitter` script.
+Finally let's start the connector by running the `start-wikipedia` script.
 
 ```bash
-./scripts/start-twitter.sh
+./scripts/start-wikipedia.sh
 ```
 
 You can use [Kafka Connect UI](http://dataplatform:28038/) to check if the connector runs sucessfully.
