@@ -1,4 +1,4 @@
-# IoT Data Ingestion - Moving Data from Kafka to Object Storage
+# Ingest IoT Vehicle Data - Moving Data from Kafka to Object Storage
 
 In this workshop we will see how we can use Kafka Connect to move data from the Kafka topic with the Raw events (`truck_position`) to Object Storage.  
 
