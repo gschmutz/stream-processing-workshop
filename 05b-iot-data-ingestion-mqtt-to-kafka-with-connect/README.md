@@ -346,7 +346,7 @@ Drag the connection (blue end) away from the  **PublishKafka\_2\_6** processor a
 
 Let's configure the new processor. Double-click on the `EvaluateJsonPath` and navigate to **PROPERTIES**. Configure the properties for publishing to Kafka.
 
-Add a new property using the **+** sign. Enter `kafka.key` into the **Property Name** field and click **OK**. Enter the following JSON Patch expression `$.truckId` into the expression field and click **OK**. This will extract the `truckId` field from the JSON formatted message and use it for the key. 
+Add a new property using the **+** sign. Enter `kafka.key` into the **Property Name** field and click **OK**. Enter the following [JSONPath expression](https://jsonpath.com/) `$.truckId` into the edit field and click **OK**. This will extract the `truckId` field from the JSON formatted message and use it for the key. 
 
 Drag a connection from **EvaluateJsonPath** to the **PublishKafka\_2\_6** processor and select the **matched** check box below **For Relationships** and click **ADD**. 
 
