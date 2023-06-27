@@ -67,13 +67,14 @@ cd $DATAPLATFORM_HOME/plugins/kafka-connect/connectors
 and download the `kafka-connect-mqtt-1.2.6-2.1.0-all.tar.gz` file from the [Landoop Stream-Reactor Project](https://github.com/Landoop/stream-reactor/tree/master/kafka-connect-mqtt) project.
 
 ```
-wget https://github.com/Landoop/stream-reactor/releases/download/2.1.3/kafka-connect-mqtt-2.1.3-2.5.0-all.tar.gz
+sudo wget https://github.com/Landoop/stream-reactor/releases/download/2.1.3/kafka-connect-mqtt-2.1.3-2.5.0-all.tar.gz
 ```
 
 Once it is successfully downloaded, uncompress it using this `tar` command and remove the file. 
 
 ```
-mkdir kafka-connect-mqtt-2.1.3-2.5.0-all && tar xvf kafka-connect-mqtt-2.1.3-2.5.0-all.tar.gz -C kafka-connect-mqtt-2.1.3-2.5.0-all
+sudo mkdir kafka-connect-mqtt-2.1.3-2.5.0-all
+sudo tar xvf kafka-connect-mqtt-2.1.3-2.5.0-all.tar.gz -C kafka-connect-mqtt-2.1.3-2.5.0-all
 rm kafka-connect-mqtt-2.1.3-2.5.0-all.tar.gz
 ```
 
