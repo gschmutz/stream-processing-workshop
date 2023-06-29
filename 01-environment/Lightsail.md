@@ -20,6 +20,7 @@ Scroll down to **Launch script** and add the following script
 ```
 export GITHUB_PROJECT=stream-processing-workshop
 export GITHUB_OWNER=gschmutz
+export PLATYS_VERSION=2.4.0
 export NETWORK_NAME=eth0
 export USERNAME=ubuntu
 export PASSWORD=abc123!
