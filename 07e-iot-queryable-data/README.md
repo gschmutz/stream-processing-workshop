@@ -114,6 +114,11 @@ ksql> SELECT * FROM vehicle_tracking_refined_t WHERE vehicleId = 35;
 |35                                |28                                |Tracking_SysA                     |Normal                            |34.89                             |-91.74                            |
 ```
 
+Such a pull query can be executed from a client application to get the latest value out of ksqlDB's state store.
+
+Optionally we could also use a NoSQL database, such as Redis, to store the values and then retrieve it from the application. This we will demonstrate in the next part of the workshop.
+
+
 ----
 [previous part](../07d-iot-data-normalization-using-ksqldb/README.md)
 | 	[top](../07-iot-data-ingestion-and-transformation/README.md) 
