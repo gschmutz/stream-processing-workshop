@@ -18,4 +18,5 @@ We will implement this end-to-end demo case step by step using different technol
 3. [Ingesting simulated IoT from System B into Kafka](../07c-iot-data-ingestion-sys-b-into-kafka/README.md)
 3. [Refining data into a normalized topic using ksqlDB](../07d-iot-data-normalization-using-ksqldb/README.md)
 4. [Using Pull query to get data](../07e-iot-queryable-data/README.md)
-4. [Ingesting Static Data](../07f-static-data-ingestion/README.md)
+4. [Using Kafka Connect to write data to Redis and Minio](../07f-data-egestion-to-redis-and-minio/README.md)
+4. [Ingesting Static Data](../07g-static-data-ingestion/README.md)
