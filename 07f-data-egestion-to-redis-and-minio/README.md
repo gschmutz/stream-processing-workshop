@@ -1,4 +1,4 @@
-# Ingest IoT Vehicle Data - Using Kafka Connect to write data to Redis
+# Ingest IoT Vehicle Data - Using Kafka Connect to write data to Redis and Minio
 
 So with the vehicle position data from both source systems normalized into the `vehicle_tracking_refined` topic we will use Kafka Connect to send the data to external data stores. 
 

@@ -122,4 +122,4 @@ Optionally we could also use a NoSQL database, such as Redis, to store the value
 ----
 [previous part](../07d-iot-data-normalization-using-ksqldb/README.md)
 | 	[top](../07-iot-data-ingestion-and-transformation/README.md) 
-| 	[next part](../07e-iot-queryable-data/README.md)
+| 	[next part](../07f-data-egestion-to-redis-and-minio/README.md)
