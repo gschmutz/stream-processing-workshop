@@ -96,7 +96,7 @@
       #
       KAFKA_CONNECT_enable: true
       KAFKA_CONNECT_nodes: 2
-      KAFKA_CONNECT_connectors: 'jcustenborder/kafka-connect-json-schema:0.2.5,redhatinsights/expandjsonsmt:0.0.7,confluentinc/kafka-connect-json-schema-converter:7.4.0,confluentinc/kafka-connect-jdbc:10.6.3,confluentinc/kafka-connect-elasticsearch:14.0.4,debezium/debezium-connector-postgresql:2.2.1,debezium/debezium-connector-mysql:2.2.1,cjmatta/kafka-connect-sse:1.0'
+      KAFKA_CONNECT_connectors: 'jcustenborder/kafka-connect-json-schema:0.2.5,redhatinsights/expandjsonsmt:0.0.7,confluentinc/kafka-connect-json-schema-converter:7.4.0,confluentinc/kafka-connect-jdbc:10.6.3,confluentinc/kafka-connect-elasticsearch:14.0.4,debezium/debezium-connector-postgresql:2.2.1,debezium/debezium-connector-mysql:2.2.1,cjmatta/kafka-connect-sse:1.0,jcustenborder/kafka-connect-redis:1.0.0'
       KAFKA_CONNECT_config_providers: 'file'
       KAFKA_CONNECT_config_providers_classes: 'org.apache.kafka.common.config.provider.FileConfigProvider'
       KAFKA_CONNECT_map_settings_file: false
@@ -790,7 +790,7 @@
       #
       # ===== Redis ========
       #
-      REDIS_enable: false
+      REDIS_enable: true
       REDIS_replicasets: 0
       REDIS_allow_empty_password: yes
       REDIS_disable_commands:

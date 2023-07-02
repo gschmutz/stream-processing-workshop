@@ -201,7 +201,7 @@ services:
       - |
         echo "Installing Connectors"
         mkdir -p /etc/kafka-connect/cflthub-plugins
-        for i in $$(echo "jcustenborder/kafka-connect-json-schema:0.2.5,redhatinsights/expandjsonsmt:0.0.7,confluentinc/kafka-connect-json-schema-converter:7.4.0,confluentinc/kafka-connect-jdbc:10.6.3,confluentinc/kafka-connect-elasticsearch:14.0.4,debezium/debezium-connector-postgresql:2.2.1,debezium/debezium-connector-mysql:2.2.1,cjmatta/kafka-connect-sse:1.0" | sed "s/,/ /g")
+        for i in $$(echo "jcustenborder/kafka-connect-json-schema:0.2.5,redhatinsights/expandjsonsmt:0.0.7,confluentinc/kafka-connect-json-schema-converter:7.4.0,confluentinc/kafka-connect-jdbc:10.6.3,confluentinc/kafka-connect-elasticsearch:14.0.4,debezium/debezium-connector-postgresql:2.2.1,debezium/debezium-connector-mysql:2.2.1,cjmatta/kafka-connect-sse:1.0,jcustenborder/kafka-connect-redis:1.0.0" | sed "s/,/ /g")
         do
           confluent-hub install --no-prompt --component-dir /etc/kafka-connect/cflthub-plugins --verbose "$$i"
         done
@@ -267,7 +267,7 @@ services:
       - |
         echo "Installing Connectors"
         mkdir -p /etc/kafka-connect/cflthub-plugins
-        for i in $$(echo "jcustenborder/kafka-connect-json-schema:0.2.5,redhatinsights/expandjsonsmt:0.0.7,confluentinc/kafka-connect-json-schema-converter:7.4.0,confluentinc/kafka-connect-jdbc:10.6.3,confluentinc/kafka-connect-elasticsearch:14.0.4,debezium/debezium-connector-postgresql:2.2.1,debezium/debezium-connector-mysql:2.2.1,cjmatta/kafka-connect-sse:1.0" | sed "s/,/ /g")
+        for i in $$(echo "jcustenborder/kafka-connect-json-schema:0.2.5,redhatinsights/expandjsonsmt:0.0.7,confluentinc/kafka-connect-json-schema-converter:7.4.0,confluentinc/kafka-connect-jdbc:10.6.3,confluentinc/kafka-connect-elasticsearch:14.0.4,debezium/debezium-connector-postgresql:2.2.1,debezium/debezium-connector-mysql:2.2.1,cjmatta/kafka-connect-sse:1.0,jcustenborder/kafka-connect-redis:1.0.0" | sed "s/,/ /g")
         do
           confluent-hub install --no-prompt --component-dir /etc/kafka-connect/cflthub-plugins --verbose "$$i"
         done
@@ -626,6 +626,23 @@ services:
       - -c
       - |
         start-notebook.sh
+    restart: unless-stopped
+  #  ================================== Redis ========================================== #
+  redis-1:
+    image: bitnami/redis:7.0
+    hostname: redis-1
+    container_name: redis-1
+    labels:
+      com.platys.name: redis
+    ports:
+      - 6379:6379
+    environment:
+      - REDIS_REPLICATION_MODE=master
+      - ALLOW_EMPTY_PASSWORD=yes
+      - REDIS_PASSWORD=abc123!
+      - REDIS_AOF_ENABLED=no
+    volumes:
+      - ./data-transfer:/data-transfer
     restart: unless-stopped
   #  ================================== Elasticsearch ========================================== #
   elasticsearch-1:
