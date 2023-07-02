@@ -6,6 +6,45 @@ We will be using [ksqlDB](https://ksqldb.io/) to transform the data from CSV/JSO
 
 ![Alt Image Text](./images/iot-ingestion-overview.png "Schema Registry UI")
 
+## Replicate previous steps
+
+create Kafka topics
+
+```bash
+docker exec -ti kafka-1 kafka-console-consumer --bootstrap-server kafka-1:19092 --topic vehicle_tracking_sysA
+docker exec -ti kafka-1 kafka-console-consumer --bootstrap-server kafka-1:19092 --topic vehicle_tracking_sysB
+```
+
+run vehicle simulator for 1 - 49
+
+```bash
+docker run --network host --rm trivadis/iot-truck-simulator '-s' 'MQTT' '-h' $DOCKER_HOST_IP '-p' '1883' '-f' 'JSON' '-vf' '1-49'
+```
+
+```bash
+curl -X PUT \
+  http://dataplatform:8083/connectors/mqtt-source/config \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json' \
+  -d '{
+    "connector.class": "com.datamountaineer.streamreactor.connect.mqtt.source.MqttSourceConnector",
+    "connect.mqtt.connection.timeout": "1000",
+    "tasks.max": "1",
+    "connect.mqtt.kcql": "INSERT INTO vehicle_tracking_sysA SELECT * FROM truck/+/position",
+    "connect.mqtt.connection.clean": "true",
+    "connect.mqtt.service.quality": "0",
+    "connect.mqtt.connection.keep.alive": "1000",
+    "connect.mqtt.client.id": "tm-mqtt-connect-01",
+    "connect.mqtt.converter.throw.on.error": "true",
+    "connect.mqtt.hosts": "tcp://mosquitto-1:1883"
+}
+```
+
+load and run this Apache NiFi flow
+
+
+
+
 ## Working with ksqlDB
 
 ksqlDB is an event streaming database purpose-built to help developers create stream processing applications on top of Apache Kafka.
