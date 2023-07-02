@@ -131,7 +131,7 @@ curl -X "DELETE" "http://dataplatform:8083/connectors/mqtt-source"
 echo "creating MQTT Source Connector"
 
 curl -X PUT \
-  http://dataplatform:8083/connectors/mqtt-source/config \
+  http://${DOCKER_HOST_IP}:8083/connectors/mqtt-source/config \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json' \
   -d '{
@@ -157,7 +157,7 @@ Also create a separate script `stop-mqtt.sh` for stopping the connector with the
 
 echo "removing MQTT Source Connector"
 
-curl -X "DELETE" "http://dataplatform:8083/connectors/mqtt-source"
+curl -X "DELETE" "http://${DOCKER_HOST_IP}:8083/connectors/mqtt-source"
 ```
 
 Make sure that the both scripts are executable

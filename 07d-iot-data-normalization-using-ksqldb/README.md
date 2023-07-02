@@ -11,8 +11,8 @@ We will be using [ksqlDB](https://ksqldb.io/) to transform the data from CSV/JSO
 create Kafka topics
 
 ```bash
-docker exec -ti kafka-1 kafka-console-consumer --bootstrap-server kafka-1:19092 --topic vehicle_tracking_sysA
-docker exec -ti kafka-1 kafka-console-consumer --bootstrap-server kafka-1:19092 --topic vehicle_tracking_sysB
+docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic vehicle_tracking_sysA --partitions 8 --replication-factor 3 &&
+docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic vehicle_tracking_sysB --partitions 8 --replication-factor 3
 ```
 
 run vehicle simulator for 1 - 49
@@ -23,7 +23,7 @@ docker run --network host --rm trivadis/iot-truck-simulator '-s' 'MQTT' '-h' $DO
 
 ```bash
 curl -X PUT \
-  http://dataplatform:8083/connectors/mqtt-source/config \
+  http://${DOCKER_HOST_IP}:8083/connectors/mqtt-source/config \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json' \
   -d '{
@@ -37,7 +37,7 @@ curl -X PUT \
     "connect.mqtt.client.id": "tm-mqtt-connect-01",
     "connect.mqtt.converter.throw.on.error": "true",
     "connect.mqtt.hosts": "tcp://mosquitto-1:1883"
-}
+}'
 ```
 
 load and run this Apache NiFi flow
