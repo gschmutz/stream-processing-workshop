@@ -12,14 +12,14 @@ We will be using [Apache Nifi](https://nifi.apache.org/) and [StreamSets Data Co
 
 First make sure that you are located in the `docker` folder of the dataplatform, where the `docker-compose.yml` can be found. You can easily navigate to the right place by using the `$DATAPLATFORM_HOME` environment variable (if set).
 
-```
+```bash
 cd $DATAPLATFORM_HOME
 ```
 
 Now running the simulator is a simple as starting the `trivadis/iot-truck-simulator` docker image, providing some parameters.
 
-```
-docker run -v "${PWD}/data-transfer/logs:/out" --rm trivadis/iot-truck-simulator "-s" "FILE" "-f" "CSV" "-d" "1000" "-vf" "50-100" "-es" "2" "-fpv"
+```bash
+docker run -v "${PWD}/data-transfer/logs:/out" --rm trivadis/iot-truck-simulator "-s" "FILE" "-f" "CSV" "-d" "1000" "-vf" "50-100" "-es" "2"
 ```
 
 **Note:** if you are running docker on windows, you have to replace the `${PWD}` by the absolute path to the `data-transfer` folder.  

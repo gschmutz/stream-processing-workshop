@@ -1,6 +1,6 @@
 # Ingest IoT Vehicle Data - Using Pull query to get data
 
-So with the vehicle position data from both source systems normalized into the `vehicle_tracking_refined` topic and available in ksqlDB throught the `vehicle_tracking_refined_s` stream object, is it possible to query for the latest position for a given vehicle? 
+So with the vehicle position data from both source systems normalized into the `vehicle_tracking_refined` topic and available in ksqlDB through the `vehicle_tracking_refined_s` stream object, is it possible to query for the latest position for a given vehicle? 
 
 ![Alt Image Text](./images/iot-ingestion-overview.png "Schema Registry UI")
 
@@ -13,45 +13,27 @@ In ksqlDB suche queries are called *pull queries*, in contrast to the streaming 
 So let's do a `SELECT` on the stream, restricting on the `vehicleId` without an `EMIT CHANGES`
 
 ``` sql
-SELECT * FROM vehicle_tracking_refined_s WHERE vehicleId = '42';
+SELECT * FROM vehicle_tracking_refined_s WHERE vehicleId = 60;
 ```
 
-This query will return all the messages collected so far for vehicle `42`.
+This query will return all the messages collected so far for vehicle 60.
 
 ```
-ksql> SELECT * FROM vehicle_tracking_refined_s WHERE vehicleId = '42'
->;
-+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+
-|ROWKEY   |SOURCE   |TIMESTAMP|VEHICLEID|DRIVERID |ROUTEID  |EVENTTYPE|LATITUDE |LONGITUDE|CORRELATI|
-|         |         |         |         |         |         |         |         |         |ONID     |
-+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+
-|42       |Tracking_|166508600|42       |11       |196226178|Normal   |38.65    |-90.2    |-60501605|
-|         |SysA     |2589     |         |         |5        |         |         |         |965346141|
-|         |         |         |         |         |         |         |         |         |45       |
-|42       |Tracking_|166508600|42       |11       |196226178|Normal   |39.1     |-89.74   |-60501605|
-|         |SysA     |5857     |         |         |5        |         |         |         |965346141|
-|         |         |         |         |         |         |         |         |         |45       |
-|42       |Tracking_|166508600|42       |11       |196226178|Normal   |39.84    |-89.63   |-60501605|
-|         |SysA     |9608     |         |         |5        |         |         |         |965346141|
-|         |         |         |         |         |         |         |         |         |45       |
-|42       |Tracking_|166508601|42       |11       |196226178|Normal   |40.38    |-89.17   |-60501605|
-|         |SysA     |3558     |         |         |5        |         |         |         |965346141|
-|         |         |         |         |         |         |         |         |         |45       |
-|42       |Tracking_|166508601|42       |11       |196226178|Normal   |40.76    |-88.77   |-60501605|
-|         |SysA     |6637     |         |         |5        |         |         |         |965346141|
-|         |         |         |         |         |         |         |         |         |45       |
-|42       |Tracking_|166508601|42       |11       |196226178|Normal   |41.11    |-88.42   |-60501605|
-|         |SysA     |9778     |         |         |5        |         |         |         |965346141|
-|         |         |         |         |         |         |         |         |         |45       |
-|42       |Tracking_|166508602|42       |11       |196226178|Normal   |41.48    |-88.07   |-60501605|
-|         |SysA     |2997     |         |         |5        |         |         |         |965346141|
-|         |         |         |         |         |         |         |         |         |45       |
-|42       |Tracking_|166508602|42       |11       |196226178|Normal   |41.87    |-87.67   |-60501605|
-|         |SysA     |6737     |         |         |5        |         |         |         |965346141|
-|         |         |         |         |         |         |         |         |         |45       |
-|42       |Tracking_|166508603|42       |11       |196226178|Normal   |41.87    |-87.67   |-60501605|
-|         |SysA     |0128     |         |         |5        |         |         |         |965346141|
-|         |         |         |         |         |         |         |         |         |45       |
+ksql> SELECT * FROM vehicle_tracking_refined_s WHERE vehicleId = 60;
++--------------------+--------------------+--------------------+--------------------+--------------------+--------------------+--------------------+--------------------+--------------------+--------------------+
+|ROWKEY              |SOURCE              |TIMESTAMP           |VEHICLEID           |DRIVERID            |ROUTEID             |EVENTTYPE           |LATITUDE            |LONGITUDE           |CORRELATIONID       |
++--------------------+--------------------+--------------------+--------------------+--------------------+--------------------+--------------------+--------------------+--------------------+--------------------+
+|60                  |Tracking_SysB       |1688321351702       |60                  |12                  |1594289134          |Normal              |42.25               |-88.96              |5823429444287523    |
+|60                  |Tracking_SysB       |1688321352532       |60                  |12                  |1594289134          |Normal              |42.21               |-88.64              |5823429444287523    |
+|60                  |Tracking_SysB       |1688321353332       |60                  |12                  |1594289134          |Normal              |42.11               |-88.41              |5823429444287523    |
+|60                  |Tracking_SysB       |1688321354273       |60                  |12                  |1594289134          |Normal              |42.04               |-88.02              |5823429444287523    |
+|60                  |Tracking_SysB       |1688321355152       |60                  |12                  |1594289134          |Normal              |41.89               |-87.66              |5823429444287523    |
+|60                  |Tracking_SysB       |1688321356112       |60                  |12                  |1594289134          |Lane Departure      |41.89               |-87.66              |5823429444287523    |
+|60                  |Tracking_SysB       |1688321357002       |60                  |12                  |1594289134          |Normal              |42.04               |-88.02              |5823429444287523    |
+|60                  |Tracking_SysB       |1688321357982       |60                  |12                  |1594289134          |Normal              |42.11               |-88.41              |5823429444287523    |
+|60                  |Tracking_SysB       |1688321358752       |60                  |12                  |1594289134          |Normal              |42.21               |-88.64              |5823429444287523    |
+|60                  |Tracking_SysB       |1688321359662       |60                  |12                  |1594289134          |Normal              |42.25               |-88.96              |5823429444287523    |
+|60                  |Tracking_SysB       |1688321360512       |60                  |12                  |1594289134          |Normal              |41.92               |-89.03              |5823429444287523    |
 Query Completed
 Query terminated
 ```
@@ -94,45 +76,42 @@ ksql> DESCRIBE vehicle_tracking_refined_t;
 Name                 : VEHICLE_TRACKING_REFINED_T
  Field     | Type
 --------------------------------------------
- VEHICLEID | VARCHAR(STRING)  (primary key)
+ VEHICLEID | BIGINT           (primary key)
  DRIVERID  | BIGINT
  SOURCE    | VARCHAR(STRING)
  EVENTTYPE | VARCHAR(STRING)
  LATITUDE  | DOUBLE
  LONGITUDE | DOUBLE
 --------------------------------------------
+For runtime statistics and query details run: DESCRIBE <Stream,Table> EXTENDED;
 ```
 
-So to test the pull query, we have to switch to a string, otherwise an error is shown:
+Now to test the pull query from the new table:
 
 ``` sql
-SELECT * FROM vehicle_tracking_refined_t WHERE vehicleId = '42';
+SELECT * FROM vehicle_tracking_refined_t WHERE vehicleId = 60;
 ```
 
-But we could also change the `CREATE TABLE` statement to CAST the `vehicleId` into a `BIGINT`:
+if you repeat it multiple times, you will see the changing values for i.e. `latitude` and `longitude`
 
-
-``` sql
-DROP TABLE IF EXISTS vehicle_tracking_refined_t DELETE TOPIC;
-
-CREATE TABLE IF NOT EXISTS vehicle_tracking_refined_t
-WITH (kafka_topic = 'vehicle_tracking_refined_t')
-AS
-SELECT CAST(vehicleId AS BIGINT)			vehicleId
-       , latest_by_offset(driverId)	   driverId
-		, latest_by_offset(source)			source
-		, latest_by_offset(eventType)		eventType
-		, latest_by_offset(latitude)		latitude
-		, latest_by_offset(longitude)		longitude
-FROM vehicle_tracking_refined_s
-GROUP BY CAST(vehicleId AS BIGINT)
-EMIT CHANGES;
-```
-
-Now we can use it with an integer:
-
-``` sql
-SELECT * FROM vehicle_tracking_refined_t WHERE vehicleId = 42;
+```ksql
+ksql> SELECT * FROM vehicle_tracking_refined_t WHERE vehicleId = 35;
++----------------------------------+----------------------------------+----------------------------------+----------------------------------+----------------------------------+----------------------------------+
+|VEHICLEID                         |DRIVERID                          |SOURCE                            |EVENTTYPE                         |LATITUDE                          |LONGITUDE                         |
++----------------------------------+----------------------------------+----------------------------------+----------------------------------+----------------------------------+----------------------------------+
+|35                                |28                                |Tracking_SysA                     |Normal                            |34.8                              |-92.09                            |
+Query terminated
+ksql> SELECT * FROM vehicle_tracking_refined_t WHERE vehicleId = 35;
++----------------------------------+----------------------------------+----------------------------------+----------------------------------+----------------------------------+----------------------------------+
+|VEHICLEID                         |DRIVERID                          |SOURCE                            |EVENTTYPE                         |LATITUDE                          |LONGITUDE                         |
++----------------------------------+----------------------------------+----------------------------------+----------------------------------+----------------------------------+----------------------------------+
+|35                                |28                                |Tracking_SysA                     |Normal                            |34.81                             |-91.93                            |
+Query terminated
+ksql> SELECT * FROM vehicle_tracking_refined_t WHERE vehicleId = 35;
++----------------------------------+----------------------------------+----------------------------------+----------------------------------+----------------------------------+----------------------------------+
+|VEHICLEID                         |DRIVERID                          |SOURCE                            |EVENTTYPE                         |LATITUDE                          |LONGITUDE                         |
++----------------------------------+----------------------------------+----------------------------------+----------------------------------+----------------------------------+----------------------------------+
+|35                                |28                                |Tracking_SysA                     |Normal                            |34.89                             |-91.74                            |
 ```
 
 ----

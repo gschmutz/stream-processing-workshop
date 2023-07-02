@@ -21,6 +21,24 @@ run vehicle simulator for 1 - 49
 docker run --network host --rm trivadis/iot-truck-simulator '-s' 'MQTT' '-h' $DOCKER_HOST_IP '-p' '1883' '-f' 'JSON' '-vf' '1-49'
 ```
 
+download mqtt connector
+
+```
+cd $DATAPLATFORM_HOME/plugins/kafka-connect/connectors
+sudo wget https://github.com/lensesio/stream-reactor/releases/download/4.2.0/kafka-connect-mqtt-4.2.0.zip
+sudo unzip kafka-connect-mqtt-4.2.0.zip
+sudo rm kafka-connect-mqtt-4.2.0.zip
+```
+
+restart kafka-connect containers
+
+```bash
+cd $DATAPLATFORM_HOME
+docker compose restart kafka-connect-1 kafka-connect-2
+```
+
+and create the bridge from MQTT to Kafka
+
 ```bash
 curl -X PUT \
   http://${DOCKER_HOST_IP}:8083/connectors/mqtt-source/config \
@@ -30,20 +48,48 @@ curl -X PUT \
     "connector.class": "com.datamountaineer.streamreactor.connect.mqtt.source.MqttSourceConnector",
     "connect.mqtt.connection.timeout": "1000",
     "tasks.max": "1",
-    "connect.mqtt.kcql": "INSERT INTO vehicle_tracking_sysA SELECT * FROM truck/+/position",
+    "connect.mqtt.kcql": "INSERT INTO vehicle_tracking_sysA SELECT * FROM truck/+/position WITHCONVERTER=`com.datamountaineer.streamreactor.connect.converters.source.JsonSimpleConverter` WITHKEY(truckId)",
     "connect.mqtt.connection.clean": "true",
     "connect.mqtt.service.quality": "0",
     "connect.mqtt.connection.keep.alive": "1000",
     "connect.mqtt.client.id": "tm-mqtt-connect-01",
     "connect.mqtt.converter.throw.on.error": "true",
-    "connect.mqtt.hosts": "tcp://mosquitto-1:1883"
+    "connect.mqtt.hosts": "tcp://mosquitto-1:1883",
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "false",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false"
 }'
 ```
 
-load and run this Apache NiFi flow
+if you want to check and consume the message with `kcat`
+
+```bash
+docker exec -ti kcat kcat -b kafka-1 -t vehicle_tracking_sysA -f "%k - %s\n" -q
+```
+
+Run the simulator for vehicles 50 - 100
 
 
+```bash
+docker run -v "${PWD}/data-transfer/logs:/out" --rm trivadis/iot-truck-simulator "-s" "FILE" "-f" "CSV" "-d" "1000" "-vf" "50-100" "-es" "2"
+```
 
+Upload the NiFi Template `07c-iot-data-ingestion-sys-b-into-kafka/nifi/tailfile-to-kafka.xml` into Apache NiFi. 
+
+![](./images/nifi-upload-template.png)
+
+now import the template into the canvas
+
+![](./images/nifi-import-template.png)
+
+After the flow is loaded, enable all controller services by right-clicking on the canvas and select **Enable all controller services**. Now you can start the flow by selecting all processors and clicking the **start** icon. 
+
+To view the messages
+
+```bash
+docker exec -ti kcat kcat -b kafka-1 -t vehicle_tracking_sysB -f "%k - %s\n" -q
+```
 
 ## Working with ksqlDB
 
@@ -101,9 +147,9 @@ Now let's create the ksqlDB Stream
 
 ``` sql
 CREATE STREAM IF NOT EXISTS vehicle_tracking_sysA_s 
-  (mqttTopic VARCHAR KEY,
-  timestamp VARCHAR, 
-   truckId VARCHAR, 
+  (key VARCHAR KEY,
+  timestamp BIGINT, 
+   truckId BIGINT, 
    driverId BIGINT, 
    routeId BIGINT,
    eventType VARCHAR,
@@ -132,16 +178,21 @@ You should see a continuous stream of events as a result of the SELECT statement
 
 ```
 ksql> SELECT * from vehicle_tracking_sysA_s EMIT CHANGES;
-+------------------------------+------------------------------+------------------------------+------------------------------+------------------------------+------------------------------+------------------------------+------------------------------+------------------------------+
-|MQTTTOPIC                     |TIMESTAMP                     |TRUCKID                       |DRIVERID                      |ROUTEID                       |EVENTTYPE                     |LATITUDE                      |LONGITUDE                     |CORRELATIONID                 |
-+------------------------------+------------------------------+------------------------------+------------------------------+------------------------------+------------------------------+------------------------------+------------------------------+------------------------------+
-|truck/11/position             |1599398981285                 |11                            |17                            |1594289134                    |Normal                        |38.99                         |-93.45                        |-8240058917944842967          |
-|truck/42/position             |1599398981846                 |42                            |22                            |1325562373                    |Normal                        |37.15                         |-97.32                        |-8240058917944842967          |
-|truck/10/position             |1599398982135                 |10                            |10                            |1962261785                    |Normal                        |38.09                         |-91.44                        |-8240058917944842967          |
-|truck/34/position             |1599398982454                 |34                            |16                            |1198242881                    |Normal                        |39.01                         |-93.85                        |-8240058917944842967          |
++---------------+---------------+---------------+---------------+---------------+---------------+---------------+---------------+---------------+
+|KEY            |TIMESTAMP      |TRUCKID        |DRIVERID       |ROUTEID        |EVENTTYPE      |LATITUDE       |LONGITUDE      |CORRELATIONID  |
++---------------+---------------+---------------+---------------+---------------+---------------+---------------+---------------+---------------+
+|"10"           |1688320285388  |10             |23             |927636994      |Normal         |41.89          |-87.66         |690643977849542|
+|               |               |               |               |               |               |               |               |6077           |
+|"33"           |1688320285688  |33             |10             |1962261785     |Normal         |36.23          |-96.44         |690643977849542|
+|               |               |               |               |               |               |               |               |6077           |
+|"11"           |1688320285728  |11             |17             |1567254452     |Normal         |41.71          |-91.94         |690643977849542|
+|               |               |               |               |               |               |               |               |6077           |
+|"38"           |1688320285788  |38             |15             |987179512      |Normal         |37.16          |-94.46         |690643977849542|
+|               |               |               |               |               |               |               |               |6077           |
+Press CTL-C to interrupt
 ```
 
-We have submitted our first simple KSQL statement. Let's now add some analytics to this base statement. 
+We have submitted our first simple KSQL statement. Let's now add some analytics to this base statement. Stop the statement by entering `CTRL-C`.
 
 
 Get info on the stream using the `DESCRIBE` command
@@ -153,7 +204,39 @@ DESCRIBE vehicle_tracking_sysA_s;
 or with the additional `EXTENDED` option
 
 ```sql
-DESCRIBE EXTENDED vehicle_tracking_sysA_s;
+DESCRIBE vehicle_tracking_sysA_s EXTENDED;
+```
+
+```sql
+ksql> DESCRIBE vehicle_tracking_sysA_s EXTENDED;
+
+Name                 : VEHICLE_TRACKING_SYSA_S
+Type                 : STREAM
+Timestamp field      : Not set - using <ROWTIME>
+Key format           : KAFKA
+Value format         : JSON
+Kafka topic          : vehicle_tracking_sysA (partitions: 8, replication: 3)
+Statement            : CREATE STREAM IF NOT EXISTS VEHICLE_TRACKING_SYSA_S (KEY STRING KEY, TIMESTAMP BIGINT, TRUCKID BIGINT, DRIVERID BIGINT, ROUTEID BIGINT, EVENTTYPE STRING, LATITUDE DOUBLE, LONGITUDE DOUBLE, CORRELATIONID STRING) WITH (KAFKA_TOPIC='vehicle_tracking_sysA', KEY_FORMAT='KAFKA', VALUE_FORMAT='JSON');
+
+ Field         | Type
+----------------------------------------
+ KEY           | VARCHAR(STRING)  (key)
+ TIMESTAMP     | BIGINT
+ TRUCKID       | BIGINT
+ DRIVERID      | BIGINT
+ ROUTEID       | BIGINT
+ EVENTTYPE     | VARCHAR(STRING)
+ LATITUDE      | DOUBLE
+ LONGITUDE     | DOUBLE
+ CORRELATIONID | VARCHAR(STRING)
+----------------------------------------
+
+Local runtime statistics
+------------------------
+
+
+(Statistics of the local KSQL server interaction with the Kafka topic vehicle_tracking_sysA)
+ksql>
 ```
 
 ### Create a new "refined" stream where the data is transformed into Avro
@@ -171,7 +254,7 @@ CREATE STREAM IF NOT EXISTS vehicle_tracking_refined_s
   WITH (kafka_topic='vehicle_tracking_refined',
         value_format='AVRO',
         VALUE_AVRO_SCHEMA_FULL_NAME='com.trivadis.avro.VehicleTrackingRefined')
-AS SELECT truckId AS ROWKEY
+AS SELECT key AS ROWKEY
 		, 'Tracking_SysA' AS source
 		, timestamp
 		, AS_VALUE(truckId) AS vehicleId
@@ -182,14 +265,14 @@ AS SELECT truckId AS ROWKEY
 		, longitude
 		, correlationId
 FROM vehicle_tracking_sysA_s
-PARTITION BY truckId
+PARTITION BY key
 EMIT CHANGES;
 ```
 
-To check that the refined topic does in fact hold Avro formatted data, let's just do a normal kcat on the `truck_position_refined` topic
+To check that the refined topic does in fact hold Avro formatted data, let's just do a normal `kcat` on the `truck_position_refined` topic
 
 ``` bash
-docker exec -ti kcat kcat -b kafka-1 -t vehicle_tracking_refined
+docker exec -ti kcat kcat -b kafka-1:19092 -t vehicle_tracking_refined
 ```
 
 we can see that it is serialised as Avro 
@@ -213,14 +296,16 @@ WX�$343671958179690963
 we can use the `-s` and `-r` option to specify the Avro Serde and the URL of the schema registry and the output is readable:
 
 ``` bash
-docker exec -ti kcat kcat -b kafka-1 -t vehicle_tracking_refined -s value=avro -r http://schema-registry-1:8081
+docker exec -ti kcat kcat -b kafka-1:19092 -t vehicle_tracking_refined -s value=avro -r http://schema-registry-1:8081
 ```
 
 You can use the Schema Registry UI on <http://dataplatform:28102> to view the Avro Schema created by ksqlDB.
 
+![](./images/schema-registry-ui.png)
+
 ### Refinement of data from System B
 
-Now let's do the refinement on the raw data from System B and place it into the same topic `vehicle_tracking_refined` as used in step 2.
+Now let's do the refinement on the raw data from System B and place it into the same stream `vehicle_tracking_refined_s` as before with the refined data of System A.
 
 Firs lets create the Stream on the raw data topic:
 
@@ -246,18 +331,92 @@ CREATE STREAM IF NOT EXISTS vehicle_tracking_sysB_s
 System B delivers the latitude and longitude in one field as a string, with the two values delimited by a colon character.
 
 ```sql
+SELECT * FROM vehicle_tracking_sysB_s EMIT CHANGES;
+```
+
+```
+ksql> SELECT * FROM vehicle_tracking_sysB_s EMIT CHANGES;
++---------------+---------------+---------------+---------------+---------------+---------------+---------------+---------------+---------------+
+|ROWKEY         |SYSTEM         |TIMESTAMP      |VEHICLEID      |DRIVERID       |ROUTEID        |EVENTTYPE      |LATLONG        |CORRELATIONID  |
++---------------+---------------+---------------+---------------+---------------+---------------+---------------+---------------+---------------+
+|74             |SystemB        |1688321026323  |74             |18             |1090292248     |Normal         |39.72:-90.97   |582342944428752|
+|               |               |               |               |               |               |               |               |3              |
+|74             |SystemB        |1688321027213  |74             |18             |1090292248     |Normal         |39.75:-91.2    |582342944428752|
+|               |               |               |               |               |               |               |               |3              |
+|97             |SystemB        |1688321026243  |97             |25             |371182829      |Normal         |35.35:-90.24   |582342944428752|
+|               |               |               |               |               |               |               |               |3              |
+|97             |SystemB        |1688321027062  |97             |25             |371182829      |Normal         |35.1:-90.07    |582342944428752|
+|               |               |               |               |               |               |               |               |3              |
+|85             |SystemB        |1688321026063  |85             |13             |1390372503     |Normal         |41.56:-90.64   |582342944428752|
+|               |               |               |               |               |               |               |               |3              |
+|85             |SystemB        |1688321026822  |85             |13             |1390372503     |Normal         |41.59:-90.2    |582342944428752|
+|               |               |               |               |               |               |               |               |3              |
+|85             |SystemB        |1688321027643  |85             |13             |1390372503     |Normal         |41.77:-89.88   |582342944428752|
+|               |               |               |               |               |               |               |               |3              |
+|53             |SystemB        |1688321026332  |53             |20             |1090292248     |Normal         |41.56:-90.64   |582342944428752|
+|               |               |               |               |               |               |               |               |3              |
+|53             |SystemB        |1688321027242  |53             |20             |1090292248     |Normal         |41.59:-90.2    |582342944428752|
+|               |               |               |               |               |               |               |               |3              |
+|51             |SystemB        |1688321026304  |51             |30             |160779139      |Normal         |41.56:-90.64   |582342944428752|
+|               |               |               |               |               |               |               |               |3              |
+|69             |SystemB        |1688321026902  |69             |29             |803014426      |Normal         |36.23:-96.44   |582342944428752|
+Press CTL-C to interrupt
+```
+
+Let's view the structure of the source stream `vehicle_tracking_sysB_s` and the target stream `vehicle_tracking_refined_s`
+
+```sql
 DESCRIBE vehicle_tracking_sysB_s;
 DESCRIBE vehicle_tracking_refined_s;
 ```
 
-Now we can use the `INSERT` statement to write the data into the `vehicle_tracking_refined_s` stream we have created in step 2. We have to make sure that the structure matches (the refinement we perform), which in this case is providing the right value for the `source` column as well as splitting the `latLong` value into a `latitude` and `longitude` value:
+you should see the following output
+
+```
+ksql> DESCRIBE vehicle_tracking_sysB_s;
+
+Name                 : VEHICLE_TRACKING_SYSB_S
+ Field         | Type
+----------------------------------------
+ ROWKEY        | VARCHAR(STRING)  (key)
+ SYSTEM        | VARCHAR(STRING)
+ TIMESTAMP     | VARCHAR(STRING)
+ VEHICLEID     | VARCHAR(STRING)
+ DRIVERID      | BIGINT
+ ROUTEID       | BIGINT
+ EVENTTYPE     | VARCHAR(STRING)
+ LATLONG       | VARCHAR(STRING)
+ CORRELATIONID | VARCHAR(STRING)
+----------------------------------------
+For runtime statistics and query details run: DESCRIBE <Stream,Table> EXTENDED;
+ksql> DESCRIBE vehicle_tracking_refined_s;
+
+Name                 : VEHICLE_TRACKING_REFINED_S
+ Field         | Type
+----------------------------------------
+ ROWKEY        | VARCHAR(STRING)  (key)
+ SOURCE        | VARCHAR(STRING)
+ TIMESTAMP     | BIGINT
+ VEHICLEID     | BIGINT
+ DRIVERID      | BIGINT
+ ROUTEID       | BIGINT
+ EVENTTYPE     | VARCHAR(STRING)
+ LATITUDE      | DOUBLE
+ LONGITUDE     | DOUBLE
+ CORRELATIONID | VARCHAR(STRING)
+----------------------------------------
+For runtime statistics and query details run: DESCRIBE <Stream,Table> EXTENDED;
+ksql>
+```
+
+Now we can use the `INSERT` statement to write the data into the `vehicle_tracking_refined_s` stream we have created before. We have to make sure that the structure matches (the refinement we perform), which in this case is providing the right value for the `source` column as well as splitting the `latLong` value into a `latitude` and `longitude` value and cast to the right data types:
 
 ``` sql
 INSERT INTO vehicle_tracking_refined_s 
-SELECT ROWKEY
+SELECT rowkey
     , 'Tracking_SysB' AS source
-	, timestamp
-	, vehicleId
+	, CAST (timestamp AS BIGINT) as timestamp
+	, CAST (vehicleId AS BIGINT) as vehicleId
 	, driverId
 	, routeId
 	, eventType
@@ -268,9 +427,52 @@ FROM vehicle_tracking_sysB_s
 EMIT CHANGES;
 ```
 
+Let's see that the data from System B also arrive in the stream
+
+```sql
+select * from vehicle_tracking_refined_s;
+```
+
+And you should see an output similar to this
+
+```
+ksql> select * from vehicle_tracking_refined_s;
++--------------------+--------------------+--------------------+--------------------+--------------------+--------------------+--------------------+--------------------+--------------------+--------------------+
+|ROWKEY              |SOURCE              |TIMESTAMP           |VEHICLEID           |DRIVERID            |ROUTEID             |EVENTTYPE           |LATITUDE            |LONGITUDE           |CORRELATIONID       |
++--------------------+--------------------+--------------------+--------------------+--------------------+--------------------+--------------------+--------------------+--------------------+--------------------+
+|"14"                |Tracking_SysA       |1688321371288       |14                  |27                  |1961634315          |Normal              |42.25               |-88.96              |6906439778495426077 |
+|"11"                |Tracking_SysA       |1688321371498       |11                  |17                  |1567254452          |Normal              |35.31               |-93.12              |6906439778495426077 |
+|"33"                |Tracking_SysA       |1688321371868       |33                  |10                  |1962261785          |Normal              |37.27               |-97.32              |6906439778495426077 |
+|"10"                |Tracking_SysA       |1688321371987       |10                  |23                  |927636994           |Normal              |41.72               |-91.05              |6906439778495426077 |
+|"25"                |Tracking_SysA       |1688321372108       |25                  |12                  |1325712174          |Normal              |37.31               |-94.31              |6906439778495426077 |
+|"18"                |Tracking_SysA       |1688321372488       |18                  |18                  |137128276           |Normal              |34.92               |-92.25              |6906439778495426077 |
+|"40"                |Tracking_SysA       |1688321373257       |40                  |21                  |1198242881          |Normal              |41.54               |-90.44              |6906439778495426077 |
+|"30"                |Tracking_SysA       |1688321373328       |30                  |26                  |160405074           |Normal              |34.78               |-92.31              |6906439778495426077 |
+|"46"                |Tracking_SysA       |1688321373468       |46                  |28                  |24929475            |Normal              |38.98               |-93.2               |6906439778495426077 |
+|"38"                |Tracking_SysA       |1688321373718       |38                  |15                  |987179512           |Normal              |41.75               |-92.74              |6906439778495426077 |
+|"29"                |Tracking_SysA       |1688321373908       |29                  |19                  |160779139           |Normal              |37.09               |-94.23              |6906439778495426077 |
+|"45"                |Tracking_SysA       |1688321374398       |45                  |29                  |371182829           |Normal              |34.89               |-91.74              |6906439778495426077 |
+|"14"                |Tracking_SysA       |1688321374538       |14                  |27                  |1961634315          |Normal              |42.21               |-88.64              |6906439778495426077 |
+|"11"                |Tracking_SysA       |1688321375008       |11                  |17                  |1567254452          |Normal              |35.25               |-92.87              |6906439778495426077 |
+|"25"                |Tracking_SysA       |1688321375207       |25                  |12                  |1325712174          |Normal              |37.66               |-94.3               |6906439778495426077 |
+|"33"                |Tracking_SysA       |1688321375258       |33                  |10                  |1962261785          |Normal              |37.15               |-97.32              |6906439778495426077 |
+|"10"                |Tracking_SysA       |1688321375578       |10                  |23                  |927636994           |Normal              |41.71               |-91.32              |6906439778495426077 |
+|85                  |Tracking_SysB       |1688321367692       |85                  |13                  |1390372503          |Normal              |37.2                |-89.56              |5823429444287523    |
+|85                  |Tracking_SysB       |1688321368522       |85                  |13                  |1390372503          |Normal              |37.47               |-89.71              |5823429444287523    |
+|85                  |Tracking_SysB       |1688321369462       |85                  |13                  |1390372503          |Normal              |37.72               |-90.0               |5823429444287523    |
+|97                  |Tracking_SysB       |1688321366982       |97                  |25                  |371182829           |Normal              |39.84               |-89.63              |5823429444287523    |
+|97                  |Tracking_SysB       |1688321367842       |97                  |25                  |371182829           |Normal              |39.1                |-89.74              |5823429444287523    |
+|97                  |Tracking_SysB       |1688321368792       |97                  |25                  |371182829           |Normal              |38.65               |-90.2               |5823429444287523    |
+|97                  |Tracking_SysB       |1688321369602       |97                  |25                  |371182829           |Normal              |38.65               |-90.2               |5823429444287523    |
+|85                  |Tracking_SysB       |1688321370462       |85                  |13                  |1390372503          |Normal              |38.0                |-90.24              |5823429444287523    |
+|97                  |Tracking_SysB       |1688321370412       |97                  |25                  |371182829           |Normal              |35.21               |-90.37              |5823429444287523    |
+|90                  |Tracking_SysB       |1688321366442       |90                  |16                  |1325712174          |Normal              |38.33               |-94.35              |5823429444287523    |
+|60                  |Tracking_SysB       |1688321366612       |60                  |12                  |1594289134          |
+Press CTL-C to interrupt
+```
 
 ----
 [previous part](../07c-iot-data-ingestion-sys-b-into-kafka/README.md)
 [top](../07-iot-data-ingestion-and-transformation/README.md) 
-| 	[next part](../07b-iot-data-ingestion-mqtt-to-kafka/README.md)
+| 	[next part](../07e-iot-queryable-data/README.md)
 
