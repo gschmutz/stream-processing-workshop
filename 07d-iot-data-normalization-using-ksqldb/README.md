@@ -1,4 +1,4 @@
-# Ingest IoT Vehicle Data - Refining data into a normalized topic using ksqlDB
+# IoT Vehicle Data - Refining data into a normalized topic using ksqlDB
 
 In this part we will refine the data and place it in a new topic. The idea here is to have one normalised topic in Avro format, where all the tracking data from both system A and B will be placed, so that further processing can take it from there. 
 
@@ -91,7 +91,7 @@ To view the messages
 docker exec -ti kcat kcat -b kafka-1 -t vehicle_tracking_sysB -f "%k - %s\n" -q
 ```
 
-## Working with ksqlDB
+## Working with KSQL in an ad-hoc fashion
 
 ksqlDB is an event streaming database purpose-built to help developers create stream processing applications on top of Apache Kafka.
 
@@ -99,12 +99,39 @@ ksqlDB is an event streaming database purpose-built to help developers create st
 
 [_Source: Confluent_](https://docs.ksqldb.io/en/latest/)
 
+ksqlDB offers a SQL like dialect, but instead of reading from static tables, as you know from using it with databases, in KSQL we mostly read from data streams. In the Kafka world, a data stream is available through a Kafka topic. 
+
+ksqlDB can be used for doing ad-hoc queries as well as running continuous queries in the background. Let's first doing some ad-hoc queries to familiarise ourselves with the data on the `truck_position` topic. 
+
 ### Connect to ksqlDB engine
 
-Let's connect to the ksqlDB shell
+An instance of a ksqlDB server is part of the Data Platform and started as service `ksqldb-server-1`. It can be reached on port 8088. Additionally the ksqlDB CLI is also running as service `ksqldb-cli`. 
 
-``` bash
+Let's use the CLI by doing an `docker exec` into the running docker container
+
+```
 docker exec -it ksqldb-cli ksql http://ksqldb-server-1:8088
+```
+
+and you should see the ksqlDB "welcome page":
+
+```
+                  ===========================================
+                  =       _              _ ____  ____       =
+                  =      | | _____  __ _| |  _ \| __ )      =
+                  =      | |/ / __|/ _` | | | | |  _ \      =
+                  =      |   <\__ \ (_| | | |_| | |_) |     =
+                  =      |_|\_\___/\__, |_|____/|____/      =
+                  =                   |_|                   =
+                  =  Event Streaming Database purpose-built =
+                  =        for stream processing apps       =
+                  ===========================================
+
+Copyright 2017-2020 Confluent Inc.
+
+CLI v0.9.0, Server v0.9.0 located at http://ksqldb-server-1:8088
+
+Having trouble? Type 'help' (case-insensitive) for a rundown of how things work!
 ```
 
 ### Use ksqlDB for displaying messages
@@ -192,10 +219,21 @@ ksql> SELECT * from vehicle_tracking_sysA_s EMIT CHANGES;
 Press CTL-C to interrupt
 ```
 
+As long as we don't stop the query, we get a constant stream of new truck messages.
 We have submitted our first simple KSQL statement. Let's now add some analytics to this base statement. Stop the statement by entering `CTRL-C`.
 
+We can also state that we get a nicely formatted structure back. Compare that to the output of the console consumer or `kcat`. 
 
-Get info on the stream using the `DESCRIBE` command
+```
+ubuntu@ip-172-26-0-185:~$ docker exec -ti kcat kcat -b kafka-1:19092 -t vehicle_tracking_sysA -o end -q
+{"timestamp":1688387187891,"truckId":23,"driverId":31,"routeId":137128276,"eventType":"Normal","correlationId":"9221847540415582109","latitude":39.72,"longitude":-90.97}
+{"timestamp":1688387187861,"truckId":25,"driverId":26,"routeId":1198242881,"eventType":"Normal","correlationId":"9221847540415582109","latitude":41.71,"longitude":-93.04}
+{"timestamp":1688387188001,"truckId":24,"driverId":10,"routeId":803014426,"eventType":"Normal","correlationId":"9221847540415582109","latitude":37.26,"longitude":-93.14}
+{"timestamp":1688387188521,"truckId":13,"driverId":23,"routeId":1962261785,"eventType":"Normal","correlationId":"9221847540415582109","latitude":38.93,"longitude":-91.56}
+{"timestamp":1688387188781,"truckId":29,"driverId":25,"routeId":160779139,"eventType":"Normal","correlationId":"9221847540415582109","latitude":41.89,"longitude":-87.66}
+```
+
+We can get info about the stream object using the `DESCRIBE` command
 
 ```sql
 DESCRIBE vehicle_tracking_sysA_s;
@@ -240,6 +278,8 @@ ksql>
 ```
 
 ### Create a new "refined" stream where the data is transformed into Avro
+
+With KSQL it is very easy to translate this into a new format, Avro in this case. We just have to create a new stream using the `CREATE STREAM ...` statement using the same SQL statement and specify `AVRO` as the `value_format`:
 
 First drop the stream if it already exists:
 
@@ -302,6 +342,24 @@ docker exec -ti kcat kcat -b kafka-1:19092 -t vehicle_tracking_refined -s value=
 You can use the Schema Registry UI on <http://dataplatform:28102> to view the Avro Schema created by ksqlDB.
 
 ![](./images/schema-registry-ui.png)
+
+
+----
+**Note:** if you need to drop a STREAM you might get an `Cannot drop XXXX` error message:
+
+```
+Cannot drop VEHICLE_TRACKING_REFINED_S.
+The following queries read from this source: [].
+The following queries write into this source: [CSAS_VEHICLE_TRACKING_S_9].
+You need to terminate them before dropping VEHICLE_TRACKING_REFINED_S.
+```
+
+to solve the problem, just use the `TERMINATE` statement to stop the query(s) mentioned in the error message:
+
+```
+TERMINATE CSAS_VEHICLE_TRACKING_S_9;
+```
+---
 
 ### Refinement of data from System B
 

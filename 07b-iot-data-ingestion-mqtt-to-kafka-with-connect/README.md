@@ -1,4 +1,4 @@
-# Ingest IoT Vehicle Data - Moving Data from MQTT to Kafka using Kafka Connect or Apache NiFi
+# IoT Vehicle Data - Moving Data from MQTT to Kafka using Kafka Connect or Apache NiFi
 
 In this part of the workshop we we will be moving the data from MQTT into Kafka, so that it can be consumed using the Kafka console consumer, as a preparation for stream analytics to be done in a later part. The data has been sent to MQTT in an earlier part of this workshop. 
 

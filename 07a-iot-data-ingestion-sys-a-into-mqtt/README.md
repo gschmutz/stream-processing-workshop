@@ -1,4 +1,4 @@
-# Ingest IoT Vehicle Data - Ingesting simulated IoT from System A into MQTT
+# IoT Vehicle Data - Ingesting simulated IoT from System A into MQTT
 
 In this part we will be ingesting the IoT data stream into MQTT first, so that it can be later consumed and moved to a central Kafka topic. The MQTT brokers would act as IoT Gateways, implemented decentraly, whereas the Kafka Topic later will be a central deployment. This is a scenario which makes a lot of sense in real-live for various reasons such as security, connectivity, more lightweight connections and others. 
 

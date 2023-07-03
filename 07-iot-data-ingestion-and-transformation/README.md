@@ -1,6 +1,6 @@
-# Ingest IoT Vehicle Data
+# IoT Vehicle Data
 
-In this workshop we will be ingesting IoT data into a Kafka topic from which it will later be use to do analytics using various Stream Analytics components. To make it a bit more realistic, the data is not directly sent to Kafka from the IoT devices (vehicles) but first sent through an MQTT broker (IoT gateway). 
+In this workshop we will be ingesting IoT data into a Kafka topic from which it will be use to do analytics using various Stream Analytics components. To make it a bit more realistic, the data is not directly sent to Kafka from the IoT devices (vehicles) but first sent through an MQTT broker (IoT gateway). 
 
 The following diagram shows the setup of the data flow we will be implementing. 
 We will be using a fictitious Trucking company with a fleet of trucks constantly providing some data about the moving vehicles. Of course we will not be using real-life data, but have a program simulating trucks and their driving behaviour.
@@ -19,4 +19,5 @@ We will implement this end-to-end demo case step by step using different technol
 3. [Refining data into a normalized topic using ksqlDB](../07d-iot-data-normalization-using-ksqldb/README.md)
 4. [Using Pull query to get data](../07e-iot-queryable-data/README.md)
 4. [Using Kafka Connect to write data to Redis and Minio](../07f-data-egestion-to-redis-and-minio/README.md)
-4. [Ingesting Static Data](../07g-static-data-ingestion/README.md)
+4. [Stream Analytics using ksqlDB](../07g-stream-analytics-using-ksql/README.md)
+5. [Ingesting Static Data](../07g-static-data-ingestion/README.md)

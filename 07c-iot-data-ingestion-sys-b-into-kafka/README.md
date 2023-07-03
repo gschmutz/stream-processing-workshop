@@ -1,4 +1,4 @@
-# Ingest IoT Vehicle Data - Ingesting simulated IoT from System B into Kafka
+# IoT Vehicle Data - Ingesting simulated IoT from System B into Kafka
 
 In this part we will be ingesting the vehicle data from system B, which is using a gateway and produces a file with the vehicle data. 
 

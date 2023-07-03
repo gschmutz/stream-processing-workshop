@@ -1,10 +1,10 @@
-# Ingest IoT Vehicle Data - Using Pull query to get data
+# IoT Vehicle Data - Using Pull query to get data
 
 So with the vehicle position data from both source systems normalized into the `vehicle_tracking_refined` topic and available in ksqlDB through the `vehicle_tracking_refined_s` stream object, is it possible to query for the latest position for a given vehicle? 
 
 ![Alt Image Text](./images/iot-ingestion-overview.png "Schema Registry UI")
 
-In ksqlDB suche queries are called *pull queries*, in contrast to the streaming queries we have seen so far, known as *push queries* (using the `EMIT CHANGES` clause). A pull query is a form of query issued by a client that retrieves a result as of "now", like a query against a traditional RDBS. 
+In ksqlDB suche queries are called *pull queries*, in contrast to the streaming queries we have seen so far, known as *push queries* (using the `EMIT CHANGES` clause). A pull query is a form of query issued by a client that retrieves a result as of "now", like a query against a traditional RDBMS. 
 
 ![Alt Image Text](https://docs.ksqldb.io/en/latest/img/ksqldb-pull-query.svg "Demo 1 - KsqlDB")
 
