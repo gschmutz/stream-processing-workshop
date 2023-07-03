@@ -20,4 +20,6 @@ We will implement this end-to-end demo case step by step using different technol
 4. [Using Pull query to get data](../07e-iot-queryable-data/README.md)
 4. [Using Kafka Connect to write data to Redis and Minio](../07f-data-egestion-to-redis-and-minio/README.md)
 4. [Stream Analytics using ksqlDB](../07g-stream-analytics-using-ksql/README.md)
-5. [Ingesting Static Data](../07g-static-data-ingestion/README.md)
+4. [Stream Analytics using Spark Structured Streaming](../07h_stream-analytics-using-spark/README.md)
+5. [Joining Static Data to Stream](../07i-static-data-ingestion-and-join/README.md)
+5. [Aggregating over Time Window using ksqlDB](../07j-aggregate-queries-with-ksql/README.md)
