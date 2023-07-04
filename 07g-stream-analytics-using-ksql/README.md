@@ -8,7 +8,7 @@ There are many possible solutions for performing analytics directly on the event
 
 We will use KSQL to detect drivers not driving around normally (detecting anomalies). 
 
-## Optionally: Shortcutting previous steps (t.b.d)
+## Optionally: Shortcutting previous steps (t.b.d - does not work like that)
 
 If you have not yet done the [previous part](../05b-iot-data-ingestion-mqtt-to-kafka/README.md), or it is no longer available, then you can also configure the IoT Truck Simulator to directly produce to Kafka, by running the following command:
 
