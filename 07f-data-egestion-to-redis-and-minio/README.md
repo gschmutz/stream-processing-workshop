@@ -186,18 +186,20 @@ curl -X "DELETE" "$DOCKER_HOST_IP:8083/connectors/s3-sink"
 echo "creating Confluent S3 Sink Connector"
 
 curl -X PUT \
-  http://${DOCKER_HOST_IP}:8083/connectors/s3-sink/config \
+  http://${DOCKER_HOST_IP}:8083/connectors/s3-sink2/config \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json' \
   -d '{
       "connector.class": "io.confluent.connect.s3.S3SinkConnector",
       "partition.duration.ms": "3600000",
-      "flush.size": "100",
+      "flush.size": "2000",
       "topics": "vehicle_tracking_refined",
       "tasks.max": "1",
-      "timezone": "UTC",
+      "timezone": "Europe/Zurich",
       "locale": "en",
-      "partitioner.class": "io.confluent.connect.storage.partitioner.DefaultPartitioner",
+      "partitioner.class": "io.confluent.connect.storage.partitioner.HourlyPartitioner",
+      "timestamp.extractor":"RecordField",
+      "timestamp.field":"TIMESTAMP",
       "schema.generator.class": "io.confluent.connect.storage.hive.schema.DefaultSchemaGenerator",
       "storage.class": "io.confluent.connect.s3.storage.S3Storage",
       "format.class": "io.confluent.connect.s3.format.avro.AvroFormat",
@@ -205,6 +207,7 @@ curl -X PUT \
       "s3.bucket.name": "logistics-bucket",
       "s3.part.size": "5242880",
       "store.url": "http://minio-1:9000",
+      "topics.dir": "refined",
       "value.converter": "io.confluent.connect.avro.AvroConverter",
       "value.converter.schema.registry.url": "http://schema-registry-1:8081",
       "key.converter": "org.apache.kafka.connect.storage.StringConverter"
