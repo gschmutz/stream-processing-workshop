@@ -11,7 +11,10 @@ We will be using [ksqlDB](https://ksqldb.io/) to transform the data from CSV/JSO
 create Kafka topics
 
 ```bash
-docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic vehicle_tracking_sysA --partitions 8 --replication-factor 3 &&
+docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic vehicle_tracking_sysA --partitions 8 --replication-factor 3
+```
+
+```bash
 docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic vehicle_tracking_sysB --partitions 8 --replication-factor 3
 ```
 
@@ -21,23 +24,7 @@ run vehicle simulator for 1 - 49
 docker run --network host --rm trivadis/iot-truck-simulator '-s' 'MQTT' '-h' $DOCKER_HOST_IP '-p' '1883' '-f' 'JSON' '-vf' '1-49'
 ```
 
-download mqtt connector
-
-```
-cd $DATAPLATFORM_HOME/plugins/kafka-connect/connectors
-sudo wget https://github.com/lensesio/stream-reactor/releases/download/4.2.0/kafka-connect-mqtt-4.2.0.zip
-sudo unzip kafka-connect-mqtt-4.2.0.zip
-sudo rm kafka-connect-mqtt-4.2.0.zip
-```
-
-restart kafka-connect containers
-
-```bash
-cd $DATAPLATFORM_HOME
-docker compose restart kafka-connect-1 kafka-connect-2
-```
-
-and create the bridge from MQTT to Kafka
+create the bridge from MQTT to Kafka
 
 ```bash
 curl -X PUT \
@@ -72,6 +59,7 @@ Run the simulator for vehicles 50 - 100
 
 
 ```bash
+cd $DATAPLATFORM_HOME
 docker run -v "${PWD}/data-transfer/logs:/out" --rm trivadis/iot-truck-simulator "-s" "FILE" "-f" "CSV" "-d" "1000" "-vf" "50-100" "-es" "2"
 ```
 
