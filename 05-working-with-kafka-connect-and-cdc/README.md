@@ -261,7 +261,7 @@ curl -X PUT \
 Now let's start two consumers, one on each topic, in separate terminal windows. This time the data is in Avro, as we did not overwrite the serializers. By default the topics are formatted using this naming convention: `<db-host>.<schema>.<table>`
 
 ```bash
-docker exec -ti kcat kcat -b kafka-1:19092 -t postgresql.cdc_demo.person -f '[%p] %k: %s\n' -q -s avro -r http://schema-registry-1:8081
+docker exec -ti kcat kcat -b kafka-1:19092 -t customer.cdc_demo.person -f '[%p] %k: %s\n' -q -s avro -r http://schema-registry-1:8081
 ```
 
 and you should get the change record for `person` table
@@ -272,10 +272,10 @@ and you should get the change record for `person` table
 
 We can see that the key is also Avro-serialized (`{"id": 1}`).
 
-Now do the same for the `postgresql.cdc_demo.address` topic
+Now do the same for the `customer.cdc_demo.address` topic
 
 ```bash
-docker exec -ti kcat kcat -b kafka-1:19092 -t postgresql.cdc_demo.address -f '[%p] %k: %s\n' -q -s avro -r http://schema-registry-1:8081 
+docker exec -ti kcat kcat -b kafka-1:19092 -t customer.cdc_demo.address -f '[%p] %k: %s\n' -q -s avro -r http://schema-registry-1:8081 
 ```
 
 and you should get the change record for the `address` table.
@@ -283,7 +283,7 @@ and you should get the change record for the `address` table.
 Let's use `jq` to format the value only (by removing the `-f` parameter). 
 
 ```
-docker exec -ti kcat kcat -b kafka-1:19092 -t postgresql.cdc_demo.person -f '%s\n' -q -s avro -r http://schema-registry-1:8081 -u | jq
+docker exec -ti kcat kcat -b kafka-1:19092 -t customer.cdc_demo.person -f '%s\n' -q -s avro -r http://schema-registry-1:8081 -u | jq
 ```
 
 we can see that the change record is wrapped inside the `after` field. The `op` field show the operation, which shows `c` for create/insert.
@@ -493,7 +493,7 @@ UPDATE cdc_demo.address SET street = UPPER(street);
 ```
 
 ```bash
-docker exec -ti kcat kcat -b kafka-1:19092 -t postgresql.cdc_demo.address -f '[%p] %k: %s\n' -q -s avro -r http://schema-registry-1:8081 
+docker exec -ti kcat kcat -b kafka-1:19092 -t customer.cdc_demo.address -f '[%p] %k: %s\n' -q -s avro -r http://schema-registry-1:8081 
 ```
 
 You should see a very minimal latency between doing the update and the message in Kafka.
@@ -507,8 +507,8 @@ Let's remove the connector and delete the two topics
 ```bash
 curl -X "DELETE" "http://$DOCKER_HOST_IP:8083/connectors/person.dbzsrc.cdc"
 
-docker exec -ti kafka-1 kafka-topics --delete --bootstrap-server kafka-1:19092 --topic postgresql.person.person
-docker exec -ti kafka-1 kafka-topics --delete --bootstrap-server kafka-1:19092 --topic postgresql.person.address
+docker exec -ti kafka-1 kafka-topics --delete --bootstrap-server kafka-1:19092 --topic customer.person.person
+docker exec -ti kafka-1 kafka-topics --delete --bootstrap-server kafka-1:19092 --topic customer.person.address
 ```
 
 Now recreate the connector, this time adding the necessary `RegexRouter` SMT:
@@ -530,11 +530,12 @@ curl -X PUT \
   "schema.include.list": "cdc_demo",
   "table.include.list": "cdc_demo.person, cdc_demo.address",
   "plugin.name": "pgoutput",
+  "topic.prefix": "customer",  
   "tombstones.on.delete": "false",
   "database.hostname": "postgresql",
   "transforms":"dropPrefix",  
   "transforms.dropPrefix.type": "org.apache.kafka.connect.transforms.RegexRouter",  
-  "transforms.dropPrefix.regex": "postgresql.cdc_demo.(.*)",  
+  "transforms.dropPrefix.regex": "customer.cdc_demo.(.*)",  
   "transforms.dropPrefix.replacement": "priv.$1.cdc.v2",
   "topic.creation.default.replication.factor": 3,
   "topic.creation.default.partitions": 8,
