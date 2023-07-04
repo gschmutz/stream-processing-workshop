@@ -74,7 +74,7 @@ docker exec -it kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create -
 Now let's listen on the new topic
 
 ```bash
-docker exec -ti kcat kcat -b kafka-1 -t vehicle_tracking_sysB -f "%k - %s" -q
+docker exec -ti kcat kcat -b kafka-1:19092 -t vehicle_tracking_sysB -f "%k - %s" -q
 ```
 
 ## Creating a Apache Nifi pipeline
@@ -192,7 +192,7 @@ Select the 2 processor and click on the start arrow to run the data flow. All th
 if you check for the output in `kcat` where we output both the key and the value of the Kafka message
 
 ```
-docker exec -ti kcat kcat -b kafka-1 -t vehicle_tracking_sysB -f "%k - %s" -q
+docker exec -ti kcat kcat -b kafka-1:19092 -t vehicle_tracking_sysB -f "%k - %s" -q
 ```
 
 we can see that the key part is empty and that we have more than one message in the value
@@ -313,7 +313,7 @@ Double-click on **SplitRecord** processor and navigate to **RELATIONSHIPSç** ta
 Let's run all 3 processors and use `kcat` to see if the split works:
 
 ```
-docker exec -ti kcat kcat -b kafka-1 -t vehicle_tracking_sysB -f "%k - %s" -q
+docker exec -ti kcat kcat -b kafka-1:19092 -t vehicle_tracking_sysB -f "%k - %s" -q
 ```
 
 we can see that the key part is still empty but we now get one Kafka message for each vehicle message.
@@ -353,7 +353,7 @@ Let's realign the 4 processors
 Now let's run all 4 processors and check that the Kafka messages also include a valid key portion. 
 
 ```
-docker exec -ti kcat kcat -b kafka-1 -t vehicle_tracking_sysB -f "%k - %s" -q
+docker exec -ti kcat kcat -b kafka-1:19092 -t vehicle_tracking_sysB -f "%k - %s" -q
 ```
 
 we can see that the key part is no longer empty

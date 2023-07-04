@@ -307,7 +307,7 @@ Select the 2 processor and click on the start arrow to run the data flow. All th
 if you check for the output in `kcat` where we output both the key and the value of the Kafka message
 
 ```
-docker exec -ti kcat kcat -b kafka-1 -t vehicle_tracking_sysA -f "%k - %s\n" -q
+docker exec -ti kcat kcat -b kafka-1:19092 -t vehicle_tracking_sysA -f "%k - %s\n" -q
 ```
 
 we can see that the key part is empty and that we have more than one message in the value
@@ -361,7 +361,7 @@ Double-click on **EvaluateJsonPath** processor and navigate to **RELATIONSHIPS**
 Now let's run all 3 processors again and check that the Kafka messages also include a valid key portion. 
 
 ```
-docker exec -ti kcat kcat -b kafka-1 -t vehicle_tracking_sysB -f "%k - %s" -q
+docker exec -ti kcat kcat -b kafka-1:19092 -t vehicle_tracking_sysB -f "%k - %s" -q
 ```
 
 we can see that the key part is no longer empty

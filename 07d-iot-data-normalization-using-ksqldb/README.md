@@ -68,7 +68,7 @@ curl -X PUT \
 if you want to check and consume the message with `kcat`
 
 ```bash
-docker exec -ti kcat kcat -b kafka-1 -t vehicle_tracking_sysA -f "%k - %s\n" -q
+docker exec -ti kcat kcat -b kafka-1:19092 -t vehicle_tracking_sysA -f "%k - %s\n" -q
 ```
 
 Run the simulator for vehicles 50 - 100
@@ -92,7 +92,7 @@ After the flow is loaded, enable all controller services by right-clicking on th
 To view the messages
 
 ```bash
-docker exec -ti kcat kcat -b kafka-1 -t vehicle_tracking_sysB -f "%k - %s\n" -q
+docker exec -ti kcat kcat -b kafka-1:19092 -t vehicle_tracking_sysB -f "%k - %s\n" -q
 ```
 
 ## Working with KSQL in an ad-hoc fashion
