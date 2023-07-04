@@ -24,7 +24,23 @@ run vehicle simulator for 1 - 49
 docker run --network host --rm trivadis/iot-truck-simulator '-s' 'MQTT' '-h' $DOCKER_HOST_IP '-p' '1883' '-f' 'JSON' '-vf' '1-49'
 ```
 
-create the bridge from MQTT to Kafka
+download mqtt connector
+
+```bash
+cd $DATAPLATFORM_HOME/plugins/kafka-connect/connectors
+sudo wget https://github.com/lensesio/stream-reactor/releases/download/4.2.0/kafka-connect-mqtt-4.2.0.zip
+sudo unzip kafka-connect-mqtt-4.2.0.zip
+sudo rm kafka-connect-mqtt-4.2.0.zip
+```
+
+restart kafka-connect containers
+
+```bash
+cd $DATAPLATFORM_HOME
+docker compose restart kafka-connect-1 kafka-connect-2
+```
+
+and create the bridge from MQTT to Kafka
 
 ```bash
 curl -X PUT \
