@@ -247,6 +247,7 @@ curl -X PUT \
   "schema.include.list": "cdc_demo",
   "table.include.list": "cdc_demo.person, cdc_demo.address",
   "plugin.name": "pgoutput",
+  "topic.prefix": "customer",
   "tombstones.on.delete": "false",
   "database.hostname": "postgresql",
   "topic.creation.default.replication.factor": 3,
