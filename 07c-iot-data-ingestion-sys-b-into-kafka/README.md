@@ -77,7 +77,7 @@ Now let's listen on the new topic
 docker exec -ti kcat kcat -b kafka-1:19092 -t vehicle_tracking_sysB -f "%k - %s" -q
 ```
 
-## Creating a Apache Nifi pipeline
+## Creating a Apache NiFi pipeline
 
 In a browser navigate to <https://dataplatform:18080/nifi> (make sure to replace `dataplatform` by the IP address of the machine where docker runs on,). We have enabled authentication for NiFi, therefore you have to use https to access it. Due to the use of a self-signed certificate, you have to initially confirm that the page is safe and you want to access the page.
 
