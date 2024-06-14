@@ -1,9 +1,8 @@
 # =======================================================================
 # Platform Name            streaming-data-platform
 # Platform Stack:          trivadis/platys-modern-data-platform
-# Platform Stack Version:  1.17.0-preview
+# Platform Stack Version:  develop
 # =======================================================================
-version: '3.5'
 networks:
   default:
     name: streaming-data-platform
@@ -13,13 +12,15 @@ networks:
 services:
   #  ================================== Zookeeper ========================================== #
   zookeeper-1:
-    image: confluentinc/cp-zookeeper:7.5.0
+    image: confluentinc/cp-zookeeper:7.6.0
     container_name: zookeeper-1
     hostname: zookeeper-1
     labels:
       com.platys.name: zookeeper
+      com.platys.description: Zookeeper Node 1
     ports:
       - 2181:2181
+      - 1240:1234
     environment:
       ZOOKEEPER_SERVER_ID: 1
       ZOOKEEPER_CLIENT_PORT: 2181
@@ -31,11 +32,12 @@ services:
     restart: unless-stopped
 #  ================================== Kafka ========================================== #
   kafka-1:
-    image: confluentinc/cp-kafka:7.5.0
+    image: confluentinc/cp-kafka:7.6.0
     container_name: kafka-1
     hostname: kafka-1
     labels:
       com.platys.name: kafka
+      com.platys.description: Kafka Broker 1
     depends_on:
       - zookeeper-1
     ports:
@@ -44,6 +46,7 @@ services:
       - 29092:29092
       - 39092:39092
       - 9992:9992
+      - 1234:1234
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_BROKER_RACK: rack1
@@ -68,12 +71,18 @@ services:
     volumes:
       - ./data-transfer:/data-transfer
     restart: unless-stopped
+    healthcheck:
+      test: curl -u superUser:superUser -fail --silent --insecure https://kafka-1:9092/kafka/v3/clusters/ --output /dev/null || exit 1
+      interval: 10s
+      retries: 25
+      start_period: 20s
   kafka-2:
-    image: confluentinc/cp-kafka:7.5.0
+    image: confluentinc/cp-kafka:7.6.0
     container_name: kafka-2
     hostname: kafka-2
     labels:
       com.platys.name: kafka
+      com.platys.description: Kafka Broker 2
     depends_on:
       - zookeeper-1
     ports:
@@ -82,6 +91,7 @@ services:
       - 29093:29093
       - 39093:39093
       - 9993:9993
+      - 1235:1234
     environment:
       KAFKA_BROKER_ID: 2
       KAFKA_BROKER_RACK: rack1
@@ -106,12 +116,18 @@ services:
     volumes:
       - ./data-transfer:/data-transfer
     restart: unless-stopped
+    healthcheck:
+      test: curl -u superUser:superUser -fail --silent --insecure https://kafka-2:9093/kafka/v3/clusters/ --output /dev/null || exit 1
+      interval: 10s
+      retries: 25
+      start_period: 20s
   kafka-3:
-    image: confluentinc/cp-kafka:7.5.0
+    image: confluentinc/cp-kafka:7.6.0
     container_name: kafka-3
     hostname: kafka-3
     labels:
       com.platys.name: kafka
+      com.platys.description: Kafka Broker 3
     depends_on:
       - zookeeper-1
     ports:
@@ -120,6 +136,7 @@ services:
       - 29094:29094
       - 39094:39094
       - 9994:9994
+      - 1236:1234
     environment:
       KAFKA_BROKER_ID: 3
       KAFKA_BROKER_RACK: rack1
@@ -144,13 +161,19 @@ services:
     volumes:
       - ./data-transfer:/data-transfer
     restart: unless-stopped
+    healthcheck:
+      test: curl -u superUser:superUser -fail --silent --insecure https://kafka-3:9094/kafka/v3/clusters/ --output /dev/null || exit 1
+      interval: 10s
+      retries: 25
+      start_period: 20s
   #  ================================== Kafka Connect ========================================== #
   kafka-connect-1:
-    image: confluentinc/cp-kafka-connect:7.5.0
+    image: confluentinc/cp-kafka-connect:7.6.0
     container_name: kafka-connect-1
     hostname: kafka-connect-1
     labels:
       com.platys.name: kafka-connect
+      com.platys.description: Kafka Connect Node 1
       com.platys.restapi.title: Kafka Connect REST API
       com.platys.restapi.url: http://dataplatform:8083
     ports:
@@ -182,6 +205,7 @@ services:
       CONNECT_LOG4J_APPENDER_STDOUT_LAYOUT_CONVERSIONPATTERN: '[%d] %p %X{connector.context}%m (%c:%L)%n'
       CONNECT_PLUGIN_PATH: /usr/share/java,/etc/kafka-connect/addl-plugins,/etc/kafka-connect/cflthub-plugins
       CONNECT_CONNECTOR_CLIENT_CONFIG_OVERRIDE_POLICY: All
+      CONNECT_SECURITY_PROTOCOL: PLAINTEXT
       #CLASSPATH: /usr/share/java/monitoring-interceptors/monitoring-interceptors-4.0.0.jar
       AWS_ACCESS_KEY_ID: V42FCGRVMK24JJ8DHUYG
       AWS_SECRET_ACCESS_KEY: bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza
@@ -211,12 +235,17 @@ services:
         #
         sleep infinity
     restart: unless-stopped
+    healthcheck:
+      interval: 10s
+      retries: 20
+      test: curl --user connectAdmin:connectAdmin --fail --silent --insecure https://kafka-connect-1:8083/ --output /dev/null || exit 1
   kafka-connect-2:
-    image: confluentinc/cp-kafka-connect:7.5.0
+    image: confluentinc/cp-kafka-connect:7.6.0
     container_name: kafka-connect-2
     hostname: kafka-connect-2
     labels:
       com.platys.name: kafka-connect
+      com.platys.description: Kafka Connect Node 2
       com.platys.restapi.title: Kafka Connect REST API
       com.platys.restapi.url: http://dataplatform:8084
     ports:
@@ -248,6 +277,7 @@ services:
       CONNECT_LOG4J_APPENDER_STDOUT_LAYOUT_CONVERSIONPATTERN: '[%d] %p %X{connector.context}%m (%c:%L)%n'
       CONNECT_PLUGIN_PATH: /usr/share/java,/etc/kafka-connect/addl-plugins,/etc/kafka-connect/cflthub-plugins
       CONNECT_CONNECTOR_CLIENT_CONFIG_OVERRIDE_POLICY: All
+      CONNECT_SECURITY_PROTOCOL: PLAINTEXT
       #CLASSPATH: /usr/share/java/monitoring-interceptors/monitoring-interceptors-4.0.0.jar
       AWS_ACCESS_KEY_ID: V42FCGRVMK24JJ8DHUYG
       AWS_SECRET_ACCESS_KEY: bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza
@@ -277,6 +307,10 @@ services:
         #
         sleep infinity
     restart: unless-stopped
+    healthcheck:
+      interval: 10s
+      retries: 20
+      test: curl --user connectAdmin:connectAdmin --fail --silent --insecure https://kafka-connect-2:8084/ --output /dev/null || exit 1
   #  ================================== ksqlDB ========================================== #
   ksqldb-server-1:
     image: confluentinc/ksqldb-server:0.29.0
@@ -284,13 +318,14 @@ services:
     container_name: ksqldb-server-1
     labels:
       com.platys.name: ksqldb
+      com.platys.description: ksqlDB Streaming Database - Node 1
       com.platys.restapi.title: ksqlDB Server REST API
       com.platys.restapi.url: http://dataplatform:8088
     ports:
       - 8088:8088
       - 1095:1095
     environment:
-      KSQL_LOG4J_OPTS: -Dlog4j.configuration=file:/opt/app/log4j/log4j.properties
+      KSQL_LOG4J_OPTS: -Dlog4j.configuration=file:/tmp/log4j.properties
       KSQL_LOG4J_LOGGERS: org.apache.kafka.connect.runtime.rest=WARN,org.reflections=ERROR
       KSQL_LOG4J_PROCESSING_LOG_TOPIC: ksql_processing_log
       KSQL_LOG4J_PROCESSING_LOG_BROKERLIST: kafka-1:19092,kafka-2:19093,kafka-3:19094
@@ -310,6 +345,7 @@ services:
       KSQL_BOOTSTRAP_SERVERS: kafka-1:19092,kafka-2:19093,kafka-3:19094
       KSQL_CACHE_MAX_BYTES_BUFFERING: 0
       KSQL_RESPONSE_HTTP_HEADERS_CONFIG: ''
+      KSQL_SECURITY_PROTOCOL: PLAINTEXT
       KSQL_KSQL_CONNECT_URL: http://kafka-connect-1:8083
       KSQL_KSQL_SCHEMA_REGISTRY_URL: http://schema-registry-1:8081
       KSQL_KSQL_INTERNAL_TOPIC_REPLICAS: 1
@@ -326,11 +362,28 @@ services:
     volumes:
       - ./data-transfer:/data-transfer
       - ./plugins/ksqldb:/etc/ksqldb/ext
-      - ./conf/ksqldb/etc/log4j.properties:/opt/app/log4j/log4j.properties
+      - ./conf/ksqldb/etc/log4j.properties:/tmp/log4j.properties.templ
       - ./plugins/kafka-connect/connectors:/etc/kafka-connect/addl-plugins
       - ./plugins/kafka-connect/jars:/etc/kafka-connect/jars
       - ./plugins/opentelemetry/agents:/otel
+    command:
+      # In the command section, $ are replaced with $$ to avoid the error 'Invalid interpolation format for "command" option'
+      - bash
+      - -c
+      - |
+        python -c 'import os,sys; sys.stdout.write(os.path.expandvars(sys.stdin.read()))' < /tmp/log4j.properties.templ > /tmp/log4j.properties
+        #
+        echo "Launching ksqlDB server"
+        #/etc/confluent/docker/run &
+        /usr/bin/docker/run &
+        #
+        sleep infinity
     restart: unless-stopped
+    healthcheck:
+      start_period: 10s
+      interval: 10s
+      retries: 20
+      test: curl --user ksqlDBUser:ksqlDBUser -fail --silent http://ksqldb-server-1:8088/info | grep RUNNING 1>/dev/null || exit 1
   # Access the cli by running:
   # > docker exec -it ksqldb-cli ksql http://ksqldb-server-1:8088
   ksqldb-cli:
@@ -339,6 +392,7 @@ services:
     hostname: ksqldb-cli
     labels:
       com.platys.name: ksqldb-cli
+      com.platys.description: ksqlDB Command Line Utility
     depends_on:
       - ksqldb-server-1
     volumes:
@@ -348,11 +402,12 @@ services:
     restart: unless-stopped
   #  ================================== Confluent Schema Registry ========================================== #
   schema-registry-1:
-    image: confluentinc/cp-schema-registry:7.5.0
+    image: confluentinc/cp-schema-registry:7.6.0
     hostname: schema-registry-1
     container_name: schema-registry-1
     labels:
       com.platys.name: schema-registry
+      com.platys.description: Confluent Schema Registry
       com.platys.restapi.title: Schema Registry REST API
       com.platys.restapi.url: http://dataplatform:8081
     ports:
@@ -370,10 +425,16 @@ services:
       SCHEMA_REGISTRY_ACCESS_CONTROL_ALLOW_METHODS: GET,POST,PUT,OPTIONS
       SCHEMA_REGISTRY_LOG4J_ROOT_LOGLEVEL: info
       SCHEMA_REGISTRY_DEBUG: 'False'
+      SCHEMA_REGISTRY_KAFKASTORE_SECURITY_PROTOCOL: PLAINTEXT
     volumes:
       - ./data-transfer:/data-transfer
       - ./plugins/opentelemetry/agents:/otel
     restart: unless-stopped
+    healthcheck:
+      start_period: 10s
+      interval: 10s
+      retries: 20
+      test: curl --user superUser:superUser --fail --silent --insecure https://schema-registry-1:8081/subjects --output /dev/null || exit 1
   #  ================================== Schema Registry UI ========================================== #
   schema-registry-ui:
     image: landoop/schema-registry-ui:latest
@@ -381,6 +442,7 @@ services:
     hostname: schema-registry-ui
     labels:
       com.platys.name: schema-registry-ui
+      com.platys.description: Schema Registry UI
       com.platys.webui.title: Confluent Schema Registry UI
       com.platys.webui.url: http://dataplatform:28102
     ports:
@@ -398,6 +460,7 @@ services:
     hostname: kcat
     labels:
       com.platys.name: kcat
+      com.platys.description: Generic non-JVM Kafka consumer and producer
     volumes:
       - ./data-transfer:/data-transfer
     entrypoint:
@@ -413,6 +476,7 @@ services:
     hostname: kafka-connect-ui
     labels:
       com.platys.name: kafka-connect-ui
+      com.platys.description: Kafka Connect GUI
       com.platys.webui.title: Kafka Connect UI
       com.platys.webui.url: http://dataplatform:28103
     ports:
@@ -431,6 +495,7 @@ services:
     hostname: akhq
     labels:
       com.platys.name: akhq
+      com.platys.description: Kafka GUI
       com.platys.webui.title: AKHQ UI
       com.platys.webui.url: http://dataplatform:28107
       com.platys.restapi.title: AKHQ API
@@ -474,18 +539,23 @@ services:
     restart: unless-stopped
   #  ================================== NiFi ========================================== #
   nifi-1:
-    image: apache/nifi:1.23.2
+    image: apache/nifi:1.26.0
     container_name: nifi-1
     hostname: nifi-1
     labels:
       com.platys.name: nifi
-      com.platys.webui.title: Apache NiFi UI Node 18080
+      com.platys.description: NiFi Data Integration Engine
+      com.platys.webui.title: Apache NiFi UI
       com.platys.webui.url: https://dataplatform:18080/nifi
+      com.platys.restapi.title: Apche NiFi REST API
+      com.platys.restapi.url: https://dataplatform:18080/nifi-api
     ports:
       # HTTP
       - 18080:18080
       # Remote Input Socket
       - 10005:10005/tcp
+      # Prometheus Port
+      - 1270:1234
     environment:
       NIFI_WEB_HTTPS_PORT: '18080'
       NIFI_WEB_HTTPS_HOST: nifi-1
@@ -494,6 +564,7 @@ services:
       KEYSTORE_PATH: /opt/certs/keystore.jks
       KEYSTORE_TYPE: JKS
       KEYSTORE_PASSWORD: BWt7eLC4R53N4bIxdZEVPhAdkYlQ0Le8Tw0erGXpvI0
+      KEY_PASSWORD: BWt7eLC4R53N4bIxdZEVPhAdkYlQ0Le8Tw0erGXpvI0
       TRUSTSTORE_PATH: /opt/certs/truststore.jks
       TRUSTSTORE_TYPE: JKS
       TRUSTSTORE_PASSWORD: PkhvPAirou5R/K9HQxVk99uT+hehM7SRURyFSbxTlTQ
@@ -514,15 +585,15 @@ services:
       - ./data-transfer:/data-transfer
       - ./plugins/nifi/jars/:/extra-jars/
       - ./plugins/nifi/nars/:/opt/nifi/nifi-current/extensions
-      - ./security/nifi/keystore.jks:/opt/certs/keystore.jks
-      - ./security/nifi/truststore.jks:/opt/certs/truststore.jks
+      - ./security/nifi/nifi-1/keystore.jks:/opt/certs/keystore.jks
+      - ./security/nifi/nifi-1/truststore.jks:/opt/certs/truststore.jks
       - ./security/nifi/s3-credentials.properties:/tmp/s3-credentials.properties.templ
     entrypoint:
       # We override the entrypoint from the docker image and therefore have to run ../scripts/start.sh from the NiFi docker image
       - bash
       - -c
       - |
-        eval "echo \"$(cat /tmp/s3-credentials.properties.templ)\"" >> s3-credentials.properties
+        eval "echo \"$$(cat /tmp/s3-credentials.properties.templ)\"" >> s3-credentials.properties
         ../scripts/start.sh
     restart: unless-stopped
   #  ================================== Zeppelin ========================================== #
@@ -532,6 +603,7 @@ services:
     hostname: zeppelin
     labels:
       com.platys.name: zeppelin
+      com.platys.description: Data Science Notebook
       com.platys.webui.title: Apache Zeppelin UI
       com.platys.webui.url: http://dataplatform:28080
     ports:
@@ -590,12 +662,15 @@ services:
     hostname: jupyter
     labels:
       com.platys.name: jupyter
+      com.platys.description: Web-based interactive development environment for notebooks, code, and data
       com.platys.webui.title: Jupyter UI
       com.platys.webui.url: http://dataplatform:28888
     ports:
       - 28888:8888
       - 14040-14044:4040-4044
     user: root
+    extra_hosts:
+      - host.docker.internal:host-gateway
     environment:
       JUPYTER_ENABLE_LAB: "'yes'"
       GRANT_SUDO: "'yes'"
@@ -620,41 +695,52 @@ services:
       AWS_DEFAULT_REGION: us-east-1
     volumes:
       - ./data-transfer:/data-transfer
-      - ./plugins/jupyter/aws-java-sdk-bundle-1.11.375.jar:/usr/local/spark/jars/aws-java-sdk-bundle-1.11.375.jar
-      - ./plugins/jupyter/hadoop-aws-3.2.1.jar:/usr/local/spark/jars/hadoop-aws-3.2.1.jar
-      - ./plugins/jupyter/guava-27.1-jre.jar:/usr/local/spark/jars/guava-14.0.1.jar
-    # - ./custom-conf/jupyter/spark-defaults.conf:/usr/local/spark-3.1.1-bin-hadoop3.2/conf/spark-defaults.conf
+      - ./scripts/docker/docker-maven-download.sh:/maven-download.sh
+#    #      - ./plugins/jupyter/aws-java-sdk-bundle-1.11.375.jar:/usr/local/spark/jars/aws-java-sdk-bundle-1.11.375.jar
+#      - ./plugins/jupyter/hadoop-aws-3.2.1.jar:/usr/local/spark/jars/hadoop-aws-3.2.1.jar
+#      - ./plugins/jupyter/guava-27.1-jre.jar:/usr/local/spark/jars/guava-14.0.1.jar
+#        # - ./custom-conf/jupyter/spark-defaults.conf:/usr/local/spark-3.1.1-bin-hadoop3.2/conf/spark-defaults.conf
     command:
       # In the command section, $ are replaced with $$ to avoid the error 'Invalid interpolation format for "command" option'
       - bash
       - -c
       - |
+        /maven-download.sh central com.amazonaws:aws-java-sdk-bundle:1.11.375,org.apache.hadoop:hadoop-aws:3.2.1,com.google.guava:guava:14.0.1 /usr/local/spark/jars
         start-notebook.sh
     restart: unless-stopped
   #  ================================== Redis ========================================== #
   redis-1:
-    image: bitnami/redis:7.0
+    image: bitnami/redis:7.2
     hostname: redis-1
     container_name: redis-1
     labels:
       com.platys.name: redis
+      com.platys.description: Key-value store
     ports:
       - 6379:6379
     environment:
-      - REDIS_REPLICATION_MODE=master
-      - ALLOW_EMPTY_PASSWORD=yes
+      - REDIS_PORT_NUMBER=6379
+      - ALLOW_EMPTY_PASSWORD=no
       - REDIS_PASSWORD=abc123!
-      - REDIS_AOF_ENABLED=no
+      - REDIS_AOF_ENABLED=yes
+      - REDIS_RDB_POLICY_DISABLED=yes
     volumes:
       - ./data-transfer:/data-transfer
+    command: /opt/bitnami/scripts/redis/run.sh --loglevel notice
     restart: unless-stopped
+    healthcheck:
+      test: [CMD-SHELL, redis-cli --no-auth-warning -a "$$(echo $$REDIS_PASSWORD)" ping | grep PONG]
+      interval: 5s
+      timeout: 3s
+      retries: 5
   #  ================================== Elasticsearch ========================================== #
   elasticsearch-1:
-    image: elasticsearch:8.7.0
+    image: elasticsearch:8.13.0
     hostname: elasticsearch-1
     container_name: elasticsearch-1
     labels:
       com.platys.name: elasticsearch
+      com.platys.description: Search-engine NoSQL store
       com.platys.restapi.title: Elasticsearch REST API
       com.platys.restapi.url: http://dataplatform:9200
       com.platys.manual.step.msgs: sudo sysctl -w vm.max_map_count=262144
@@ -677,13 +763,20 @@ services:
     volumes:
       - ./data-transfer:/data-transfer
     restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl -u admin:testing -s http://localhost:9200/_cat/health?h=status | grep -q green
+      retries: 300
+      interval: 1s
   #  ================================== Kibana ========================================== #
   kibana:
-    image: kibana:8.7.0
+    image: kibana:8.13.0
     hostname: kibana
     container_name: kibana
     labels:
       com.platys.name: kibana
+      com.platys.description: Visualization for Elasticsearch
       com.platys.webui.title: Kibana UI
       com.platys.webui.url: http://dataplatform:5601
     depends_on:
@@ -703,13 +796,19 @@ services:
       - ./data-transfer:/data-transfer
     command: [/bin/bash, -c, /usr/share/kibana/bin/kibana-plugin remove x-pack; /usr/local/bin/kibana-docker]
     restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl -u beats:testing -s http://localhost:5601/api/status?v8format=true | grep -q '\"overall\":{\"level\":\"available\"'
+      retries: 600
   #  ================================== PostgreSQL ========================================== #
   postgresql:
-    image: postgres:15
+    image: postgres:16
     container_name: postgresql
     hostname: postgresql
     labels:
       com.platys.name: postgresql
+      com.platys.description: Open-Source object-relational database system
     ports:
       - 5432:5432
     environment:
@@ -737,6 +836,7 @@ services:
     hostname: adminer
     labels:
       com.platys.name: adminer
+      com.platys.description: Relational Database Admin UI
       com.platys.webui.title: Adminer UI
       com.platys.webui.url: http://dataplatform:28131
     ports:
@@ -747,11 +847,12 @@ services:
     restart: unless-stopped
   #  ================================== Minio ========================================== #
   minio-1:
-    image: minio/minio:RELEASE.2023-08-16T20-17-30Z
+    image: minio/minio:RELEASE.2024-04-06T05-26-02Z
     container_name: minio-1
     hostname: minio-1
     labels:
       com.platys.name: minio
+      com.platys.description: Software-defined Object Storage
       com.platys.webui.title: MinIO UI
       com.platys.webui.url: http://dataplatform:9000
     ports:
@@ -763,10 +864,19 @@ services:
       MINIO_REGION_NAME: us-east-1
       MINIO_DOMAIN: minio
       MINIO_SERVER_URL: http://${PUBLIC_IP}:9000
+      MINIO_PROMETHEUS_AUTH_TYPE: public
+      MINIO_PROMETHEUS_URL: http://prometheus-1:9090
     volumes:
       - ./data-transfer:/data-transfer
     command: server /data --console-address ":9010"
     restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - bash -c 'printf \"GET / HTTP/1.1\n\n\" > /dev/tcp/127.0.0.1/9000; exit $$?;'
+      interval: 1s
+      timeout: 5s
+      retries: 5
   #  ================================== Minio MC ========================================== #
   minio-mc:
     image: minio/mc:latest
@@ -774,9 +884,9 @@ services:
     hostname: minio-mc
     labels:
       com.platys.name: minio
+      com.platys.description: MinIO Console
     volumes:
       - ./data-transfer:/data-transfer
-#      - ./conf/minio/config.json:/root/.mc/config.json
       - ./scripts/docker/wait-for-it.sh:/usr/src/app/wait-for-it.sh
     entrypoint:
       - /bin/sh
@@ -785,9 +895,9 @@ services:
         /usr/src/app/wait-for-it.sh -t 180 minio-1:9000
         mc alias set minio-1 http://minio-1:9000 V42FCGRVMK24JJ8DHUYG bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza
         mc mb --ignore-existing minio-1/admin-bucket
-           for i in $$(echo "" | sed "s/,/ /g")
+           for bucket in $$(tr ',' '\n' <<< "")
         do
-          mc mb --ignore-existing minio-1/$$i
+          mc mb --ignore-existing minio-1/$$bucket
         done
         #
         while [ 1 -eq 1 ];do sleep 60;done
@@ -799,6 +909,7 @@ services:
     container_name: mosquitto-1
     labels:
       com.platys.name: mosquitto
+      com.platys.description: MQTT Broker
     ports:
       - 1883:1883
       - 9101:9001
@@ -813,6 +924,7 @@ services:
     hostname: mqtt-ui
     labels:
       com.platys.name: hivemq-ui
+      com.platys.description: MQTT UI
       com.platys.webui.title: HiveMQ UI
       com.platys.webui.url: http://dataplatform:28136
     ports:
@@ -827,6 +939,7 @@ services:
     hostname: wetty
     labels:
       com.platys.name: wetty
+      com.platys.description: A terminal window in Web-Browser
       com.platys.webui.title: WeTTY UI
       com.platys.webui.url: http://dataplatform:3001
     ports:
@@ -848,6 +961,7 @@ services:
     hostname: markdown-viewer
     labels:
       com.platys.name: markdown-viewer
+      com.platys.description: Platys Platform homepage viewer
       com.platys.webui.title: Markdown Viewer UI
       com.platys.webui.url: http://dataplatform:80
     ports:
@@ -858,12 +972,19 @@ services:
       - ./data-transfer:/data-transfer
     command: server
     restart: unless-stopped
+    healthcheck:
+      test: [CMD, curl, -f, http://dataplatform:80]
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
+      start_period: 1m
   markdown-renderer:
     image: trivadis/jinja2-renderer:latest
     container_name: markdown-renderer
     hostname: markdown-renderer
     labels:
       com.platys.name: markdown-renderer
+      com.platys.description: Platys Platform homepage rendering
     environment:
       USE_PUBLIC_IP: 'True'
       PUBLIC_IP: ${PUBLIC_IP}
@@ -871,14 +992,16 @@ services:
       DATAPLATFORM_HOME: ${DATAPLATFORM_HOME}
       PLATYS_PLATFORM_NAME: streaming-data-platform
       PLATYS_PLATFORM_STACK: trivadis/platys-modern-data-platform
-      PLATYS_PLATFORM_STACK_VERSION: 1.17.0-preview
+      PLATYS_PLATFORM_STACK_VERSION: develop
       PLATYS_COPY_COOKBOOK_DATA: 'True'
+      SERVICE_LIST_VERSION: 2
     volumes:
       - ./artefacts/templates:/templates
       - ./artefacts/templates:/scripts
       - .:/variables
       - ./artefacts:/output
       - ./data-transfer:/data-transfer
+    init: true
 volumes:
   data-transfer-vol:
     name: data_transfer_vol

@@ -4,7 +4,7 @@
       platys:
           platform-name: 'streaming-data-platform'
           platform-stack: 'trivadis/platys-modern-data-platform'
-          platform-stack-version: '1.17.0-preview'
+          platform-stack-version: 'develop'
           structure: 'flat'
       # ========================================================================
       # Global configuration, valid for all or a group of services
@@ -809,11 +809,27 @@
       #
       REDIS_enable: true
       REDIS_replicasets: 0
-      REDIS_allow_empty_password: yes
-      REDIS_disable_commands:
+      REDIS_volume_map_data: false      
+      REDIS_allow_empty_password: false
       REDIS_password: abc123!
-      REDIS_aof_enabled: no
-      REDIS_volume_map_data: false
+      REDIS_password_file:
+      REDIS_acl_file:
+      REDIS_disable_commands:
+      REDIS_rdb_enable: false
+      REDIS_rdb_save_policy:
+      REDIS_aof_enable: true
+      REDIS_io_threads:
+      REDIS_io_threads_do_reads_enable: false
+      REDIS_overrides_config_file:
+      # one of 'nothing', 'warning', 'notice', 'verbose', 'debug' 
+      REDIS_log_level: 'notice'
+
+      #
+      # ===== Redis Stack ========
+      #
+      REDIS_STACK_enable: false
+      REDIS_STACK_volume_map_data: false
+      REDIS_STACK_password:
       #
       # ===== Redis Insight ========
       #
