@@ -12,7 +12,7 @@ docker exec -ti kafka-1 kafka-topics --create --if-not-exists --bootstrap-server
 
 Alternatively you can also use AKHQ to create a topic.
 
-## Implment the Wikipedia Consumer using Python
+## Implement the Wikipedia Consumer using Python
 
 Navigate to Jupyter: <http://dataplatform:28888>
 
