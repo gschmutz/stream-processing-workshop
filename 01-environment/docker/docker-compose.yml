@@ -594,7 +594,7 @@ services:
     restart: unless-stopped
   #  ================================== Zeppelin ========================================== #
   zeppelin:
-    image: trivadis/apache-zeppelin:0.10.1-spark3.1.3-hadoop3.2
+    image: trivadis/apache-zeppelin:0.11.1-spark3.3.2-hadoop3.3
     container_name: zeppelin
     hostname: zeppelin
     labels:
@@ -655,7 +655,7 @@ services:
     restart: unless-stopped
   #  ================================== Jupyter ========================================== #
   jupyter:
-    image: jupyter/all-spark-notebook:spark-3.1.2
+    image: jupyter/all-spark-notebook:spark-3.3.2
     container_name: jupyter
     hostname: jupyter
     labels:
@@ -666,14 +666,13 @@ services:
     ports:
       - 28888:8888
       - 14040-14044:4040-4044
-    #user: root
+    user: root
     extra_hosts:
       - host.docker.internal:host-gateway
     environment:
       JUPYTER_ENABLE_LAB: "'yes'"
       GRANT_SUDO: "'yes'"
       JUPYTER_TOKEN: abc123!
-      CHOWN_HOME:  "'yes'"
       DOCKER_STACKS_JUPYTER_CMD: lab
       CORE_CONF_fs_s3a_endpoint: http://minio-1:9000
       CORE_CONF_fs_s3a_path_style_access: 'true'
@@ -695,7 +694,6 @@ services:
     volumes:
       - ./data-transfer:/data-transfer
       - ./scripts/docker/docker-maven-download.sh:/maven-download.sh
-      - flink-vol:/opt/flink:RO
 #    #      - ./plugins/jupyter/aws-java-sdk-bundle-1.11.375.jar:/usr/local/spark/jars/aws-java-sdk-bundle-1.11.375.jar
 #      - ./plugins/jupyter/hadoop-aws-3.2.1.jar:/usr/local/spark/jars/hadoop-aws-3.2.1.jar
 #      - ./plugins/jupyter/guava-27.1-jre.jar:/usr/local/spark/jars/guava-14.0.1.jar
