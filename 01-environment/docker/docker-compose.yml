@@ -655,7 +655,7 @@ services:
     restart: unless-stopped
   #  ================================== Jupyter ========================================== #
   jupyter:
-    image: jupyter/minimal-notebook:latest
+    image: jupyter/all-spark-notebook:spark-3.1.2
     container_name: jupyter
     hostname: jupyter
     labels:
@@ -698,6 +698,7 @@ services:
 #      - ./plugins/jupyter/hadoop-aws-3.2.1.jar:/usr/local/spark/jars/hadoop-aws-3.2.1.jar
 #      - ./plugins/jupyter/guava-27.1-jre.jar:/usr/local/spark/jars/guava-14.0.1.jar
 #        # - ./custom-conf/jupyter/spark-defaults.conf:/usr/local/spark-3.1.1-bin-hadoop3.2/conf/spark-defaults.conf
+    #  - "./conf/jupyter/spark-defaults.conf:/usr/local/spark-3.1.1-bin-hadoop3.2/conf/spark-defaults.conf"
     command:
       # In the command section, $ are replaced with $$ to avoid the error 'Invalid interpolation format for "command" option'
       - bash

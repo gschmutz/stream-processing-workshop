@@ -631,7 +631,7 @@
       #
       JUPYTER_enable: true
       # one of 'minimal', 'r', 'scipy', 'tensorflow', 'datascience', 'all-spark'
-      JUPYTER_edition: 'minimal'
+      JUPYTER_edition: 'all-spark'
       JUPYTER_volume_map_data: false
       JUPYTER_python_packages: 'jupyterlab-lsp streaming-jupyter-integrations'
       JUPYTER_spark_jars_packages: ''
