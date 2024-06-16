@@ -695,6 +695,7 @@ services:
     volumes:
       - ./data-transfer:/data-transfer
       - ./scripts/docker/docker-maven-download.sh:/maven-download.sh
+      - flink-vol:/opt/flink:RO
 #    #      - ./plugins/jupyter/aws-java-sdk-bundle-1.11.375.jar:/usr/local/spark/jars/aws-java-sdk-bundle-1.11.375.jar
 #      - ./plugins/jupyter/hadoop-aws-3.2.1.jar:/usr/local/spark/jars/hadoop-aws-3.2.1.jar
 #      - ./plugins/jupyter/guava-27.1-jre.jar:/usr/local/spark/jars/guava-14.0.1.jar
