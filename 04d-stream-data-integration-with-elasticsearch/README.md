@@ -108,7 +108,7 @@ sudo chmod +x stop-elasticsearch.sh
 
 Finally let's start the connector by running the `start-elasticsearch` script.
 
-```
+```bash
 ./scripts/start-elasticsearch.sh
 ```
 
@@ -131,7 +131,7 @@ It has been created based on the Avro Schema for the Wikipedia Recent Change mes
 
 The generated mapping is very usable, but there is a problem with the mapping of the `timestamp` property:
  
-```
+```json
 {
   "wikipedia-recent-changes-avro.v1": {
     "mappings": {
@@ -149,13 +149,13 @@ We cannot change the mapping of an existing index. Therefore we have to stop the
 
 So first stop the connector
 
-```
+```bash
 ./scripts/stop-elasticsearch.sh
 ```
 
 Remove the Elasticsearch index using the following REST API call:
 
-```
+```bash
 curl -X "DELETE" http://dataplatform:9200/wikipedia-recent-changes-avro.v1
 ```
 
@@ -181,12 +181,13 @@ curl -H "Content-Type: application/json" -XPUT http://dataplatform:9200/wikipedi
 
 With the new index in place, restart the Elasticsearch connector using the `start-elasticsearch.sh` script:
 
-```
+```bash
 ./scripts/start-elasticsearch.sh
 ```
 
 if you re-check the index, it should now show the following for the `timestamp` field
 
+```json
 {
   "wikipedia-recent-changes-avro.v1": {
     "mappings": {
