@@ -537,6 +537,88 @@ services:
     volumes:
       - ./data-transfer:/data-transfer
     restart: unless-stopped
+  #  ================================== Apache Flink ========================================== #
+  flink-jobmanager:
+    image: flink:1.19.0-scala_2.12-java17
+    container_name: flink-jobmanager
+    hostname: flink-jobmanager
+    labels:
+      com.platys.name: flink
+      com.platys.description: Flink Job Manager
+      com.platys.webui.title: Flink JobManager UI
+      com.platys.webui.url: http://dataplatform:28237/
+    ports:
+      - 28237:8081
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 2
+        execution.checkpointing.interval: 5000
+        state.backend: filesystem
+        state.checkpoints.dir: file:///tmp/flink-checkpoints-directory
+        state.savepoints.dir: file:///tmp/flink-savepoints-directory
+      - ENABLE_BUILT_IN_PLUGINS=
+      - FLINK_INSTALL_MAVEN_DEP=
+      - FLINK_INSTALL_FILE_DEP=
+    volumes:
+      - ./data-transfer:/data-transfer
+      - ./scripts/docker/:/platys-scripts/
+      - ./scripts/flink/docker-entrypoint-override.sh:/docker-entrypoint-override.sh
+      - flink-vol:/opt/flink
+    entrypoint: /docker-entrypoint-override.sh
+    command: jobmanager
+    restart: always
+  flink-taskmanager-1:
+    image: flink:1.19.0-scala_2.12-java17
+    container_name: flink-taskmanager-1
+    hostname: flink-taskmanager-1
+    labels:
+      com.platys.name: flink
+      com.platys.description: Flink Task Manager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 10
+        execution.checkpointing.interval: 5000
+        state.backend: filesystem
+        state.checkpoints.dir: file:///tmp/flink-checkpoints-directory
+        state.savepoints.dir: file:///tmp/flink-savepoints-directory
+      - ENABLE_BUILT_IN_PLUGINS=
+      - FLINK_INSTALL_MAVEN_DEP=
+      - FLINK_INSTALL_FILE_DEP=
+    volumes:
+      - ./data-transfer:/data-transfer
+      - ./scripts/docker/:/platys-scripts/
+      - ./scripts/flink/docker-entrypoint-override.sh:/docker-entrypoint-override.sh
+    entrypoint: /docker-entrypoint-override.sh
+    command: taskmanager
+    restart: always
+  flink-sql-cli:
+    image: flink:1.19.0-scala_2.12-java17
+    container_name: flink-sql-cli
+    hostname: flink-sql-cli
+    labels:
+      com.platys.name: flink
+      com.platys.description: Flink SQL CLI
+    profiles:
+      - gui
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        rest.address: flink-jobmanager
+      - ENABLE_BUILT_IN_PLUGINS=
+      - FLINK_INSTALL_MAVEN_DEP=
+      - FLINK_INSTALL_FILE_DEP=
+    volumes:
+      - ./data-transfer:/data-transfer
+      - ./scripts/docker/:/platys-scripts/
+      - ./scripts/flink/docker-entrypoint-override.sh:/docker-entrypoint-override.sh
+#      - ./init/flink:/opt/sql-client/init
+    entrypoint: /docker-entrypoint-override.sh
+    command: bin/sql-client.sh
   #  ================================== NiFi ========================================== #
   nifi-1:
     image: apache/nifi:1.26.0
@@ -633,6 +715,7 @@ services:
       AWS_DEFAULT_REGION: us-east-1
       ZEPPELIN_SPARK_MASTER: local[*]
       SPARK_HOME: /opt/spark
+      FLINK_HOME: /opt/flink
       CORE_CONF_fs_defaultFS: s3a://admin-bucket
       SPARK_DEFAULTS_CONF_spark_sql_warehouse_dir:
       ZEPPELIN_ADDR: 0.0.0.0
@@ -654,6 +737,7 @@ services:
       - ./plugins/spark/jars:/extra-jars
       - ./container-volume/spark/logs/:/var/log/spark/logs
       - ./conf/awscli/s3cfg.template:/root/.s3cfg.template
+      - flink-vol:/opt/flink:RO
     restart: unless-stopped
   #  ================================== Jupyter ========================================== #
   jupyter:
@@ -1005,3 +1089,4 @@ services:
 volumes:
   data-transfer-vol:
     name: data_transfer_vol
+  flink-vol:
