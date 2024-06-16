@@ -532,12 +532,7 @@ services:
       - ./scripts/flink/docker-entrypoint-override.sh:/docker-entrypoint-override.sh
 #      - ./init/flink:/opt/sql-client/init
     entrypoint: /docker-entrypoint-override.sh
-    command:
-      - /bin/sh
-      - -c
-      - |
-        bin/sql-client.sh
-        while [ 1 -eq 1 ];do sleep 60;done
+    command: bin/sql-client.sh
   #  ================================== NiFi ========================================== #
   nifi-1:
     image: apache/nifi:1.26.0
