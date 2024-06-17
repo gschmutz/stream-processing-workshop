@@ -450,7 +450,7 @@ services:
     restart: unless-stopped
   #  ================================== Apache Flink ========================================== #
   flink-jobmanager:
-    image: flink:1.19.0-scala_2.12-java17
+    image: flink:1.17.0-scala_2.12-java17
     container_name: flink-jobmanager
     hostname: flink-jobmanager
     labels:
@@ -482,7 +482,7 @@ services:
     command: jobmanager
     restart: always
   flink-taskmanager-1:
-    image: flink:1.19.0-scala_2.12-java17
+    image: flink:1.17.0-scala_2.12-java17
     container_name: flink-taskmanager-1
     hostname: flink-taskmanager-1
     labels:
@@ -509,7 +509,7 @@ services:
     command: taskmanager
     restart: always
   flink-sql-cli:
-    image: flink:1.19.0-scala_2.12-java17
+    image: flink:1.17.0-scala_2.12-java17
     container_name: flink-sql-cli
     hostname: flink-sql-cli
     labels:
