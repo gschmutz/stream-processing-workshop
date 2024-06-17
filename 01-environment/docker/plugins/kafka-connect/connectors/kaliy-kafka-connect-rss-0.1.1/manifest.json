@@ -1,0 +1,35 @@
+{
+  "name" : "kafka-connect-rss",
+  "version" : "0.1.1",
+  "title" : "Kafka Connect RSS Source",
+  "description" : "Kafka RSS source connector allows moving data from RSS and Atom feeds to kafka.\nIt continuously polling feeds on the given URLs and sends new items to kafka.",
+  "owner" : {
+    "username" : "kaliy",
+    "type" : "user",
+    "name" : "Artur Kalimullin",
+    "url" : "https://github.com/kaliy",
+    "logo" : "assets/kaliy_logo.jpg"
+  },
+  "support" : {
+    "summary" : "Support provided through community involvement.",
+    "url" : "https://github.com/kaliy/kafka-connect-rss/issues",
+    "provider_name" : "Open Source Community"
+  },
+  "tags" : [ "feed", "rss", "atom" ],
+  "features" : {
+    "supported_encodings" : [ "any" ],
+    "single_message_transforms" : true,
+    "confluent_control_center_integration" : true,
+    "kafka_connect_api" : true
+  },
+  "logo" : "assets/rss_logo.png",
+  "documentation_url" : "https://github.com/kaliy/kafka-connect-rss/blob/master/README.md",
+  "source_url" : "https://github.com/kaliy/kafka-connect-rss",
+  "docker_image" : { },
+  "license" : [ {
+    "name" : "MIT License",
+    "url" : "https://opensource.org/licenses/MIT"
+  } ],
+  "component_types" : [ "source" ],
+  "release_date" : "2022-11-24"
+}
