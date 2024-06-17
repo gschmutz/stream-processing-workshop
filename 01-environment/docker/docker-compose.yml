@@ -594,7 +594,7 @@ services:
     restart: unless-stopped
   #  ================================== Zeppelin ========================================== #
   zeppelin:
-    image: trivadis/apache-zeppelin:0.11.0-spark3.3.2-hadoop3.3
+    image: trivadis/apache-zeppelin:0.11.1-spark3.3.2-hadoop3.3
     container_name: zeppelin
     hostname: zeppelin
     labels:
