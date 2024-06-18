@@ -94,7 +94,7 @@ into the **Launch Script** edit field
 
 Under **Choose your instance plan** click on the arrow on the right and select the **16 GB** instance.  
 
-Under **Identify your istance** enter **Ubuntu-NoSQL-1** into the edit field.
+Under **Identify your istance** enter **Ubuntu-Streaming** into the edit field.
 
 ![Alt Image Text](./images/lightsail-create-instance-4.png "Lightsail Homepage")
 
