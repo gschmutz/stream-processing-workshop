@@ -535,7 +535,7 @@ services:
     command: bin/sql-client.sh
   #  ================================== NiFi ========================================== #
   nifi-1:
-    image: apache/nifi:1.26.0
+    image: apache/nifi:2.0.0-M3
     container_name: nifi-1
     hostname: nifi-1
     labels:
@@ -581,6 +581,7 @@ services:
       - ./data-transfer:/data-transfer
       - ./plugins/nifi/jars/:/extra-jars/
       - ./plugins/nifi/nars/:/opt/nifi/nifi-current/extensions
+      - ./plugins/nifi/python/:/opt/nifi/nifi-current/python_extensions/
       - ./security/nifi/nifi-1/keystore.jks:/opt/certs/keystore.jks
       - ./security/nifi/nifi-1/truststore.jks:/opt/certs/truststore.jks
       - ./security/nifi/s3-credentials.properties:/tmp/s3-credentials.properties.templ
