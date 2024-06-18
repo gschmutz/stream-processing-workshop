@@ -535,7 +535,7 @@
       #
       NIFI_enable: true
       NIFI_major_version: 2      
-      NIFI_run_secure: true
+      NIFI_run_secure: false
       NIFI_username: nifi
       # password must be 12 chars minimum, otherwise a random user and password is generated
       NIFI_password: 1234567890ACD

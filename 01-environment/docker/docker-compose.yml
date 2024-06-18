@@ -542,9 +542,9 @@ services:
       com.platys.name: nifi
       com.platys.description: NiFi Data Integration Engine
       com.platys.webui.title: Apache NiFi UI
-      com.platys.webui.url: https://dataplatform:18080/nifi
+      com.platys.webui.url: http://dataplatform:18080/nifi
       com.platys.restapi.title: Apche NiFi REST API
-      com.platys.restapi.url: https://dataplatform:18080/nifi-api
+      com.platys.restapi.url: http://dataplatform:18080/nifi-api
     ports:
       # HTTP
       - 18080:18080
@@ -553,19 +553,7 @@ services:
       # Prometheus Port
       - 1270:1234
     environment:
-      NIFI_WEB_HTTPS_PORT: '18080'
-      NIFI_WEB_HTTPS_HOST: nifi-1
-      NIFI_WEB_PROXY_HOST: ${PUBLIC_IP}:18080,${DOCKER_HOST_IP}:18080
-      AUTH: tls
-      KEYSTORE_PATH: /opt/certs/keystore.jks
-      KEYSTORE_TYPE: JKS
-      KEYSTORE_PASSWORD: BWt7eLC4R53N4bIxdZEVPhAdkYlQ0Le8Tw0erGXpvI0
-      KEY_PASSWORD: BWt7eLC4R53N4bIxdZEVPhAdkYlQ0Le8Tw0erGXpvI0
-      TRUSTSTORE_PATH: /opt/certs/truststore.jks
-      TRUSTSTORE_TYPE: JKS
-      TRUSTSTORE_PASSWORD: PkhvPAirou5R/K9HQxVk99uT+hehM7SRURyFSbxTlTQ
-      NIFI_SECURITY_USER_AUTHORIZER: single-user-authorizer
-      NIFI_SECURITY_USER_LOGIN_IDENTITY_PROVIDER: single-user-provider
+      NIFI_WEB_HTTP_PORT: '18080'
       S3_ENDPOINT: http://minio-1:9000
       S3_PATH_STYLE_ACCESS: 'true'
       S3_REGION: us-east-1
@@ -582,8 +570,6 @@ services:
       - ./plugins/nifi/jars/:/extra-jars/
       - ./plugins/nifi/nars/:/opt/nifi/nifi-current/extensions
       - ./plugins/nifi/python/:/opt/nifi/nifi-current/python_extensions/
-      - ./security/nifi/nifi-1/keystore.jks:/opt/certs/keystore.jks
-      - ./security/nifi/nifi-1/truststore.jks:/opt/certs/truststore.jks
       - ./security/nifi/s3-credentials.properties:/tmp/s3-credentials.properties.templ
     entrypoint:
       # We override the entrypoint from the docker image and therefore have to run ../scripts/start.sh from the NiFi docker image
