@@ -535,7 +535,7 @@ services:
     command: bin/sql-client.sh
   #  ================================== NiFi ========================================== #
   nifi-1:
-    image: apache/nifi:1.26.0
+    image: apache/nifi:2.0.0-M3
     container_name: nifi-1
     hostname: nifi-1
     labels:
