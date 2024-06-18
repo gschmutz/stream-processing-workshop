@@ -554,8 +554,8 @@ services:
       - 1270:1234
     environment:
       NIFI_WEB_HTTPS_PORT: '18080'
-      NIFI_WEB_HTTPS_HOST: 3.120.179.108
-      NIFI_WEB_PROXY_HOST: ${PUBLIC_IP}:18080,${DOCKER_HOST_IP}:18080
+      NIFI_WEB_HTTPS_HOST: nifi-1
+      NIFI_WEB_PROXY_HOST: nifi-1:18080,${PUBLIC_IP}:18080,${DOCKER_HOST_IP}:18080
       AUTH: tls
       KEYSTORE_PATH: /opt/certs/keystore.jks
       KEYSTORE_TYPE: JKS
