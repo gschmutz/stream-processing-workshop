@@ -25,7 +25,7 @@ pip install sseclient
 and a second cell, install the Kafka client
 
 ```
-pip install kafka-python
+pip install confluent-kafka
 ``` 
 
 In the next cell, execute the following python script
@@ -33,9 +33,10 @@ In the next cell, execute the following python script
 ```python
 import json
 
-from kafka import KafkaProducer
+from confluent_kafka import Producer
 from sseclient import SSEClient as EventSource
 
+topic_name = "wikipedia-recent-changes-python-v1"
 
 def produce_events_from_url(url: str, topic: str) -> None:
     for event in EventSource(url):
@@ -45,17 +46,19 @@ def produce_events_from_url(url: str, topic: str) -> None:
             except ValueError:
                 pass
             else:
-                key = parsed_event["server_name"]
+                if "server_name" in parsed_event:
+                    key = parsed_event["server_name"]
+                else:
+                    key = None
                 # Partiton by server_name
-                producer.send(topic, value=json.dumps(parsed_event).encode("utf-8"), key=key.encode("utf-8"))
+                p.produce(topic, value=json.dumps(parsed_event).encode("utf-8"), key=key.encode("utf-8"))
 
 
 if __name__ == "__main__":
-    producer = KafkaProducer(
-        bootstrap_servers="kafka-1:19092", client_id="wikidata-producer"
-    )
+    producer = Producer({'bootstrap.servers': 'kafka-1:19092,kafka-2:19093'})
+
     produce_events_from_url(
-        url="https://stream.wikimedia.org/v2/stream/recentchange", topic="wikipedia-recent-changes-python-v1"
+        url="https://stream.wikimedia.org/v2/stream/recentchange", topic=topic_name
     )
 ```
 
@@ -66,3 +69,5 @@ Now let's start a `kcat` consumer on the new topic:
 ```bash
 docker exec -ti kcat kcat -b kafka-1:19092 -t wikipedia-recent-changes-python-v1
 ```
+
+Alternatively you can also use AKHQ and do a tail on the topic.

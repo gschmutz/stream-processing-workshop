@@ -14,7 +14,7 @@ For the Ingestion part we have 3 different solutions:
 * [Ingesting Wikipedia Recent Changes into Kafka using Kafka Connect](../04b-wikipedia-data-ingestion-with-kafka-connect/README.md)
 * [Ingesting Wikipedia Recent Changes into Kafka using Kafka Connect SSE Connector](../04c-wikipedia-data-ingestion-with-kafka-connect-sse/README.md)
 
-For storing the Wikipedia events into Elasticsearch:
+For storing the Wikipedia events into Elasticsearch there is one solution. It will only work if the data is ingested using the 3rd ingestion solution [Ingesting Wikipedia Recent Changes into Kafka using Kafka Connect SSE Connector](../04c-wikipedia-data-ingestion-with-kafka-connect-sse/README.md):
 
 * [Storing Wikipedia Recent Changes into Elasticsearch using Kafka Connect](../04d-stream-data-integration-with-elasticsearch/README.md)
  
