@@ -2,17 +2,21 @@
 
 In this workshop we will be using Kafka Connect to get the data from the [Wikipedia Recent Changes stream](https://wikitech.wikimedia.org/wiki/Event_Platform/EventStreams) into Kafka. Wikipedia EventStreams is a web service that exposes continuous streams of structured event data. It does so over HTTP using chunked transfer encoding following the Server-Sent Events protocol (SSE). 
 
-In this workshop we are going to use the [Kafka Connector](https://www.confluent.io/hub/cjmatta/kafka-connect-sse) available for retrieving Server Sent Events (SSE). It is already pre-installed with the Data Platform. 
+In this workshop we are going to use the [Kafka Connector](https://www.confluent.io/hub/cjmatta/kafka-connect-sse) available for retrieving Server Sent Events (SSE). It is available from confluent hub and therefore downloadable using the `confluent-hub install` command. This has been done when bootstrapping the Data Platform. 
 
 So all we have to do here is configure it and bring it to action!
 
-There are two instances of the Kafka Connect service instance running as part of the Data Platform, `kafka-connect-1` and `kafka-connect-2`. 
+## Kafka Connect Cluster
+
+There is one instance of the Kafka Connect service running as part of the Data Platform called `kafka-connect-1`. 
+
+You can use the Kafka Connect UI (<http://dataplatform:28103>) to view and work with the connector instances running on the Kafka connect cluster.
 
 ## Wikipedia Kafka Connector 
 
 The [Server Sent Events Source Connector](com.github.cjmatta.kafka.connect.sse.ServerSentEventsSourceConnector) has already been installed as part of the setup of the platform. 
 
-## Configure the Wikipedia Connector
+### Configure the Wikipedia Connector
 
 For creating an instance of the Wikipedia connector you can either use a REST client or the Linux `curl` command line utility, which should be available on the Docker host. Curl is what we are going to use here. 
 
@@ -76,7 +80,7 @@ sudo chmod +x stop-wikipedia.sh
 
 Before we can run the pipeline, we have to create the Kafka topic.
 
-## Create the topic in Kafka
+### Create the topic in Kafka
 
 Create the topic in Kafka, if it does not yet exist, using the `kafka-topics` command. 
 
@@ -88,7 +92,7 @@ Alternatively you can also use AKHQ to create a topic.
 
 Now we are ready to run the Wikipedia Connector. 
 
-## Start the Wikipedia connector
+### Start the Wikipedia connector
 
 Finally let's start the connector by running the `start-wikipedia` script.
 
@@ -104,7 +108,7 @@ The connector uses Avro for the serialization of the messages. The necessary Avr
 
 ![Alt Image Text](./images/schema-registry-ui.png "Schema Registry UI") 
 
-## Use kafkacat to show the messages on the console
+### Use kafkacat to show the messages on the console
 
 Now let's start a `kafkacat` consumer on the new topic:
 
