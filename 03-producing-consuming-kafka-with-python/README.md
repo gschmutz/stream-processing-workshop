@@ -165,9 +165,7 @@ topic_name = "test-python-topic"
 c = Consumer({
     'bootstrap.servers': 'kafka-1:19092, kafka-2:19093',
     'group.id': 'test-consumer-group',
-    'default.topic.config': {
-        'auto.offset.reset': 'largest'
-    }
+    'auto.offset.reset': 'earliest'
 })
 
 c.subscribe([topic_name])
@@ -570,7 +568,7 @@ while True:
          if msg is None:
              continue
 
-         perosn = avro_deserializer(msg.value(), SerializationContext(msg.topic(), MessageField.VALUE))
+         person = avro_deserializer(msg.value(), SerializationContext(msg.topic(), MessageField.VALUE))
          if person is not None:
              print("Person record {}: id: {}\n"
                       "\tfirstName: {}\n"
