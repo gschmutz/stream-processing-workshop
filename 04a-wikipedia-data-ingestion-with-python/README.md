@@ -51,7 +51,7 @@ def produce_events_from_url(url: str, topic: str) -> None:
                 else:
                     key = None
                 # Partiton by server_name
-                p.produce(topic, value=json.dumps(parsed_event).encode("utf-8"), key=key.encode("utf-8"))
+                producer.produce(topic, value=json.dumps(parsed_event).encode("utf-8"), key=key.encode("utf-8"))
 
 
 if __name__ == "__main__":
