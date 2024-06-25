@@ -114,7 +114,7 @@ Finally let's start the connector by running the `start-elasticsearch` script.
 
 The connector will consume the Avro serialized messages, automatically create an Elasticsearch Index, register the Index Mapping, which is based on the Avro schema and stores the tweets as documents into the Elasticsearch datastore.
 
-We can see that documents have been added by navigating to the Elasticsearch API in a browser to <http://dataplatform:9200/tweet-v1-index/_search>:
+We can see that documents have been added by navigating to the Elasticsearch API in a browser to <http://dataplatform:9200/wikipedia-recent-changes-avro.v1/_search>:
 
 ![Alt Image Text](./images/elasticsearch_search.png "Elasticsearch Connector") 
 
