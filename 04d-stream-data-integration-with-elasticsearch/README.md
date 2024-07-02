@@ -109,7 +109,7 @@ sudo chmod +x stop-elasticsearch.sh
 Finally let's start the connector by running the `start-elasticsearch` script.
 
 ```bash
-./scripts/start-elasticsearch.sh
+./start-elasticsearch.sh
 ```
 
 The connector will consume the Avro serialized messages, automatically create an Elasticsearch Index, register the Index Mapping, which is based on the Avro schema and stores the tweets as documents into the Elasticsearch datastore.
