@@ -625,7 +625,8 @@ curl -X PUT \
   "transforms.outbox.route.by.field": "event_type",
   "transforms.outbox.route.topic.replacement": "priv.${routedByValue}.event.v1",
   "topic.creation.default.replication.factor": 3,
-  "topic.creation.default.partitions": 8
+  "topic.creation.default.partitions": 8,
+  "topic.creation.default.cleanup.policy": "compact"
 }'
 ```
 
@@ -641,7 +642,7 @@ VALUES (gen_random_uuid(), 13256, current_timestamp, 'CustomerCreated', '{"id":1
 A new Kafka topic `priv.CustomerCreated.event.v1` will get created with the message. 
 
 ```bash
-kcat -b kafka-1:19092 -t priv.CustomerCreated.event.v1 -f "[%p] %k: %s\n" -q -s avro -r http://schema-registry-1:8081 
+docker exec -ti kcat kcat -b kafka-1:19092 -t priv.CustomerCreated.event.v1 -f "[%p] %k: %s\n" -q -s avro -r http://schema-registry-1:8081 
 ```
 
 ```bash
