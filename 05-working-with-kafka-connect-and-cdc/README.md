@@ -59,7 +59,7 @@ On the workshop environment, this has already been done. You can check the avail
 
 #### Create the necessary topics
 
-Let's create a topic for the change records of the two tables 'person` and `address`: 
+Let's create a topic for the change records of the two tables `person` and `address`: 
 
 ```bash
 docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic priv.person.cdc.v1 --partitions 8 --replication-factor 3
