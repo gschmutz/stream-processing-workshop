@@ -50,7 +50,7 @@ Luckily, there are multiple Kafka Source Connectors available for consuming from
 
 ### Adding the MQTT Kafka Connector 
 
-There are two instances of the Kafka Connect service instance running as part of the Modern Data Platform, `kafka-connect-1` and `kafka-connect-2`. 
+There are two instances of the Kafka Connect service instance running as part of the Modern Data Platform, `kafka-connect-1` and optionally `kafka-connect-2`. 
 
 To add the connector implementations, without having to copy them into the docker container (or even create a dedicated docker image holding the jar), both connect services are configured to use additional connector implementations from the local folder `/etc/kafka-connect/custom-plugins` inside the docker container. This folder is mapped as a volume to the `plugins/kafka-connect` folder outside of the container on to the docker host. 
 
@@ -79,27 +79,27 @@ Now let's restart Kafka connect in order to pick up the new connector (Make sure
 
 ```
 cd $DATAPLATFORM_HOME
-docker-compose restart kafka-connect-1 kafka-connect-2
+docker-compose restart kafka-connect-1
 ```
 
 The connector should now be added to the Kafka cluster. You can confirm that by watching the log file of the two containers
 
 ```
-docker-compose logs -f kafka-connect-1 kafka-connect-2
+docker-compose logs -f kafka-connect-1
 ```
 
 After a while you should see an output similar to the one below with a message that the MQTT connector was added and later that the connector finished starting ...
 
 ```
 ...
-kafka-connect-2             | [2019-06-08 18:01:02,590] INFO Registered loader: PluginClassLoader{pluginLocation=file:/etc/kafka-connect/custom-plugins/kafka-connect-mqtt-1.2.1-2.1.0-all/} (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
-kafka-connect-2             | [2019-06-08 18:01:02,591] INFO Added plugin 'com.datamountaineer.streamreactor.connect.mqtt.source.MqttSourceConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
-kafka-connect-2             | [2019-06-08 18:01:02,591] INFO Added plugin 'com.datamountaineer.streamreactor.connect.mqtt.sink.MqttSinkConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
-kafka-connect-2             | [2019-06-08 18:01:02,592] INFO Added plugin 'com.datamountaineer.streamreactor.connect.converters.source.JsonResilientConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
-kafka-connect-2             | [2019-06-08 18:01:02,592] INFO Added plugin 'com.landoop.connect.sql.Transformation' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
+kafka-connect-1             | [2019-06-08 18:01:02,590] INFO Registered loader: PluginClassLoader{pluginLocation=file:/etc/kafka-connect/custom-plugins/kafka-connect-mqtt-1.2.1-2.1.0-all/} (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
+kafka-connect-1             | [2019-06-08 18:01:02,591] INFO Added plugin 'com.datamountaineer.streamreactor.connect.mqtt.source.MqttSourceConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
+kafka-connect-1             | [2019-06-08 18:01:02,591] INFO Added plugin 'com.datamountaineer.streamreactor.connect.mqtt.sink.MqttSinkConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
+kafka-connect-1             | [2019-06-08 18:01:02,592] INFO Added plugin 'com.datamountaineer.streamreactor.connect.converters.source.JsonResilientConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
+kafka-connect-1             | [2019-06-08 18:01:02,592] INFO Added plugin 'com.landoop.connect.sql.Transformation' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
 ...
-kafka-connect-2             | [2019-06-08 18:01:11,520] INFO Starting connectors and tasks using config offset -1 (org.apache.kafka.connect.runtime.distributed.DistributedHerder)
-kafka-connect-2             | [2019-06-08 18:01:11,520] INFO Finished starting connectors and tasks (org.apache.kafka.connect.runtime.distributed.DistributedHerder)
+kafka-connect-1             | [2019-06-08 18:01:11,520] INFO Starting connectors and tasks using config offset -1 (org.apache.kafka.connect.runtime.distributed.DistributedHerder)
+kafka-connect-1             | [2019-06-08 18:01:11,520] INFO Finished starting connectors and tasks (org.apache.kafka.connect.runtime.distributed.DistributedHerder)
 
 ```
 
@@ -359,7 +359,7 @@ Double-click on **EvaluateJsonPath** processor and navigate to **RELATIONSHIPS**
 Now let's run all 3 processors again and check that the Kafka messages also include a valid key portion. 
 
 ```
-docker exec -ti kcat kcat -b kafka-1:19092 -t vehicle_tracking_sysB -f "%k - %s" -q
+docker exec -ti kcat kcat -b kafka-1:19092 -t vehicle_tracking_sysA -f "%k - %s" -q
 ```
 
 we can see that the key part is no longer empty
