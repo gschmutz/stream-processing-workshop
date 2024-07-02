@@ -149,7 +149,7 @@ curl -X PUT \
 }'
 ```
 
-The script first removes the MQTT connector, if it does exists already and then creates it from scratch. 
+The script first removes the MQTT connector, if it does exist already and then creates it from scratch. 
 
 Also create a separate script `stop-mqtt.sh` for stopping the connector with the following script:
 
