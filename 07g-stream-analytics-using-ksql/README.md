@@ -8,15 +8,36 @@ There are many possible solutions for performing analytics directly on the event
 
 We will use KSQL to detect drivers not driving around normally (detecting anomalies). 
 
-## Optionally: Shortcutting previous steps (t.b.d - does not work like that)
+## Optionally: Shortcutting previous parts of workshop 
 
-If you have not yet done the [previous part](../05b-iot-data-ingestion-mqtt-to-kafka/README.md), or it is no longer available, then you can also configure the IoT Truck Simulator to directly produce to Kafka, by running the following command:
+If you have not yet done the [previous part](../07d-iot-data-normalization-using-ksqldb/README.md), or it is no longer available, then you can also configure the IoT Truck Simulator to directly produce to Kafka, by running the following command:
 
 ```
-docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic truck_position --partitions 8 --replication-factor 3
+docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic vehicle_tracking_refined --partitions 8 --replication-factor 3
 
-docker run --network streaming-platform trivadis/iot-truck-simulator '-s' 'KAFKA' '-h' 'kafka-1' '-p' '19092' '-f' 'CSV'
+docker run --network streaming-data-platform trivadis/iot-truck-simulator '-s' 'KAFKA' '-h' 'kafka-1' '-p' '19092' '-f' 'CSV' '-topics' 'vehicle_tracking_refined'
 ``` 
+
+Now we have to create the `vehicle_tracking_refined_s`, representing the last step of the previous part of the workshop (it is not 100% identical, as it does not use Avro and does not use the same column names, but it's close enough for this part of the workshop).
+
+``` bash
+docker exec -it ksqldb-cli ksql http://ksqldb-server-1:8088
+```
+
+```sql
+CREATE STREAM IF NOT EXISTS vehicle_tracking_refined_s 
+  (key VARCHAR KEY,
+  timestamp BIGINT, 
+   truckId BIGINT, 
+   driverId BIGINT, 
+   routeId BIGINT,
+   eventType VARCHAR,
+   latitude DOUBLE,
+   longitude DOUBLE,
+   correlationId VARCHAR)
+  WITH (kafka_topic='vehicle_tracking_refined',
+        value_format='JSON');
+```        
 
 ## Connect to ksqlDB engine
  

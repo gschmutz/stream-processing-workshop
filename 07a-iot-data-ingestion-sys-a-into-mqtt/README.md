@@ -1,6 +1,6 @@
 # IoT Vehicle Data - Ingesting simulated IoT from System A into MQTT
 
-In this part we will be ingesting the IoT data stream into MQTT first, so that it can be later consumed and moved to a central Kafka topic. The MQTT brokers would act as IoT Gateways, implemented decentraly, whereas the Kafka Topic later will be a central deployment. This is a scenario which makes a lot of sense in real-live for various reasons such as security, connectivity, more lightweight connections and others. 
+In this part we will be ingesting the IoT data stream into MQTT first, so that it can be later consumed and moved to a central Kafka topic. The MQTT brokers would act as IoT Gateways, implemented decentrally, whereas the Kafka Topic later will be a central deployment. This is a scenario which makes a lot of sense in real-live for various reasons such as security, connectivity, more lightweight connections and others. 
 
 The following diagram shows the first part of the data flow we will be implementing. 
 
@@ -16,6 +16,8 @@ We are using [Mosquitto](https://mosquitto.org/), an easy to use MQTT broker, be
 
 
 ## Running the Truck Simulator to publish directly to MQTT
+
+For simulating vehicle tracking data, we are going to use a Java program (adapted from Hortonworks) and maintained [here](https://github.com/TrivadisBDS/various-bigdata-prototypes/tree/master/streaming-sources/iot-truck-simulator/impl).
 
 Now let's run the simulator for trucks with id 1 - 49. 
 
