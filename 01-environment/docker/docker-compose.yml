@@ -11,7 +11,7 @@ networks:
 services:
 #  ================================== Kafka ========================================== #
   kafka-1:
-    image: confluentinc/cp-kafka:7.6.0
+    image: confluentinc/cp-kafka:7.7.0
     container_name: kafka-1
     hostname: kafka-1
     labels:
@@ -53,12 +53,13 @@ services:
       - ./data-transfer:/data-transfer
     restart: unless-stopped
     healthcheck:
-      test: curl -u superUser:superUser -fail --silent --insecure https://kafka-1:9092/kafka/v3/clusters/ --output /dev/null || exit 1
-      interval: 10s
-      retries: 25
+      test: kafka-topics --bootstrap-server kafka-1:19092 --list
+      interval: 30s
+      timeout: 10s
+      retries: 3
       start_period: 20s
   kafka-2:
-    image: confluentinc/cp-kafka:7.6.0
+    image: confluentinc/cp-kafka:7.7.0
     container_name: kafka-2
     hostname: kafka-2
     labels:
@@ -100,12 +101,13 @@ services:
       - ./data-transfer:/data-transfer
     restart: unless-stopped
     healthcheck:
-      test: curl -u superUser:superUser -fail --silent --insecure https://kafka-2:9093/kafka/v3/clusters/ --output /dev/null || exit 1
-      interval: 10s
-      retries: 25
+      test: kafka-topics --bootstrap-server kafka-1:19092 --list
+      interval: 30s
+      timeout: 10s
+      retries: 3
       start_period: 20s
   kafka-3:
-    image: confluentinc/cp-kafka:7.6.0
+    image: confluentinc/cp-kafka:7.7.0
     container_name: kafka-3
     hostname: kafka-3
     labels:
@@ -147,13 +149,14 @@ services:
       - ./data-transfer:/data-transfer
     restart: unless-stopped
     healthcheck:
-      test: curl -u superUser:superUser -fail --silent --insecure https://kafka-3:9094/kafka/v3/clusters/ --output /dev/null || exit 1
-      interval: 10s
-      retries: 25
+      test: kafka-topics --bootstrap-server kafka-1:19092 --list
+      interval: 30s
+      timeout: 10s
+      retries: 3
       start_period: 20s
   #  ================================== Kafka Connect ========================================== #
   kafka-connect-1:
-    image: confluentinc/cp-kafka-connect:7.6.0
+    image: confluentinc/cp-kafka-connect:7.7.0
     container_name: kafka-connect-1
     hostname: kafka-connect-1
     labels:
@@ -315,7 +318,7 @@ services:
     restart: unless-stopped
   #  ================================== Confluent Schema Registry ========================================== #
   schema-registry-1:
-    image: confluentinc/cp-schema-registry:7.6.0
+    image: confluentinc/cp-schema-registry:7.7.0
     hostname: schema-registry-1
     container_name: schema-registry-1
     labels:
@@ -464,15 +467,19 @@ services:
       - |
         FLINK_PROPERTIES=
         jobmanager.rpc.address: flink-jobmanager
-        taskmanager.numberOfTaskSlots: 2
-        parallelism.default: 2
+        jobmanager.memory.process.size: 1600m
+        rest.bind-port: 8081
         execution.checkpointing.interval: 5000
+        table.catalog-store.kind: file
+        table.catalog-store.file.path: ./conf/catalogs
         state.backend: filesystem
         state.checkpoints.dir: file:///tmp/flink-checkpoints-directory
         state.savepoints.dir: file:///tmp/flink-savepoints-directory
-      - ENABLE_BUILT_IN_PLUGINS=
-      - FLINK_INSTALL_MAVEN_DEP=
-      - FLINK_INSTALL_FILE_DEP=
+#        rest.flamegraph.enabled: true
+      - s3.access.key=V42FCGRVMK24JJ8DHUYG
+      - s3.secret.key=bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza
+      - s3.endpoint=http://minio-1:9000'
+      - s3.path.style.access='true'
     volumes:
       - ./data-transfer:/data-transfer
       - ./scripts/docker/:/platys-scripts/
@@ -493,14 +500,18 @@ services:
         FLINK_PROPERTIES=
         jobmanager.rpc.address: flink-jobmanager
         taskmanager.numberOfTaskSlots: 10
+        taskmanager.memory.process.size: 1728m
         parallelism.default: 2
         execution.checkpointing.interval: 5000
+        table.catalog-store.kind: file
+        table.catalog-store.file.path: ./conf/catalogs
         state.backend: filesystem
         state.checkpoints.dir: file:///tmp/flink-checkpoints-directory
         state.savepoints.dir: file:///tmp/flink-savepoints-directory
-      - ENABLE_BUILT_IN_PLUGINS=
-      - FLINK_INSTALL_MAVEN_DEP=
-      - FLINK_INSTALL_FILE_DEP=
+      - s3.access.key=V42FCGRVMK24JJ8DHUYG
+      - s3.secret.key=bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza
+      - s3.endpoint=http://minio-1:9000'
+      - s3.path.style.access='true'
     volumes:
       - ./data-transfer:/data-transfer
       - ./scripts/docker/:/platys-scripts/
@@ -515,27 +526,23 @@ services:
     labels:
       com.platys.name: flink
       com.platys.description: Flink SQL CLI
-    profiles:
-      - gui
     environment:
       - |
         FLINK_PROPERTIES=
         jobmanager.rpc.address: flink-jobmanager
         rest.address: flink-jobmanager
-      - ENABLE_BUILT_IN_PLUGINS=
-      # the following 2 env variables are supported by the /docker-entrypoint-override.sh script  
-      - FLINK_INSTALL_MAVEN_DEP=
-      - FLINK_INSTALL_FILE_DEP=
+        table.catalog-store.kind: file
+        table.catalog-store.file.path: ./conf/catalogs
     volumes:
       - ./data-transfer:/data-transfer
       - ./scripts/docker/:/platys-scripts/
       - ./scripts/flink/docker-entrypoint-override.sh:/docker-entrypoint-override.sh
 #      - ./init/flink:/opt/sql-client/init
     entrypoint: /docker-entrypoint-override.sh
-    command: bin/sql-client.sh
+    command: sleep infinity
   #  ================================== NiFi ========================================== #
   nifi-1:
-    image: apache/nifi:1.26.0
+    image: apache/nifi:1.27.0
     container_name: nifi-1
     hostname: nifi-1
     labels:

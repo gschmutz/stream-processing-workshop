@@ -23,6 +23,7 @@ The Modern Data Platform version 1.18.0 contains the following bug fixes and enh
  * Unstructured API
  * gpt-researcher
  * Docker Exec Web Console
+ * n8n
 
 ### Version upgrades
 
@@ -65,12 +66,13 @@ The Modern Data Platform version 1.18.0 contains the following bug fixes and enh
  * Update `stardog` to `latest`
  * Update `minio` to `RELEASE.2024-04-06T05-26-02Z`
  * Update `datahub` to `v0.13.2`
- * Update `risingwave` to `v1.8.2`
+ * Update `risingwave` to `v1.10.0`
  * Update `portainer` to `alpine-sts`
- * Update `flowise` to `1.8.1`
- * Update `nifi` to `2.0.0-M3`
- * Update `nifi` to `1.26.0`
- * Update `flink` to `1.19-scala_2.12-java17`
+ * Update `flowise` to `1.8.3`
+ * Update `nifi` to `2.0.0-M4`
+ * Update `nifi` to `1.27.0`
+ * Update `flink` to `1.20-scala_2.12-java17`
+ * Update `Confluent Platform` to `7.7.0`
 
 ### Breaking Changes
 
