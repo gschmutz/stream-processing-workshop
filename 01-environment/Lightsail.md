@@ -31,8 +31,12 @@ export DOCKER_HOST_IP=$(ip addr show ${NETWORK_NAME} | grep "inet\b" | awk '{pri
 
 # allow login by password
 sudo sed -i "s/.*PasswordAuthentication.*/PasswordAuthentication yes/g" /etc/ssh/sshd_config
+sudo sed -i "s/.*PasswordAuthentication.*/PasswordAuthentication yes/g" /etc/ssh/sshd_config.d/60-cloudimg-settings.conf
+
 echo "${USERNAME}:${PASSWORD}"|chpasswd
-sudo service sshd restart
+sudo systemctl daemon-reload
+sudo systemctl restart ssh
+
 
 # add alias "dataplatform" to /etc/hosts
 echo "$DOCKER_HOST_IP     dataplatform" | sudo tee -a /etc/hosts
@@ -54,11 +58,6 @@ sudo apt-get update
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 sudo usermod -aG docker $USERNAME
 
-# Install Docker Compose Switch
-sudo curl -fL https://github.com/docker/compose-switch/releases/latest/download/docker-compose-linux-amd64 -o /usr/local/bin/compose-switch
-chmod +x /usr/local/bin/compose-switch
-sudo update-alternatives --install /usr/local/bin/docker-compose docker-compose /usr/local/bin/compose-switch 99
-
 # Install Platys
 sudo curl -L "https://github.com/TrivadisPF/platys/releases/download/${PLATYS_VERSION}/platys_${PLATYS_VERSION}_linux_x86_64.tar.gz" -o /tmp/platys.tar.gz
 tar zvxf /tmp/platys.tar.gz 
@@ -67,7 +66,7 @@ sudo chown root:root /usr/local/bin/platys
 sudo rm /tmp/platys.tar.gz 
 
 # Install various Utilities
-sudo apt-get install -y curl jq kafkacat tmux unzip
+sudo apt-get install -y curl jq kafkacat tmux unzip tree
 
 # needed for elasticsearch
 sudo sysctl -w vm.max_map_count=262144   
@@ -84,8 +83,11 @@ sudo echo "export PUBLIC_IP=$PUBLIC_IP" | sudo tee -a /etc/profile.d/platys-plat
 sudo echo "export DOCKER_HOST_IP=$DOCKER_HOST_IP" | sudo tee -a /etc/profile.d/platys-platform-env.sh
 sudo echo "export DATAPLATFORM_HOME=$PWD" | sudo tee -a /etc/profile.d/platys-platform-env.sh
 
+# allow all on spark/logs folder
+sudo chmod 777 container-volume/spark/logs
+
 # Startup Environment
-docker-compose up -d
+sudo -E docker-compose up -d
 ```
 
 into the **Launch Script** edit field
