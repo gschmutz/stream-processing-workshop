@@ -533,8 +533,7 @@
       #
       # ===== Apache NiFi ========
       #
-      NIFI_enable: true
-      NIFI_major_version: 1      
+      NIFI_enable: false
       NIFI_run_secure: true
       NIFI_use_custom_certs: false
       NIFI_keystore_password: ''
@@ -559,9 +558,9 @@
       #
       # ===== Apache NiFi v2 ========
       #
-      NIFI2_enable: false
+      NIFI2_enable: true
       NIFI2_custom_image_name: ''
-      NIFI2_run_secure: false
+      NIFI2_run_secure: true
       NIFI2_use_custom_certs: false
       NIFI2_keystore_password: ''
       NIFI2_key_password: ''
