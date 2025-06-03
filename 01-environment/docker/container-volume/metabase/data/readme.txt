@@ -1,1 +1,0 @@
-Contains the data of metabase service, if flag METABASE_volume_map_data is set to true.

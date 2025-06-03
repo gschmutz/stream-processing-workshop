@@ -1,1 +1,0 @@
-Contains the logs of rabbitmq service, if flag RABBITMQ_volume_map_logs is set to true.

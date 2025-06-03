@@ -1,1 +1,0 @@
-Contains the data of Kong service, if flag KONGA_volume_map_data is set to true.

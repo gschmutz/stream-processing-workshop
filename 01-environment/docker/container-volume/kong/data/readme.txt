@@ -1,1 +1,0 @@
-Contains the postgresql data of kong service

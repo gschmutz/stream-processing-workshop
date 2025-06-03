@@ -1,1 +1,0 @@
-Contains the data of ollama-webui service, if flag OLLAMA_WEBUI_volume_map_data is set to true.

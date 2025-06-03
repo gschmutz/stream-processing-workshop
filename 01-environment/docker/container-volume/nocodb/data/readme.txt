@@ -1,1 +1,0 @@
-Contains the data of NocoDB service, if flag NOCODB_volume_map_data is set to true.

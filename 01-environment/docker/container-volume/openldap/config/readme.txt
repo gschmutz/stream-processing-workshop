@@ -1,1 +1,0 @@
-Contains the config of openldap service, if flag OPENLDAP_volume_map_config is set to true.

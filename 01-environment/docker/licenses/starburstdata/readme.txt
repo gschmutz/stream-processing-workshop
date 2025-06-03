@@ -1,1 +1,0 @@
-Place starburstdata's license file here (named starburstdata.license).

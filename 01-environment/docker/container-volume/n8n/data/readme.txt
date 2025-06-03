@@ -1,1 +1,0 @@
-Contains the data of n8n service, if flag N8N_volume_map_data is set to true.

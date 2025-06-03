@@ -1,4 +1,4 @@
-# `modern-data-platform` - Port Mappings - 1.17.1
+# `modern-data-platform` - Port Mappings - 1.18.1
 
 This table reserves the external ports for the various services. Not all services have to be used in the platform at a given time. But by reserving, we can assure that there are no conflicts if a service is added at a later time.
 
@@ -23,11 +23,19 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 1270 | 1234 | nifi-1 (prometheus exporter) | 
 1271 | 1234 | nifi-2 (prometheus exporter) | 
 1272 | 1234 | nifi-3 (prometheus exporter) | 
+1273 | 1234 | nifi2-1 (prometheus exporter) | 
+1274 | 1234 | nifi2-2 (prometheus exporter) | 
+1275 | 1234 | nifi2-3 (prometheus exporter) | 
 1337 | 1337 | konga | 
 1433 | 1433 | sqlserver |
-1521 | 1521 | oracledb-ee |
 1522 | 1521 | oracledb-xe |
-1523 | 1521 | oracledb-free |
+1523 | 1521 | oracledb-oci-free |
+1524 | 1521 | oracledb-free |
+1525 | 1521 | oracle-adb |
+1526 | 1522 | oracle-adb |
+1530 | 1521 | oracledb-ee-1 |
+1531 | 1521 | oracledb-ee-2 |
+1532 | 1521 | oracledb-ee-3 |
 1095 | 1095 | ksqldb-server-1 (jmx) |
 1096 | 1096 | ksqldb-server-2 (jmx) |
 1097 | 1097 | ksqldb-server-3 (jmx) |
@@ -44,6 +52,8 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 1890 | 1883 | activemq |
 1891 | 1883 | emqx-1 |
 1892 | 1883 | solace-pubsub |
+2022 | 2022 | sftpgo (sftp) |
+2024 | 2024 | ollama-deep-researcher |
 2113 | 2113 | eventstore |
 2181 | 2181 | zookeeper-1 |
 2182 | 2182 | zookeeper-2 |
@@ -52,6 +62,7 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 2185 | 2185 | zookeeper-5 |
 2186 | 2186 | zookeeper-6 |
 2222 | 22 | sftp |
+2376 | 2376 | docker-dind |
 2379 | 2379 | etcd-1 (client req) |
 2380 | 2380 | etcd-1 (peer comm) |
 2381 | 2381 | etcd-1 (metrics) |
@@ -63,20 +74,31 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 3000 | 3000 | grafana |
 3001 | 3000 | wetty (dc1) |
 3002 | 3000 | wetty (dc2 |
+3003 | 3003 | opik-backend |
 3005 | 3000 | marquez-web |
 3010 | 3000 | postman |
 3006 | 3000 | retool-api |
+3007 | 3000 | gpt-researcher-nextjs |
 3030 | 3030 | jena-fuseki |
 3100 | 3100 | loki |
 3200 | 3200 | tempo |
+3218 | 3218 | proton-server (HTTP streaming)
 3306 | 3306 | mysql |
 3307 | 3306 | datahub-mysql |
 3308 | 3306 | single-store |
 3309 | 3306 | mariadb |
+3310 | 3306 | openmetadata-mysql |
 3333 | 3333 | taskcafe |
 3355 | 3355 | vector-admin | 
 3838 | 3838 | shiny-server |
+3900 | 3900 | garage |
+3901 | 3901 | garage |
+3902 | 3902 | garage |
+3903 | 3903 | garage |
+3909 | 3909 | garage-webui |
 4000 | 4000 | graphql-mesh |
+4001 | 4000 | supabase-analytics |
+4002 | 4000 | litellm |
 4004 | 4004 | log4brains |
 4040 | 4040 | spark-master (ui) |
 4041 | 4041 | spark-master (ui) |
@@ -93,6 +115,7 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 4200 | 4200 | cribl-master |
 4222 | 4222 | nats-1 |
 4317 | 4317 | otel-collector |
+4318 | 4317 | arize-phoenix |
 4466 | 4466 | curity |
 4566 | 4566 | risingwave |
 5000 | 5000 | amundsenfrontend |
@@ -103,15 +126,28 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 5011 | 5001 | marquez |
 5020 | 5000 | docker-registry |
 5050 | 5050 | zeppelin |
+5051 | 5050 | data-product-portal-nginx |
+5115 | 5115 | arroyo |
+5173 | 5173 | opik-frontend |
 5432 | 5432 | postgresql |
 5433 | 5432 | timescaledb |
 5434 | 5432 | marquez-db |
 5435 | 5432 | dataverse-postgresql |
-5500 | 5500 | oracledb-ee |
-5501 | 5500 | oracledb-xe |
+5436 | 5432 | infinity (postgresql) |
+5437 | 5432 | openmetadata-postgresql |
+5438 | 5432 | langwatch-postgresql |
+5439 | 5432 | data-product-portal-postgresql |
+5440 | 5432 | proton-server (postgres batch) |
+5441 | 5432 | supabase-db |
+5442 | 5432 | hive-metastore-db |
+5500 | 5500 | oracledb-ee-1 |
+5501 | 5500 | oracledb-ee-1 |
+5502 | 5500 | oracledb-ee-1 |
+5521 | 5521 | clickhouse-ui |
 \-     | 5432 | hive-metastore-db |
 \-     | 5432 | hue-db |
 5555 | 5555 | airflow-flower |
+5560 | 5560 | langwatch-app |
 5601 | 5601 | kibana |
 5602 | 5601 | datahub-kibana |
 5603 | 5601 | opensearch-dashboards |
@@ -128,6 +164,7 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 5801 | 5800 | firefox |
 5820 | 5820 | stardog-1 |
 5900 | 5900 | filezilla |  
+6006 | 6006 | arize-phoenix |
 6060 | 6060 | zeppelin |
 6066 | 6066 | spark-master |
 6080 | 6080 | ranger-admin |
@@ -141,12 +178,21 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 6385 | 6379 | redis-stack-1 |
 6385 | 6379 | redash-redis |
 6386 | 6379 | tyk-redis |
+6387 | 6379 | ragflow-redis |
+6388 | 6379 | langwatch-redis |
+6389 | 6379 | valkey-1 (if not redis ports are used) |
+6390 | 6379 | valkey-replica-1 |
+6391 | 6379 | valkey-replica-2 |
+6392 | 6379 | valkey-replica-3 |
+6543 | 6543 | supabase-supavisor |
 6570 | 6570 | hserver-1 |
 6831 | 6831 | jaeger (udp) |
 6749 | 6749 | curity |
+6789 | 6789 | mage-ai |
 6832 | 6832 | jaeger (udp) |
 6875 | 6875 | materialize-1 |
 7000 | 7000 | yb-master |
+7002 | 7002 | opal-server |
 7050 | 7050 | kudu-tserver-1 |
 7051 | 7051 | kudo-master-1 |
 7077 | 7077 | spark-master |
@@ -162,6 +208,7 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 7476 | 7474 | neo4j-3 |
 7477 | 7474 | neo4j-4 |
 7577 | 7577 | spring-skipper-server |
+7587 | 7587 | proton-server (TCP batch)
 7687 | 7687 | neo4j-1 |
 7688 | 7687 | neo4j-2 |
 7689 | 7687 | neo4j-3 |
@@ -190,20 +237,27 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 8089 | 8088 | ksqldb-server-2 |
 8090 | 8088 | ksqldb-server-3 |
 8100 | 8100 | kong-map |
+8123 | 8123 | proton-server (HTTP batch) |
 8124 | 8124 | axon-server |
 8161 | 8161 | activemq |
 8182 | 8182 | janusgraph |
 8200 | 8200 | vault |
 8222 | 8222 | nats-1 |
 8288 | 8288 | vector-admin |
+9380 | 9380 | ragflow |
 8443 | 8443 | kong (proxy ssl) |
 8444 | 8444 | kong (admin api ssl) |
 8446 | 8443 | curity |
+8447 | 8443 | oracle-adb |
+8463 | 8463 | proton-server (TCP streaming)
+8501 | 8501 | crewai-studio | 
 8585 | 8585 | openmetadata-server |
 8586 | 8586 | openmetadata-server |
+8686 | 8686 | supabase-vector |
 8761 | 8761 | ioevent-cockpit-api |
 8787 | 8787 | r-studio |
 8812 | 8812 | questdb |
+8815 | 8815 | quackflight |
 8888 | 8888 | hue |
 8978 | 8978 | cloudbeaver |
 8983 | 8983 | solr |
@@ -221,11 +275,13 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 9043 | 9042 | dse-2 |
 9044 | 9042 | dse-3 |
 9047 | 9047 | dremio |
+9097 | 9097 | mcp-trino |
 9101 | 9001 | mosquitto-1 |
 9102 | 9002 | mosquitto-2 |
 9103 | 9003 | mosquitto-3 |
 9121 | 9121 | redis-exporter |
 9200 | 9200 | elasticsearch-1 |
+9201 | 9200 | langwatch-opensearch |
 9300 | 9300 | elasticsearch-1 |
 9160 | 9160 | cassandra-1 |
 9161 | 9160 | cassandra-2 |
@@ -248,12 +304,14 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 9192 | 9192 | lenses-box     |
 9292 | 9292 | pact-broker     |
 9343 | 9343 | klaw-cluster-api |
+9363 | 9363 | proton-server (Prometheus Metrics) |
 9393 | 9393 | spring-dataflow-server |
 9411 | 9411 | zipkin |
 9412 | 9412 | jaeger |
 9413 | 9413 | pitchfork |
 9443 | 9443 | lfh-fhir |
 9600 | 9600 | zeebe-1 |
+9601 | 9600 | langwatch-opensearch  |
 9851 | 9851 | tile38 |
 9870 | 9870 | namenode |
 9864 | 9864 | datanode-1 |
@@ -276,12 +334,15 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 10005 | 10000 | nifi-1 |
 10006 | 10000 | nifi-2 |
 10007 | 10000 | nifi-3 |
+10015 | 10000 | nifi2-1 |
+10016 | 10000 | nifi2-2 |
+10017 | 10000 | nifi2-3 |
 10009 | 10009 | kyuubi |
 10099 | 10099 | kyuubi |
 11211 | 11211 | memcached |
 11212 | 11211 | ignite-1 |
+11235 | 11235 | crawl4ai |
 11434 | 11434 | ollama |
-11435 | 11434 | litellm |
 12222 | 2222 | risingwave |
 13133 | 13133 | otel-collector |
 14250 | 14250 | jaeger (model.proto port)
@@ -304,6 +365,9 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 18080 | 8080 | nifi-1 |
 18081 | 8080 | nifi-2 |
 18082 | 8080 | nifi-3 |
+18083 | 8080 | nifi2-1 |
+18084 | 8080 | nifi2-2 |
+18085 | 8080 | nifi2-3 |
 18088 | 8088 | resourcemanager |
 18042 | 8042 | nodemanager |
 18083 | 8083 | replicator-1 |
@@ -336,11 +400,14 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 19098 | 19098 | kafka-7 (docker-host)   |
 19099 | 19099 | kafka-8 (docker-host)   |
 19120 | 19120 | nessie |
+19121 | 9000 | nessie (management port) |
 19630 | 19630 | streamsets-transformer-1 |
 19631 | 19630 | streamsets-transformer-1 |
 19632 | 19630 | streamsets-transformer-1 |
 19999 | 9999 | influxdb2 |
 21000 | 21000 | atlas |
+23817 | 23817 | infinity (thrift) |
+23820 | 23820 | infinity (http) |
 24224 | 24224 | fluentd |
 24225 | 24224 | fluent-bit |
 26500 | 26500 | zeebe-1 |
@@ -348,6 +415,7 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 27018 | 27017 | mongodb-2 |
 27019 | 27017 | mongodb-3 |
 27020 | 27017 | mongodb-3 |
+27022 | 27017 | oracle-adb |
 28080 | 8080 | zeppelin |
 28081 | 8080 | presto-1 |
 28082 | 8080 | trino-1 |
@@ -370,6 +438,7 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 29200 | 9200 | opensearch-1 |
 29600 | 9600 | opensearch-1 |
 31010 | 31010 | dremio |
+32010 | 32010 | dremio |
 39092 | 29092 | kafka-1 (localhost)   |
 39093 | 29093 | kafka-2 (localhost    |
 39094 | 29094 | kafka-3 (localhost)   |
@@ -382,6 +451,7 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 47335 | 47335 | mindsdb |
 47336 | 47336 | mindsdb |
 45678 | 45678 | dremio |
+50000 | 50000 | jenkins |
 50051 | 50051 | weaviate |
 50092 | 50092 | solace-kafka-proxy |
 61613 | 61613 | activemq (stomp) |
@@ -411,7 +481,7 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 28117 | 18080 | spark-history |
 28118 | 10000 | spark-thriftserver |
 28119 | 8081 | redis-commander |
-28120 | 3000 | cassandra-web |
+28120 | 3000 | dbgate |
 28121 | 9091 | dse-studio |
 28122 | 8888 | dse-opscenter |
 28123 | 8081 | mongo-express |
@@ -430,7 +500,7 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 28136 | 80 | mqtt-ui |
 28137 | 9000 | portainer |
 28138 | 8080 | cadvisor |
-28139 | 8080 | airflow |
+28139 | 8080 | airflow (2.x) or airflow-apiserver (3.x) |
 28140 | 8080 | code-server |
 28141 | 8000 | kafka-topics-ui |
 28142 | 8080 | datahub-gms |
@@ -466,7 +536,7 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 28190 | 80 | adminio_ui |
 28191 | 8080 | adminio_api |
 28192 | 8334 | filestash |
-28193 | 9090 | minio-console |
+28193 | 5000 | mcp-toolbox-for-dbs |
 28194 | 3000 | sqlpad |
 28195 | 80 | streams-explorer |
 28200 | 9090 | thingsbaord (http) |
@@ -485,11 +555,11 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 28213 | 8098 | pinot-server-2 |
 28214 | 8098 | pinot-server-3 |
 28220 | 8000 | lakefs |
-28221 | 8081 | emqx-1 |
-28222 | 8083 | emqx-1 |
-28223 | 8084 | emqx-1 |
-28224 | 8883 | emqx-1 |
-28225 | 18083 | emqx-1 |
+28221 | 5000 | lakefs-webhook |
+28222 | 9000 | whisper |
+28223 | 80 | audio-transcriber |
+28224 | 8082 | centralmind-gateway  |
+28225 | |  |
 28226 | 9000 | questdb |
 28227 | 8080 | debezium-ui |
 28228 | 9998 | tikka-server |
@@ -512,7 +582,7 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 28245 | 8008 | gridgain-cc-frontend |
 28246 | 8080 | debezium-server |
 28247 | 80 | pgadmin |
-28250 | 8888 | oracle-ee |
+28250 |  | git-web |
 28251 | 8888 | oracle-xe |
 28252 | 8888 | oracle-rest-1 |
 28253 | 8888 | kouncil |
@@ -584,8 +654,8 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 28320 | 25 | akhq (dc1) |
 28321 | 25 | akhq (dc1) |
 28322 | 80 | asyncapi-studio |
-28323 | 80 | taiga |
-28324 | 8000 | focalboard |
+28323 | 80 | taiga-front |
+28324 | 80 | taiga-gateway |
 28325 | 8025 | mailhog |
 28326 | 25 | mailhog |
 28327 | 3000 | ioevent-cockpit-ui |
@@ -599,7 +669,7 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 28335 | 8080 | fhir-gateway |
 28336 | 8080 | hapi-fhir |
 28337 | 8080 | openmetadata-ingestion |
-28338 | 8080 | ollama-webui |
+28338 | 8080 | open-webui |
 28339 | 8000 | chroma |
 28340 | 3000 | flowise |
 28341 | 19530 | milvus (grpc) |
@@ -637,13 +707,82 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 28373 | 8000 | verba |
 28374 | 8000 | unstructured-api |
 28375 | 8888 | docker-exec-webconsole |
+28376 | 4040 | jupyter (spark UI)  |
+28377 | 4041 | jupyter (spark UI)  |
+28378 | 4042 | jupyter (spark UI)  |
+28379 | 4043 | jupyter (spark UI)  |
+28380 | 4044 | jupyter (spark UI)  |
+28381 | 8080 | data-mesh-manager  |
+28382 | 8080 | data-contract-manager  |
+28383 | 61208 | glances  |
+28384 | 61209 | glances  |
+28385 | 4040 | kyuubi (spark ui)  |
+28386 | 4041 | kyuubi (spark ui)  |
+28387 | 4042 | kyuubi (spark ui)  |
+28388 | 8080 | jikkou-server  |
+28389 | 8080 | searxng  |
+28390 | 8080 | drawio | 
+28391 | 8443 | drawio | 
+28392 | 8080 | unity-catalog  |
+28393 | 3000 | unity-catalog-ui  |
+28394 | 8080 | dataverse  |
+28395 | 80 | dataverse-previewer-provider  |
+28396 | 80 | ragflow  |
+28397 | 443 | ragflow |
+28398 | 5678 | ragflow |
+28399 | 9091 | authelia |
+28400 | 8081 | emqx-1 |
+28401 | 8083 | emqx-1 |
+28402 | 8084 | emqx-1 |
+28403 | 8883 | emqx-1 |
+28404 | 18083 | emqx-1 |
+28405 | 3001 | perplexica-backend |
+28406 | 3001 | perplexica-frontend |
+28407 | 7000 | opal-client |
+28408 | 8181 | opal-client |
+28409 | 8180 | cedar |
+28410 | 8080 | oracledb-ee-1 |
+28411 | 8080 | oracledb-ee-2 |
+28412 | 8080 | oracledb-ee-3 |
+28413 | 8000 | focalboard |
+28414 | 8000 | neo4j-kg-builder-backend |
+28415 | 8000 | neo4j-kg-builder-frontend |
+28416 | 8080 | langwatch-nlp |
+28417 | 8000 | langevals |
+28418 | 80 | agent-zero |
+28419 | 8080 | data-product-portal-nginx |
+28420 | 8080 | sftpgo (webui) |
+28421 | 8000 | timeplus (enterprise) |
+28242 | 3000 | openlit |
+28243 | 8123 | clickhouse |
+28244 | 9000 | clickhouse |
+28245 | 8080 | kestra |
+28246 | 8081 | kestra |
+28247 | 4040 | ngrok |
+28248 | 3002 | firecrawl-api |
+28249 | 8443 | duckdb-ui |
+28250 | 4040 | nvidia-nim-1 |
+28251 | 4040 | nvidia-nim-2 |
+28252 | 4040 | nvidia-nim-3 |
+28253 | 4040 | nvidia-nim-4 |
+28254 | 4040 | nvidia-nim-5 |
+28256 | 4040 | nvidia-nim-6 |
+28257 | 7860 | nllb |
+28258 | 8000 | supabase-kong |
+28259 | 8443 | supabase-kong |
+28260 | 8082 | supabase-studio |
+28261 | 8123 | quackflight |
+28262 | 8080 | jenkins |
+28263 | 8181 | influxdb3 |
+28264 | 8888 | influxdb3-explorer |
 
 ## Ports > 28500
 
 Container Port(s) | Internal Port(s)           | Service (alternatives) |
 --------------------|------------------|-----------------------|
 28500 - 28510 | 28500 - 28510 | streamsets-1 (additional ports) |
-28510 - 28620 | 28500 - 28510 | nifi-1 (additional ports |
+28510 - 28520 | 28510 - 28520 | nifi-1 (additional ports |
+28520 - 28530 | 28520 - 28530 | nifi2-1 (additional ports |
 28530 - 28600 | any | reserved for applications |
 
 An overview of the URL for the various web-based UIs can be found [here](./environment/README).

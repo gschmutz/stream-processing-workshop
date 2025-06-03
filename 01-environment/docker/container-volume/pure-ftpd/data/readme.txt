@@ -1,1 +1,0 @@
-Contains the data of the Pure FTPd service, if flag PURE_FTPD_volume_map_data is set to true.

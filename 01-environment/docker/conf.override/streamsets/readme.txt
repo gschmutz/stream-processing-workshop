@@ -1,1 +1,0 @@
-Put the sdc-security.policy file here for overriding the default file inside the container.

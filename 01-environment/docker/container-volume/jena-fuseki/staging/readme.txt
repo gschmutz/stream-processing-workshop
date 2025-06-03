@@ -1,1 +1,0 @@
-Contains the staging folder of jena-fuseki service, if flag JENA_FUSEKI_volume_map_data is set to true.

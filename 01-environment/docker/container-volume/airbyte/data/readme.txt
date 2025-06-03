@@ -1,1 +1,0 @@
-Contains the /data folder of airbyte service.

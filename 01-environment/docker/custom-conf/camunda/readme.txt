@@ -1,1 +1,0 @@
-Place license file here OptimizeLicense.txt

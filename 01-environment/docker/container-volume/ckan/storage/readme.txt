@@ -1,1 +1,0 @@
-Contains the storage of clan service, if flag CKAN_volume_map_storage is set to true.

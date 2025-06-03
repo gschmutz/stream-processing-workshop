@@ -1,1 +1,0 @@
-Place Redpanda's Enterprise license information into a file here (named redpanda.license).

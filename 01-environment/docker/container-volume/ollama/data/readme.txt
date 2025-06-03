@@ -1,1 +1,0 @@
-Contains the LLMs of Ollama service, if flag OLLAMA_volume_map_data is set to true.

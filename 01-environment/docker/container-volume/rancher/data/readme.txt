@@ -1,1 +1,0 @@
-Contains the data of rancher service, if flag RANCHER_volume_map_data is set to true.

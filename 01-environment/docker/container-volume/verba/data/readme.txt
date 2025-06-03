@@ -1,1 +1,0 @@
-Contains the data of Verba RAG service, if flag VERBA_volume_map_data is set to true.

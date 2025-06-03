@@ -1,1 +1,0 @@
-Contains the data of Chroma vector db service, if flag CHROMA_volume_map_data is set to true.

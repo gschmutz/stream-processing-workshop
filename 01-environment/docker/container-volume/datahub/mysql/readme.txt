@@ -1,1 +1,0 @@
-Contains the data of datahub mysql service, if flag DATAHUB_volume_map_data is set to true.

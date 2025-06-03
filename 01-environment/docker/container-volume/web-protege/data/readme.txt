@@ -1,1 +1,0 @@
-Contains the data of web-protege service, if flag WEB_PROTEGE_volume_map_data is set to true.

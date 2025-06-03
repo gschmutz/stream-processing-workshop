@@ -1,1 +1,0 @@
-Contains the data of Qdrant vector db service, if flag QDRANT_volume_map_data is set to true.

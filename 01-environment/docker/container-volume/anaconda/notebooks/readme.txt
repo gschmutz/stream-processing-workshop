@@ -1,1 +1,0 @@
-Contains the notebooks of anaconda service, if flag ANACONDA_volume_map_notebooks is set to true.

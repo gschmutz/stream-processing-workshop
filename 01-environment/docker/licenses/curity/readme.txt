@@ -1,1 +1,0 @@
-Place curity's license file here (named license.json).

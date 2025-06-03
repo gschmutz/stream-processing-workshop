@@ -1,1 +1,0 @@
-Contains the data of cassandra-1 service, if flag CASSANDRA_volume_map_data is set to true.

@@ -1,1 +1,0 @@
-Contains the database data of the Focalboard service, if flag FOCALBOARD_volume_map_db_data is set to true.

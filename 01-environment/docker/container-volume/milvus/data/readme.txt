@@ -1,1 +1,0 @@
-Contains the data of Milvus vector db service, if flag MILVUS_volume_map_data is set to true.

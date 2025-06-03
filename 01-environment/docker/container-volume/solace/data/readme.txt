@@ -1,1 +1,0 @@
-Contains the data of solace service, if flag SOLACE_volume_map_data is set to true.

@@ -1,1 +1,0 @@
-Contains the data of langflow service, if flag LANGFLOW_volume_map_data is set to true.

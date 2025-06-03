@@ -1,1 +1,0 @@
-Contains the data of openldap service, if flag OPENLDAP_volume_map_data is set to true.

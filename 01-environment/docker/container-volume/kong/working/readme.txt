@@ -1,1 +1,0 @@
-Contains the working directory of kong service

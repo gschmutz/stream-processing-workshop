@@ -1,1 +1,0 @@
-Contains the data of oracle db service, if flag ORACLE_volume_map_data is set to true.

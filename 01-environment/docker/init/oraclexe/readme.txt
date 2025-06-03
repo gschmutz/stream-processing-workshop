@@ -1,1 +1,0 @@
-Add sql or sh scripts which should be executed upon initialisation of the oracle database. This will only be done once, in the init phase of the database.

@@ -1,1 +1,0 @@
-Place a jikkou specification file (topics-spec.yml) here.

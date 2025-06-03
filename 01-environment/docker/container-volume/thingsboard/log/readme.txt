@@ -1,1 +1,0 @@
-Contains the log of thingsboard service, if flag THINGSBOARD_volume_map_log is set to true.

@@ -1,1 +1,0 @@
-Place otel-collector-config.yaml file here to configure otel collector.
