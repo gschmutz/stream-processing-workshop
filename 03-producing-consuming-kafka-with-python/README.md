@@ -32,10 +32,10 @@ First we will produce messages. Let's create the topic to use for that
 docker exec -ti kafka-1 kafka-topics --create --bootstrap-server kafka-1:19092 --topic test-python-topic --replication-factor 3 --partitions 6
 ```
 
-In order to see the results, run `kafkacat` in a separate terminal window and print the partition, key and value of each message:
+In order to see the results, run `kcat` in a separate terminal window and print the partition, key and value of each message:
 
 ```bash
-kafkacat -b dataplatform -t test-python-topic -f "P-%p: %k=%s\n" -Z 
+kcat -b dataplatform -t test-python-topic -f "P-%p: %k=%s\n" -Z 
 ``` 
 
 or to use the dockerized `kcat` instead use
@@ -190,7 +190,7 @@ while go_on:
 c.close()
 ```
 
-When started, this code block will consume messages in an endless loop, so if you use it in the same Zeppelin notebook, you will have to run the producer externally, i.e. using `kafkacat` or `kcat` as shown before but this time with the `-P` option to run it as a producer. 
+When started, this code block will consume messages in an endless loop, so if you use it in the same Zeppelin notebook, you will have to run the producer externally, i.e. using `kcat` as shown before but this time with the `-P` option to run it as a producer. 
 
 ```bash
 docker exec -ti kcat kcat -P -b kafka-1:19092 -t test-python-topic 
@@ -236,7 +236,7 @@ docker exec -ti kafka-1 kafka-topics --create \
 Make sure that you change the **kcat** command to consume from the new topic.
 
 ```bash
-kafkacat -b dataplatform -t test-python-avro-topic -f "P-%p: %k=%s\n" -Z 
+kcat -b dataplatform -t test-python-avro-topic -f "P-%p: %k=%s\n" -Z 
 ``` 
 
 or to use the dockerized `kcat` instead use

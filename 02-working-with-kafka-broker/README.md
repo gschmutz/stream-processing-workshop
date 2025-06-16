@@ -309,13 +309,13 @@ kafka-topics  --bootstrap-server kafka-1:19092,kafka-2:19093 --delete --topic te
 
 ## Working with the `kcat` utility
 
-[kcat](https://github.com/edenhill/kcat) is a command line utility that you can use to test and debug Apache Kafka deployments. You can use `kafkacat` to produce, consume, and list topic and partition information for Kafka. Described as “netcat for Kafka”, it is a swiss-army knife of tools for inspecting and creating data in Kafka.
+[kcat](https://github.com/edenhill/kcat) is a command line utility that you can use to test and debug Apache Kafka deployments. You can use `kcat` to produce, consume, and list topic and partition information for Kafka. Described as “netcat for Kafka”, it is a swiss-army knife of tools for inspecting and creating data in Kafka.
 
 It is similar to the `kafka-console-producer` and `kafka-console-consumer` you have learnt and used above, but much more powerful and also simpler to use. 
 
 `kcat` is an open-source utility, available at <hhttps://github.com/edenhill/kcat>. It is not part of the Confluent platform and also not part of the Data Platform we run in docker. 
 
-You can run **Kafkacat** as a standalone utility on any **Linux** or **Mac** computer and remotely connect to a running Kafka cluster. 
+You can run **kcat** as a standalone utility on any **Linux** or **Mac** computer and remotely connect to a running Kafka cluster. 
 
 ### Installing `kcat`
 
@@ -326,26 +326,14 @@ In all the workshops we will assume that **Kcat** (used to be named **Kafkact** 
 
 #### Ubuntu
 
-You can install `kcat` directly on the Ubuntu environment. Version 1.7 is not yet available and therefore it is still called **kafkacat**. First let's install the required packages:
+You can install `kcat` directly on the Ubuntu environment. 
 
-Install the Confluent public key, which is used to sign the packages in the APT repository:
-
-```bash
-wget -qO - https://packages.confluent.io/deb/5.2/archive.key | sudo apt-key add -
-```
-
-Add the repository to the `/etc/apt/sources.list`:
-
-```bash
-sudo add-apt-repository "deb [arch=amd64] https://packages.confluent.io/deb/5.2 stable main"
-```
-
-Run apt-get update and install the 2 dependencies as well as **kafkacat**
+Run apt-get update and install the 2 dependencies as well as **kcat**
  
 ```bash
 sudo apt-get update
 sudo apt-get install librdkafka-dev libyajl-dev
-sudo apt-get install kafkacat
+sudo apt-get install kcat
 ```
 
 #### Mac OS-X
