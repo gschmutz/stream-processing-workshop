@@ -13,13 +13,17 @@ The Modern Data Platform version 1.18.0 contains the following bug fixes and enh
  * MCP Toolbox for Databases
  * MCP Trino
  * CentralMind API/MCP Gateway
+ * Trino Gateway
+ * Trino LB (Load Balancer)
+ * Platys MDP Docker Deploy
+ * Presidio Analyzer
+ * Presidio Anonymizer
  
 ### Version upgrades
 
  * Update `milvus` to `v2.5.12` 
  * Update `langflow` to `1.4.2`
- * Update `n8n` to `1.93.0`
- * Update `flowise` to `3.0.0`
+ * Update `n8n` to `1.95.3`
  * Update `minio` to `RELEASE.2025-05-24T17-08-30Z`
  * Update `dgraph` to `v24.1.3`
  * Update `memgraph` to `3.2.1`
@@ -33,19 +37,53 @@ The Modern Data Platform version 1.18.0 contains the following bug fixes and enh
  * Update `grafana` to `12.0.1`
  * Update `memcached` to `1.6`
  * Update `flowise` to `3.0.1`
- * 
-
+ * Update `trino` to `476`
+ * Update `risingwave` to `v2.4.1`
+ * Update `confluent-platform` to `7.9.1`
+ * Update `apicurio-registry` to `2.6.11.Final`
+ * Update `materialize` to `v0.146.1`
+ * Update `arroyo` to `0.14.0`
+ * Update `sqlflow` to `0.6.0`
+ * Update `timeplus-enterprise` to `2.8.1`
+ * Update `timeplus-proton` to `1.6.16-r`
+ * Update `burrow` to `v1.9.4`
+ * Update `debezium-server` to `3.0.0.Final`
+ * Update `tika` to `3.2.0.0-full`
+ * Update `opa` to `1.6.0-dev`
+ * Update `enterprise-opa` to `1.41.1-23-debug`
+ * Update `datahub` to `v1.1.0`
+ * Update `openmetadata` to `1.7.1`
+ * Update `amundsen-frontend` to `4.3.0`
+ * Update `amundsen-search` to `4.2.0`
+ * Update `amundsen-metadata` to `3.13.0`
+ * Update `data-product-portal` to `0.3.1`
+ * Update `marquez` to `0.51.1`
+ * Update `ckan` to `2.10`
+ * Update `ckan-datapusher` to `0.0.21`
+ * Update `mage-ai` to `0.9.76`
+ * Update `kestra` to `v0.22.13`
+ * Update `mlfow` to `v2.22.1`
+ * Update `dataiku` to `13.4.1`
+ * Update `tyk-gateway` to `v5.7`
+ * Update `tykio/tyk-pump-docker-pub` to `v1.12`
+ * Update `kong-gateway` to `3.10`
+ * Update `s3fs` to `1.95`
+ * Update `spring-boot-admin` to `3.4.1`
+ 
 ### Enhancements
 
  * Additional data can be copied into `/data-transfer` folder when using the `PROVISIONING_DATA_enable` functionality by specifying the folder in `PROVISIONING_DATA_additional_data_folder` setting
  * Add Support for Airflow 3.x
  * Add Support for writing the Airflow logs to S3 (MinIO) by setting `AIRFLOW_logging_strategy` to `s3`.
-
+ * Add support for external Snowflake
+ * Add support for additional Trino connectors: `prometheus`, `jmx`, `opensearch`, `clickhouse`, `gsheets`, `ignite`, `singlestore`, `loki`, `snowflake` and `duckdb`
+ * only create the sub-folders for the enabled services (based on service name) within the `applications`, `conf`, `container-volume`, `custom-conf`, `licenses`, `init`, `plugins`, `scripts` and `security` folders.
 
 ### Breaking Changes
 
  * `minio-console` removed as docker image is no longer available
  * `MINIO_browser_enable` renamed to `MINIO_browser_enabled` to be conforment with naming convention
+ * Change internal port of `docker-registry` from `5000` to `5020`
 
 ## What's new in 1.18.1
 

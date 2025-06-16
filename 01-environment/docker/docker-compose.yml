@@ -11,7 +11,7 @@ networks:
 services:
 #  ================================== Kafka ========================================== #
   kafka-1:
-    image: confluentinc/cp-kafka:7.8.0
+    image: confluentinc/cp-kafka:7.9.1
     container_name: kafka-1
     hostname: kafka-1
     labels:
@@ -59,7 +59,7 @@ services:
       retries: 3
       start_period: 20s
   kafka-2:
-    image: confluentinc/cp-kafka:7.8.0
+    image: confluentinc/cp-kafka:7.9.1
     container_name: kafka-2
     hostname: kafka-2
     labels:
@@ -107,7 +107,7 @@ services:
       retries: 3
       start_period: 20s
   kafka-3:
-    image: confluentinc/cp-kafka:7.8.0
+    image: confluentinc/cp-kafka:7.9.1
     container_name: kafka-3
     hostname: kafka-3
     labels:
@@ -156,7 +156,7 @@ services:
       start_period: 20s
   #  ================================== Kafka Connect ========================================== #
   kafka-connect-1:
-    image: confluentinc/cp-kafka-connect:7.8.0
+    image: confluentinc/cp-kafka-connect:7.9.1
     container_name: kafka-connect-1
     hostname: kafka-connect-1
     labels:
@@ -318,7 +318,7 @@ services:
     restart: unless-stopped
   #  ================================== Confluent Schema Registry ========================================== #
   schema-registry-1:
-    image: confluentinc/cp-schema-registry:7.8.0
+    image: confluentinc/cp-schema-registry:7.9.1
     hostname: schema-registry-1
     container_name: schema-registry-1
     labels:
@@ -1035,6 +1035,7 @@ services:
       PLATYS_PLATFORM_STACK: trivadis/platys-modern-data-platform
       PLATYS_PLATFORM_STACK_VERSION: develop
       PLATYS_COPY_COOKBOOK_DATA: 'True'
+      PLATYS_DATACENTER:
       SERVICE_LIST_VERSION: 2
     volumes:
       - ./artefacts/templates:/templates

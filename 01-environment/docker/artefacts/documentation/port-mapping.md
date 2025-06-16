@@ -7,7 +7,9 @@ This table reserves the external ports for the various services. Not all service
 Container Port(s) | Internal Port(s)           | Service (alternatives) |
 --------------------|------------------|-----------------------|
 21 | 21 | ftp |
-80 | 80 | markdown-viewer or firefox |
+80 | 80 | markdown-viewer, markdown-viewer-dc1 or firefox |
+81 | 80 | markdown-viewer-dc2 |
+82 | 80 | markdown-viewer-dc3 |
 1222 | 1222 | risingwave | 
 1234 | 1234 | kafka-1 (prometheus exporter) | 
 1235 | 1234 | kafka-2 (prometheus exporter) | 
@@ -115,7 +117,10 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 4200 | 4200 | cribl-master |
 4222 | 4222 | nats-1 |
 4317 | 4317 | otel-collector |
-4318 | 4317 | arize-phoenix |
+4318 | 4318 | otel-collector |
+4319 | 4317 | jaeger |
+4320 | 4318 | jaeger |
+4321 | 4317 | arize-phoenix |
 4466 | 4466 | curity |
 4566 | 4566 | risingwave |
 5000 | 5000 | amundsenfrontend |
@@ -124,7 +129,7 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 5005 | 5005 | neodash |
 5010 | 5000 | marquez |
 5011 | 5001 | marquez |
-5020 | 5000 | docker-registry |
+5020 | 5020 | docker-registry |
 5050 | 5050 | zeppelin |
 5051 | 5050 | data-product-portal-nginx |
 5115 | 5115 | arroyo |
@@ -218,7 +223,9 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 8000 | 8000 | kong (proxy) |
 8001 | 8001 | kong (admin api) |
 8002 | 8002 | kong (admin gui) |
-8008 | 80 | markdown-viewer |
+8008 | 80 | markdown-viewer, markdown-viewer-dc1 |
+8009 | 80 | markdown-viewer-dc2 |
+8010 | 80 | markdown-viewer-dc3 |
 8024 | 8024 | axon-server |
 8047 | 8047 | drill |
 8048 | 8048 | kafka-eagle |
@@ -345,7 +352,8 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 11434 | 11434 | ollama |
 12222 | 2222 | risingwave |
 13133 | 13133 | otel-collector |
-14250 | 14250 | jaeger (model.proto port)
+14250 | 14250 | jaeger (model.proto port) |
+14268 | 14268 | jaeger (otlp http port) |
 14271 | 14271 | jaeger (admin port) |
 14040 | 4040 | jupyter (spark ui) |
 14041 | 4041 | jupyter (spark ui) |
@@ -419,7 +427,11 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 28080 | 8080 | zeppelin |
 28081 | 8080 | presto-1 |
 28082 | 8080 | trino-1 |
-28083 | 8443 | trino-1 (tls) |
+28083 | 8080 | trino-2 |
+28084 | 8080 | trino-3 |
+28087 | 8443 | trino-1 (tls) |
+28088 | 8443 | trino-2 (tls) |
+28089 | 8443 | trino-3 (tls) |
 28888 | 8888 | jupyter |
 28889 | 8888 | anaconda |
 29042 | 9042 | cassandra-1 |
@@ -582,7 +594,7 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 28245 | 8008 | gridgain-cc-frontend |
 28246 | 8080 | debezium-server |
 28247 | 80 | pgadmin |
-28250 |  | git-web |
+28250 | 80 | gitweb |
 28251 | 8888 | oracle-xe |
 28252 | 8888 | oracle-rest-1 |
 28253 | 8888 | kouncil |
@@ -775,6 +787,16 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 28262 | 8080 | jenkins |
 28263 | 8181 | influxdb3 |
 28264 | 8888 | influxdb3-explorer |
+28265 | 8000 | graphiti |
+28266 | 8000 | graphiti-mcp |
+28267 | 8080 | trino-lb (http) |
+28268 | 8443 | trino-lb (https) |
+28269 | 9090 | trino-lb (prometheus) |
+28270 | 8080 | trino-gateway |
+28271 | 8000 | mcp-neo4j-cypher |
+28272 | 8000 | mcp-neo4j-memory |
+28273 | 3000 | presidio-analyzer |
+28274 | 8000 | presidio-anonymizer |
 
 ## Ports > 28500
 
