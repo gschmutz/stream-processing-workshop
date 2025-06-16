@@ -673,7 +673,7 @@
       # one of 'minimal', 'r', 'scipy', 'tensorflow', 'datascience', 'all-spark'
       JUPYTER_edition: 'all-spark'
       JUPYTER_volume_map_data: false
-      JUPYTER_python_packages: 'jupyterlab-lsp streaming-jupyter-integrations'
+      JUPYTER_python_packages: ''
       JUPYTER_spark_jars_packages: ''
       JUPYTER_tokenless: false
       JUPYTER_token: 'abc123!'

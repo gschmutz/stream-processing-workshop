@@ -645,7 +645,6 @@ services:
         conda activate py312
         pip install ipykernel    
         python -m ipykernel install --user --name py312 --display-name "Python 3.12.8 (ipykernel)"
-        pip install jupyterlab-lsp streaming-jupyter-integrations
         start-notebook.sh
     restart: unless-stopped
   #  ================================== Redis ========================================== #
