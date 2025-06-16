@@ -83,9 +83,6 @@ sudo echo "export PUBLIC_IP=$PUBLIC_IP" | sudo tee -a /etc/profile.d/platys-plat
 sudo echo "export DOCKER_HOST_IP=$DOCKER_HOST_IP" | sudo tee -a /etc/profile.d/platys-platform-env.sh
 sudo echo "export DATAPLATFORM_HOME=$PWD" | sudo tee -a /etc/profile.d/platys-platform-env.sh
 
-# allow all on spark/logs folder
-sudo chmod 777 container-volume/spark/logs
-
 # Startup Environment
 sudo -E docker-compose up -d
 ```
