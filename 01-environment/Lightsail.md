@@ -37,7 +37,6 @@ echo "${USERNAME}:${PASSWORD}"|chpasswd
 sudo systemctl daemon-reload
 sudo systemctl restart ssh
 
-
 # add alias "dataplatform" to /etc/hosts
 echo "$DOCKER_HOST_IP     dataplatform" | sudo tee -a /etc/hosts
 
@@ -74,7 +73,7 @@ sudo sysctl -w vm.max_map_count=262144
 # Get the project
 cd /home/${USERNAME} 
 git clone https://github.com/${GITHUB_OWNER}/${GITHUB_PROJECT}
-chown -R ${USERNAME}:${PASSWORD} ${GITHUB_PROJECT}
+chown -R ${USERNAME}:${USERNAME} ${GITHUB_PROJECT}
 
 cd /home/${USERNAME}/${GITHUB_PROJECT}/01-environment/docker
 
@@ -84,7 +83,7 @@ sudo echo "export DOCKER_HOST_IP=$DOCKER_HOST_IP" | sudo tee -a /etc/profile.d/p
 sudo echo "export DATAPLATFORM_HOME=$PWD" | sudo tee -a /etc/profile.d/platys-platform-env.sh
 
 # Startup Environment
-sudo -E docker-compose up -d
+sudo -E docker compose up -d
 ```
 
 into the **Launch Script** edit field
