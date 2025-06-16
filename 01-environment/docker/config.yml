@@ -653,7 +653,7 @@
       #
       # ===== Zeppelin ========
       #
-      ZEPPELIN_enable: true
+      ZEPPELIN_enable: false
       ZEPPELIN_version: 0.11.1
       ZEPPELIN_volume_map_data: false
       ZEPPELIN_admin_username: admin

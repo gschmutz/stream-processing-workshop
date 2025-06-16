@@ -595,61 +595,6 @@ services:
         /tmp/pre-start.sh        
         ../scripts/start.sh
     restart: unless-stopped
-  #  ================================== Zeppelin ========================================== #
-  zeppelin:
-    image: apache/zeppelin:0.11.1
-    container_name: zeppelin
-    hostname: zeppelin
-    labels:
-      com.platys.name: zeppelin
-      com.platys.description: Data Science Notebook
-      com.platys.webui.title: Apache Zeppelin UI
-      com.platys.webui.url: http://dataplatform:28080
-      com.platys.password.envvars: PLATYS_ZEPPELIN_ADMIN_PASSWORD,PLATYS_ZEPPELIN_USER_PASSWORD,PLATYS_AWS_SECRET_ACCESS_KEY
-    ports:
-      - 28080:8080
-      - 6060:6060
-      - 5050:5050
-      - 4050-4054:4050-4054
-    environment:
-      # for awscli & s3cmd
-      AWS_ACCESS_KEY_ID: ${PLATYS_AWS_ACCESS_KEY:-V42FCGRVMK24JJ8DHUYG}
-      AWS_SECRET_ACCESS_KEY: ${PLATYS_AWS_SECRET_ACCESS_KEY:-bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza}
-      AWS_ENDPOINT: http://minio-1:9000
-      AWS_DEFAULT_REGION: us-east-1
-      FLINK_HOME: /opt/flink
-      # Zeppelin Properties
-      ZEPPELIN_ADDR: 0.0.0.0
-      ZEPPELIN_PORT: '8080'
-      ZEPPELIN_MEM: -Xms1024m -Xmx1024m -XX:MaxMetaspaceSize=512m
-      ZEPPELIN_INTERPRETER_CONNECT_TIMEOUT: 120000
-      ZEPPELIN_INTERPRETER_DEP_MVNREPO: https://repo.maven.apache.org/maven2
-      ZEPPELIN_NOTEBOOK_DIR: notebook
-      ZEPPELIN_NOTEBOOK_CRON_ENABLE: 'True'
-      # Will replace values in shiro.ini
-      ZEPPELIN_ADMIN_USERNAME: admin
-      ZEPPELIN_ADMIN_PASSWORD: ${PLATYS_ZEPPELIN_ADMIN_PASSWORD:-abc123!}
-      ZEPPELIN_USER_USERNAME: zeppelin
-      ZEPPELIN_USER_PASSWORD: ${PLATYS_ZEPPELIN_USER_PASSWORD:-changeme}
-    volumes:
-      - ./data-transfer:/data-transfer
-      - ./conf/zeppelin:/opt/zeppelin/conf.templates
-      - ./init/zeppelin/zeppelin-init.sh:/opt/zeppelin/bin/zeppelin-init.sh
-      - ./container-volume/spark/logs/:/var/log/spark/logs
-      - ./conf/awscli/s3cfg.template:/root/.s3cfg.template
-      - flink-vol:/opt/flink:RO
-    command:
-      - bash
-      - -c
-      - |
-        conda clean --all -y
-        conda create -y --name py312 python=3.12.8
-        source /opt/conda/etc/profile.d/conda.sh
-        conda activate py312
-        pip install pyspark==3.5.3 boto3
-        ./bin/zeppelin-init.sh
-        ./bin/zeppelin.sh
-    restart: unless-stopped
   #  ================================== Jupyter ========================================== #
   jupyter:
     image: jupyter/all-spark-notebook:spark-3.3.2
