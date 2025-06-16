@@ -597,7 +597,7 @@ services:
     restart: unless-stopped
   #  ================================== Jupyter ========================================== #
   jupyter:
-    image: jupyter/all-spark-notebook:spark-3.3.2
+    image: quay.io/jupyter/all-spark-notebook:spark-3.5.3
     container_name: jupyter
     hostname: jupyter
     labels:
