@@ -17,7 +17,7 @@ docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create -
 Now start it an use the Kafka connector to send the data to the the `bluesky.raw` topic. 
 
 ```bash
-docker run --rm -e DESTINATION=kafka -e KAFKA_BROKERS=${PUBLIC_IP}:9092 -e KAFKA_TOPIC=bluesky.raw ghcr.io/gschmutz/bluebird:latest
+docker run --rm -d -e DESTINATION=kafka -e KAFKA_BROKERS=${PUBLIC_IP}:9092 -e KAFKA_TOPIC=bluesky.raw ghcr.io/gschmutz/bluebird:latest
 ```
 
 If you use `kcat` to consume the message, you will see all the messages, posts, re-post as well as likes.
@@ -342,7 +342,27 @@ Drag a connection from **EvaluateJsonPath** to **RouteOnAttribute** and select t
 
 Last but not least, Drag a connection from **RouteOnAttribute** to **PublishKafka** and select the **passOn** relationship and click **Add**. This relationship exists because we added it when we defined the **RouteOnAttribute** processor above. Double click on the **RouteOnAttribute** processor, navigate to **Relationships** and click on **terminate** for the **unmatche** relationship. Click **Apply** and now the marker on the processor is replaced by a red stopped icon. Let's also terminate all the relationship of the **PublishKafka** processor, by double clicking on the **PublishKafka** processor, navigate to **Relationships** and click on **terminate** for the **failure** and **success** relationship. Click **Apply**. 
 
+### Create a Process Group with all the 4 processors
+
+Select all 4 processors (click ctrl-A) and right click on one of the selected processors and select **Group** from the context menu. 
+
+Enter `bluesky` into the **Name** field and click **Add**. 
+
+![Alt Image Text](./images/nifi-grouped.png "Schema Registry UI")
+
+The data flow is now part of the process group `bluesky`, which allows to have visibily and control as a group and also makes the canvas easier to understand, should you once have multiple data flows. 
+
+Right-click on the process group and you can see in the context menu what functionality you can perform on the process group. 
+
+![Alt Image Text](./images/nifi-grouped-contextmenu.png "Schema Registry UI")
+
+You can use it to start/stop the flow, enable and disable all controller services as well as exporting your data flow (menu **Download Flow Definition**). 
+
+Double click on the Process Group to navigate into the group.
+
 Now our data flow is ready, so let's run it. 
+
+### Create the necessary target Kafka topics
 
 But before we can do that, we have to create the 5 target Kafka topics
 
