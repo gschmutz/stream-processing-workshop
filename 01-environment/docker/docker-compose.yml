@@ -487,7 +487,7 @@ services:
       - ./scripts/docker/:/platys-scripts/
       - ./init/flink/docker-entrypoint-override.sh:/docker-entrypoint-override.sh
       - flink-vol:/opt/flink
-      - ./plugins/flink/plugin/udf_example-1.0.jar:/opt/flink/lib/udf_example-1.0.jar
+      - ./plugins/flink/udf_example-1.0.jar:/opt/flink/lib/udf_example-1.0.jar
     entrypoint: /docker-entrypoint-override.sh
     command: jobmanager
     restart: unless-stopped
@@ -520,7 +520,7 @@ services:
       - ./data-transfer:/data-transfer
       - ./scripts/docker/:/platys-scripts/
       - ./init/flink/docker-entrypoint-override.sh:/docker-entrypoint-override.sh
-      - ./plugins/flink/plugin/udf_example-1.0.jar:/opt/flink/lib/udf_example-1.0.jar
+      - ./plugins/flink/udf_example-1.0.jar:/opt/flink/lib/udf_example-1.0.jar
     entrypoint: /docker-entrypoint-override.sh
     command: taskmanager
     restart: unless-stopped
@@ -544,7 +544,7 @@ services:
       - ./scripts/docker/:/platys-scripts/
       - ./init/flink/docker-entrypoint-override.sh:/docker-entrypoint-override.sh
 #      - ./init/flink:/opt/sql-client/init
-      - ./plugins/flink/plugin/udf_example-1.0.jar:/opt/flink/lib/udf_example-1.0.jar
+      - ./plugins/flink/udf_example-1.0.jar:/opt/flink/lib/udf_example-1.0.jar
     entrypoint: /docker-entrypoint-override.sh
     command: sleep infinity
   #  ================================== NiFi 2 ========================================== #
