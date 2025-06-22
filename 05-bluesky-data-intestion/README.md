@@ -504,6 +504,998 @@ The messages in Kafka topic `app.bsky.feed.post` for the bluesky posts look simi
 }
 ```
 
+Let's create an Elasticsearch mapping for the Bluesky post messages. 
+
+### Create the Elasticsearch mapping
+
+The automatic mapping does not work, as some of the fields can be mixed type (complex or primitive), what Elasticsearch does not support. Therefore we do not index `$type` attribute.  
+
+**Note:** we can get the mapping from a generated mapping by going through the following `jq` chain: 
+
+```bash
+curl localhost:9200/app.bsky.feed.post/_mapping | jq '.["app.bsky.feed.post"]' | jq 'walk(if type == "object" then del(.["$type"]) else . end)'
+```
+
+```json
+    "dynamic_templates": [
+      {
+        "ignore_all_dollar_type": {
+          "match_mapping_type": "string",
+          "path_match": "*.\\$type",
+          "mapping": {
+            "index": false,
+            "type": "keyword"
+          }
+        }
+      }
+    ],  
+```
+
+Create the mapping using the following REST API call:
+
+```bash
+curl -H "Content-Type: application/json" -XPUT http://dataplatform:9200/app.bsky.feed.post -d '
+{
+  "mappings": {
+    "properties": {
+      "capture_time": {
+        "type": "date"
+      },
+      "collection": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "record": {
+        "properties": {
+          "commit": {
+            "properties": {
+              "cid": {
+                "type": "text",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "collection": {
+                "type": "text",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "operation": {
+                "type": "text",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "record": {
+                "properties": {
+                  "actor": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "alt": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "bridgyOriginalText": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "bridgyOriginalUrl": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "community": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "createdAt": {
+                    "type": "date"
+                  },
+                  "embed": {
+                    "properties": {
+                      "alt": {
+                        "type": "text",
+                        "fields": {
+                          "keyword": {
+                            "type": "keyword",
+                            "ignore_above": 256
+                          }
+                        }
+                      },
+                      "alttext": {
+                        "type": "text",
+                        "fields": {
+                          "keyword": {
+                            "type": "keyword",
+                            "ignore_above": 256
+                          }
+                        }
+                      },
+                      "aspectRatio": {
+                        "properties": {
+                          "height": {
+                            "type": "long"
+                          },
+                          "width": {
+                            "type": "long"
+                          }
+                        }
+                      },
+                      "external": {
+                        "properties": {
+                          "aspectRatio": {
+                            "properties": {
+                              "height": {
+                                "type": "long"
+                              },
+                              "width": {
+                                "type": "long"
+                              }
+                            }
+                          },
+                          "description": {
+                            "type": "text",
+                            "fields": {
+                              "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                              }
+                            }
+                          },
+                          "preview": {
+                            "type": "text",
+                            "fields": {
+                              "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                              }
+                            }
+                          },
+                          "thumb": {
+                            "properties": {
+                              "mimeType": {
+                                "type": "text",
+                                "fields": {
+                                  "keyword": {
+                                    "type": "keyword",
+                                    "ignore_above": 256
+                                  }
+                                }
+                              },
+                              "ref": {
+                                "properties": {
+                                  "$link": {
+                                    "type": "text",
+                                    "fields": {
+                                      "keyword": {
+                                        "type": "keyword",
+                                        "ignore_above": 256
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              "size": {
+                                "type": "long"
+                              }
+                            }
+                          },
+                          "title": {
+                            "type": "text",
+                            "fields": {
+                              "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                              }
+                            }
+                          },
+                          "uri": {
+                            "type": "text",
+                            "fields": {
+                              "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "images": {
+                        "properties": {
+                          "alt": {
+                            "type": "text",
+                            "fields": {
+                              "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                              }
+                            }
+                          },
+                          "aspectRatio": {
+                            "properties": {
+                              "height": {
+                                "type": "long"
+                              },
+                              "width": {
+                                "type": "long"
+                              }
+                            }
+                          },
+                          "aspect_ratio": {
+                            "properties": {
+                              "height": {
+                                "type": "long"
+                              },
+                              "width": {
+                                "type": "long"
+                              }
+                            }
+                          },
+                          "data": {
+                            "type": "object",
+                            "enabled": false
+                          },
+                          "image": {
+                            "properties": {
+                              "mimeType": {
+                                "type": "text",
+                                "fields": {
+                                  "keyword": {
+                                    "type": "keyword",
+                                    "ignore_above": 256
+                                  }
+                                }
+                              },
+                              "ref": {
+                                "properties": {
+                                  "$link": {
+                                    "type": "text",
+                                    "fields": {
+                                      "keyword": {
+                                        "type": "keyword",
+                                        "ignore_above": 256
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              "size": {
+                                "type": "long"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "media": {
+                        "properties": {
+                          "aspectRatio": {
+                            "properties": {
+                              "height": {
+                                "type": "long"
+                              },
+                              "width": {
+                                "type": "long"
+                              }
+                            }
+                          },
+                          "external": {
+                            "properties": {
+                              "description": {
+                                "type": "text",
+                                "fields": {
+                                  "keyword": {
+                                    "type": "keyword",
+                                    "ignore_above": 256
+                                  }
+                                }
+                              },
+                              "thumb": {
+                                "properties": {
+                                  "mimeType": {
+                                    "type": "text",
+                                    "fields": {
+                                      "keyword": {
+                                        "type": "keyword",
+                                        "ignore_above": 256
+                                      }
+                                    }
+                                  },
+                                  "ref": {
+                                    "properties": {
+                                      "$link": {
+                                        "type": "text",
+                                        "fields": {
+                                          "keyword": {
+                                            "type": "keyword",
+                                            "ignore_above": 256
+                                          }
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "size": {
+                                    "type": "long"
+                                  }
+                                }
+                              },
+                              "title": {
+                                "type": "text",
+                                "fields": {
+                                  "keyword": {
+                                    "type": "keyword",
+                                    "ignore_above": 256
+                                  }
+                                }
+                              },
+                              "uri": {
+                                "type": "text",
+                                "fields": {
+                                  "keyword": {
+                                    "type": "keyword",
+                                    "ignore_above": 256
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "images": {
+                            "properties": {
+                              "alt": {
+                                "type": "text",
+                                "fields": {
+                                  "keyword": {
+                                    "type": "keyword",
+                                    "ignore_above": 256
+                                  }
+                                }
+                              },
+                              "aspectRatio": {
+                                "properties": {
+                                  "height": {
+                                    "type": "long"
+                                  },
+                                  "width": {
+                                    "type": "long"
+                                  }
+                                }
+                              },
+                              "image": {
+                                "properties": {
+                                  "mimeType": {
+                                    "type": "text",
+                                    "fields": {
+                                      "keyword": {
+                                        "type": "keyword",
+                                        "ignore_above": 256
+                                      }
+                                    }
+                                  },
+                                  "ref": {
+                                    "properties": {
+                                      "$link": {
+                                        "type": "text",
+                                        "fields": {
+                                          "keyword": {
+                                            "type": "keyword",
+                                            "ignore_above": 256
+                                          }
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "size": {
+                                    "type": "long"
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "video": {
+                            "properties": {
+                              "mimeType": {
+                                "type": "text",
+                                "fields": {
+                                  "keyword": {
+                                    "type": "keyword",
+                                    "ignore_above": 256
+                                  }
+                                }
+                              },
+                              "ref": {
+                                "properties": {
+                                  "$link": {
+                                    "type": "text",
+                                    "fields": {
+                                      "keyword": {
+                                        "type": "keyword",
+                                        "ignore_above": 256
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              "size": {
+                                "type": "long"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "record": {
+                        "properties": {
+                          "cid": {
+                            "type": "text",
+                            "fields": {
+                              "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                              }
+                            }
+                          },
+                          "record": {
+                            "properties": {
+                              "cid": {
+                                "type": "text",
+                                "fields": {
+                                  "keyword": {
+                                    "type": "keyword",
+                                    "ignore_above": 256
+                                  }
+                                }
+                              },
+                              "uri": {
+                                "type": "text",
+                                "fields": {
+                                  "keyword": {
+                                    "type": "keyword",
+                                    "ignore_above": 256
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "uri": {
+                            "type": "text",
+                            "fields": {
+                              "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "uri": {
+                        "type": "text",
+                        "fields": {
+                          "keyword": {
+                            "type": "keyword",
+                            "ignore_above": 256
+                          }
+                        }
+                      },
+                      "video": {
+                        "properties": {
+                          "mimeType": {
+                            "type": "text",
+                            "fields": {
+                              "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                              }
+                            }
+                          },
+                          "ref": {
+                            "properties": {
+                              "$link": {
+                                "type": "text",
+                                "fields": {
+                                  "keyword": {
+                                    "type": "keyword",
+                                    "ignore_above": 256
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "size": {
+                            "type": "long"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "entities": {
+                    "properties": {
+                      "index": {
+                        "properties": {
+                          "end": {
+                            "type": "long"
+                          },
+                          "start": {
+                            "type": "long"
+                          }
+                        }
+                      },
+                      "type": {
+                        "type": "text",
+                        "fields": {
+                          "keyword": {
+                            "type": "keyword",
+                            "ignore_above": 256
+                          }
+                        }
+                      },
+                      "value": {
+                        "type": "text",
+                        "fields": {
+                          "keyword": {
+                            "type": "keyword",
+                            "ignore_above": 256
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "external": {
+                    "properties": {
+                      "description": {
+                        "type": "text",
+                        "fields": {
+                          "keyword": {
+                            "type": "keyword",
+                            "ignore_above": 256
+                          }
+                        }
+                      },
+                      "thumb": {
+                        "properties": {
+                          "mimeType": {
+                            "type": "text",
+                            "fields": {
+                              "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                              }
+                            }
+                          },
+                          "ref": {
+                            "properties": {
+                              "$link": {
+                                "type": "text",
+                                "fields": {
+                                  "keyword": {
+                                    "type": "keyword",
+                                    "ignore_above": 256
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "size": {
+                            "type": "long"
+                          }
+                        }
+                      },
+                      "title": {
+                        "type": "text",
+                        "fields": {
+                          "keyword": {
+                            "type": "keyword",
+                            "ignore_above": 256
+                          }
+                        }
+                      },
+                      "uri": {
+                        "type": "text",
+                        "fields": {
+                          "keyword": {
+                            "type": "keyword",
+                            "ignore_above": 256
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "facets": {
+                    "properties": {
+                      "features": {
+                        "properties": {
+                          "did": {
+                            "type": "text",
+                            "fields": {
+                              "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                              }
+                            }
+                          },
+                          "tag": {
+                            "type": "text",
+                            "fields": {
+                              "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                              }
+                            }
+                          },
+                          "uri": {
+                            "type": "text",
+                            "fields": {
+                              "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "index": {
+                        "properties": {
+                          "byteEnd": {
+                            "type": "long"
+                          },
+                          "byteStart": {
+                            "type": "long"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "image": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "images": {
+                    "properties": {
+                      "alt": {
+                        "type": "text",
+                        "fields": {
+                          "keyword": {
+                            "type": "keyword",
+                            "ignore_above": 256
+                          }
+                        }
+                      },
+                      "image": {
+                        "properties": {
+                          "mimeType": {
+                            "type": "text",
+                            "fields": {
+                              "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                              }
+                            }
+                          },
+                          "ref": {
+                            "properties": {
+                              "$link": {
+                                "type": "text",
+                                "fields": {
+                                  "keyword": {
+                                    "type": "keyword",
+                                    "ignore_above": 256
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "size": {
+                            "type": "long"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "labels": {
+                    "properties": {
+                      "values": {
+                        "properties": {
+                          "val": {
+                            "type": "text",
+                            "fields": {
+                              "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "lang": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "langs": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "reply": {
+                    "properties": {
+                      "parent": {
+                        "properties": {
+                          "cid": {
+                            "type": "text",
+                            "fields": {
+                              "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                              }
+                            }
+                          },
+                          "commit": {
+                            "properties": {
+                              "cid": {
+                                "type": "text",
+                                "fields": {
+                                  "keyword": {
+                                    "type": "keyword",
+                                    "ignore_above": 256
+                                  }
+                                }
+                              },
+                              "rev": {
+                                "type": "text",
+                                "fields": {
+                                  "keyword": {
+                                    "type": "keyword",
+                                    "ignore_above": 256
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "uri": {
+                            "type": "text",
+                            "fields": {
+                              "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                              }
+                            }
+                          },
+                          "validationStatus": {
+                            "type": "text",
+                            "fields": {
+                              "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "root": {
+                        "properties": {
+                          "cid": {
+                            "type": "text",
+                            "fields": {
+                              "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                              }
+                            }
+                          },
+                          "commit": {
+                            "properties": {
+                              "cid": {
+                                "type": "text",
+                                "fields": {
+                                  "keyword": {
+                                    "type": "keyword",
+                                    "ignore_above": 256
+                                  }
+                                }
+                              },
+                              "rev": {
+                                "type": "text",
+                                "fields": {
+                                  "keyword": {
+                                    "type": "keyword",
+                                    "ignore_above": 256
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "uri": {
+                            "type": "text",
+                            "fields": {
+                              "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                              }
+                            }
+                          },
+                          "validationStatus": {
+                            "type": "text",
+                            "fields": {
+                              "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "space": {
+                    "properties": {
+                      "aoisora": {
+                        "properties": {
+                          "post": {
+                            "properties": {
+                              "via": {
+                                "type": "text",
+                                "fields": {
+                                  "keyword": {
+                                    "type": "keyword",
+                                    "ignore_above": 256
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "tags": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "text": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "title": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "type": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "via": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  }
+                }
+              },
+              "rev": {
+                "type": "text",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "rkey": {
+                "type": "text",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              }
+            }
+          },
+          "did": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "kind": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "time_us": {
+            "type": "long"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### Run the Elasticsearch connector
+
 The Kafka Connect connector for working with Elasticsearch is the [Confluent Elasticsearch Sink Connector for Confluent Platform](https://docs.confluent.io/current/connect/kafka-connect-elasticsearch/index.html). 
 
 It is available under the **Confluent Community License Agreement** and pre-loaded with the Kafka Connect cluster of the Data Platform. 
@@ -578,8 +1570,6 @@ Make sure that the both scripts are executable
 sudo chmod +x start-elasticsearch.sh
 sudo chmod +x stop-elasticsearch.sh
 ```
-
-### Start the Elasticsearch connector
 
 Finally let's start the connector by running the `start-elasticsearch` script.
 

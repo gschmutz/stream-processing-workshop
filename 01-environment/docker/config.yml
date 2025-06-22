@@ -398,12 +398,12 @@
       # ===== Apache Flink ========
       #
       FLINK_enable: true
-      FLINK_version: 1.17.2-scala_2.12-java11
+      FLINK_version: 1.19.2-scala_2.12-java11
       # deployment mode, either 'session' or 'application'
       FLINK_deployment_mode: 'session'
       FLINK_taskmanagers: 1
       FLINK_enable_build_in_plugins: ''
-      FLINK_install_maven_dep: '' 
+      FLINK_install_maven_dep: 'org.apache.flink:flink-sql-connector-kafka_2.12:3.3.0-1.19' 
       FLINK_install_file_dep: ''
 
       FLINK_SQL_CLI_enable: true
