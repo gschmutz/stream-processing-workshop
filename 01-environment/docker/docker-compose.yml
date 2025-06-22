@@ -481,7 +481,7 @@ services:
       - s3.secret.key=${PLATYS_AWS_SECRET_ACCESS_KEY:-bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza}
       - s3.endpoint=http://minio-1:9000'
       - s3.path.style.access='true'
-      - FLINK_INSTALL_MAVEN_DEP=org.apache.flink:flink-sql-connector-kafka:3.3.0-1.19,org.apache.flink:flink-json:1.19.2,org.apache.flink:flink-avro:1.19.2,org.apache.flink:flink-avro-confluent-registry:1.19.2,org.apache.avro:avro:1.12.0
+      - FLINK_INSTALL_MAVEN_DEP=org.apache.flink:flink-sql-connector-kafka:3.3.0-1.19,org.apache.flink:flink-json:1.19.2,org.apache.flink:flink-avro-confluent-registry:1.19.2
     volumes:
       - ./data-transfer:/data-transfer
       - ./scripts/docker/:/platys-scripts/
@@ -514,7 +514,7 @@ services:
       - s3.secret.key=${PLATYS_AWS_SECRET_ACCESS_KEY:-bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza}
       - s3.endpoint=http://minio-1:9000'
       - s3.path.style.access='true'
-      - FLINK_INSTALL_MAVEN_DEP=org.apache.flink:flink-sql-connector-kafka:3.3.0-1.19,org.apache.flink:flink-json:1.19.2,org.apache.flink:flink-avro:1.19.2,org.apache.flink:flink-avro-confluent-registry:1.19.2,org.apache.avro:avro:1.12.0
+      - FLINK_INSTALL_MAVEN_DEP=org.apache.flink:flink-sql-connector-kafka:3.3.0-1.19,org.apache.flink:flink-json:1.19.2,org.apache.flink:flink-avro-confluent-registry:1.19.2
     volumes:
       - ./data-transfer:/data-transfer
       - ./scripts/docker/:/platys-scripts/
@@ -536,7 +536,7 @@ services:
         rest.address: flink-jobmanager
         table.catalog-store.kind: file
         table.catalog-store.file.path: ./conf/catalogs
-      - FLINK_INSTALL_MAVEN_DEP=org.apache.flink:flink-sql-connector-kafka:3.3.0-1.19,org.apache.flink:flink-json:1.19.2,org.apache.flink:flink-avro:1.19.2,org.apache.flink:flink-avro-confluent-registry:1.19.2,org.apache.avro:avro:1.12.0
+      - FLINK_INSTALL_MAVEN_DEP=org.apache.flink:flink-sql-connector-kafka:3.3.0-1.19,org.apache.flink:flink-json:1.19.2,org.apache.flink:flink-avro-confluent-registry:1.19.2
     volumes:
       - ./data-transfer:/data-transfer
       - ./scripts/docker/:/platys-scripts/
