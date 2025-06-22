@@ -405,6 +405,7 @@
       FLINK_enable_build_in_plugins: ''
       FLINK_install_maven_dep: 'org.apache.flink:flink-sql-connector-kafka:3.3.0-1.19,org.apache.flink:flink-json:1.19.2,org.apache.flink:flink-avro:1.19.2,org.apache.flink:flink-avro-confluent-registry:1.19.2' 
       FLINK_install_file_dep: ''
+      FLINK_additional_plugins: 'udf_example-1.0.jar'
 
       FLINK_SQL_CLI_enable: true
       FLINK_NUSSKNACKER_enable: false
