@@ -1476,7 +1476,7 @@ PUT /app.bsky.feed.post
 }
 ```
 
-Navigate to the command and click on the **play** icon (**click to send request) to execute the command against Eleastisearch.
+Click to the command to select it and click on the **play** icon (**click to send request**) to execute the command against Eleastisearch.
 
 ![](./images/kibana-create-mapping.png)
 
