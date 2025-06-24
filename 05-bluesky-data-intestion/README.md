@@ -269,7 +269,7 @@ On the properties page, we configure the properties for consuming messages from 
 
 Set the properties as follows:
 
-  * **Kafka Connection Service**: click on the 3 points, select **+ Create new service** and select **Kafka3ConnectionService** and click **Add**. Click again on the 3 points and select **Go To Service**. On the newly created service in the list, click on the 3 points and select **Edit** and fill out the details of the connection service
+  * **Kafka Connection Service**: click on the 3 points, select **+ Create new service** and select **Kafka3ConnectionService** and click **Add**. Click again on the 3 points and select **Go To Service**. On the newly created service in the list, click on the 3 points and select **Edit**, navigate to **Properties** tab and fill out the details of the connection service
   	* **Bootstrap Servers**: `kafka-1:19092`
 
   Click **Apply** and click on the 3 points right to the service and select **Enable** to enable the new service. Click on **Close** and **Back to Service**.

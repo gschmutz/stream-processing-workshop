@@ -224,7 +224,7 @@ This will give us a dialog that allows us to choose which Processor we want to a
 
 ![Alt Image Text](./images/nifi-add-processor.png "Schema Registry UI")
 
-Enter **mqtt** into the search field and the list will be reduced to only two processors, the **ConsumeMQTT** and the **PublishMQTT** processor. Select **ConsumeMQTT** and click **ADD** to add the **ConsumeMQTT** processor to the canvas.
+Enter **mqtt** into the **Filter types** field and the list will be reduced to only two processors, the **ConsumeMQTT** and the **PublishMQTT** processor. Select **ConsumeMQTT** and click **Add** to add the **ConsumeMQTT** processor to the canvas.
 
 You should now see the canvas with the **ConsumeMQTT** processor. A yellow marker is shown on the processor, telling that the processor is not yet configured properly. 
 
@@ -232,7 +232,7 @@ You should now see the canvas with the **ConsumeMQTT** processor. A yellow marke
 
 Double-click on the **ConsumeMQTT** processor and the properties page of the processor appears. Here you can change the name of the processor among other general properties.
 
-Click on **PROPERTIES** tab to switch to the properties page.
+Click on **Properties** tab to switch to the properties page.
 
 On the properties page, we configure the properties for reading the data from the local file system.  
 
@@ -240,14 +240,15 @@ Set the properties as follows:
 
   * **Broker URI**: `tcp://mosquitto-1`
   * **Topic Filter**: `truck/+/position`
+  * **Max Queue Size**: `1000`
 
 The **Configure Processor** should look as shown below
 
 ![Alt Image Text](./images/nifi-consumemqtt-processor-properties-1.png "Schema Registry UI")
 
-Click **APPLY** to close the window.
+Click **Apply** to close the window.
 
-The `TailFile` processor still shows the yellow marker, this is because the out-going relationship is neither used nor terminated. Of course we want to use it, but for that we first need another Processor to publish the data to a Kafka topic. 
+The **ConsumeMQTT** processor still shows the yellow marker, this is because the out-going relationship is neither used nor terminated. Of course we want to use it, but for that we first need another Processor to publish the data to a Kafka topic. 
 
 ### Adding a `PublishKafka` Processor
 
@@ -257,42 +258,46 @@ Enter **PublishKafka** into the Filter field on top right. Only a single process
 
 ![Alt Image Text](./images/nifi-add-processor-search-publishkafka.png "Schema Registry UI")
 
-Select the **PublishKafka\_2\_6** and click on **ADD** to add it to the canvas as well. The canvas should now look like shown below. You can drag around the processor to organise them in the right order. It is recommended to organise the in main flow direction, either top-to-bottom or left-to-right. 
+Select the **PublishKafka** and click on **Add** to add it to the canvas as well. The canvas should now look like shown below. You can drag around the processor to organise them in the right order. It is recommended to organise the in main flow direction, either top-to-bottom or left-to-right. 
 
-Let's configure the new processor. Double-click on the `PublishKafka_2_6` and navigate to **PROPERTIES**. Configure the properties for publishing to Kafka.
+Let's configure the new processor. Double-click on the `PublishKafka` and navigate to **Properties**. Configure the properties for publishing to Kafka.
 
-  * **Kafka Brokers**: `kafka-1:19092`
+  * **Kafka Connection Service**: click on the 3 points, select **+ Create new service** and select **Kafka3ConnectionService** and click **Add**. Click again on the 3 points and select **Go To Service**. On the newly created service in the list, click on the 3 points and select **Edit**, navigate to **Properties** tab and fill out the details of the connection service
+  	* **Bootstrap Servers**: `kafka-1:19092`
+
+  Click **Apply** and click on the 3 points right to the service and select **Enable** to enable the new service. Click on **Close** and **Back to Service**.
+  
   * **Topic Name**: `vehicle_tracking_sysA`
 
 The **Configure Processor** should look as shown below. 
 
 ![Alt Image Text](./images/nifi-publishkafka-properties.png "Schema Registry UI")
 
-Click **APPLY** to close the window.
+Click **Apply** to close the window.
 
 ### Connecting the 2 Processors
 
-Drag a connection from the **ConsumeMQTT** processor to the **PublishKafka\_2\_6** and drop it. 
-Make sure that **For Relationship** is enabled for the `Message` relationship and click **ADD**. Navigate to **RELATIONSHIPS** and enable **terminate** for the **parse.failure**.
+Drag a connection from the **ConsumeMQTT** processor to the **PublishKafka** and drop it. 
+Make sure that `Message` is selected for the **Relationships** and click **Add**. Double click on **ConsumeMQTT**, navigate to **Relationship** and select **terminate** for the **parse.failure** relationship.
 
 ![Alt Image Text](./images/nifi-consumemqtt-relationships.png "Schema Registry UI")
 
-Click **APPLY**. The data flow on the canvas should now look as shown below
+Click **Apply**. The data flow on the canvas should now look as shown below
 
 ![Alt Image Text](./images/nifi-canvas-with-connected-processor.png "Schema Registry UI")
 
-The first processor no longer hold the yellow marker, but now show the red stop marker, meaning that this processors can be started. But what about the last one, the **PublishKafka\_2\_6** processor?
+The first processor no longer hold the yellow marker, but now show the red stop marker, meaning that this processors can be started. But what about the last one, the **PublishKafka** processor?
 
 If you navigate to the marker, a tool-tip will show the errors. 
 
 ![Alt Image Text](./images/nifi-publishkafka-error-marker.png "Schema Registry UI")
 
 We can see that the processor has two outgoing relationships, which are not "used". We have to terminate them, if we have no use for it. 
-Double-click on the **PublishKafka\_2\_6** processor and navigate to **RELATIONSHIPS** and set the check-boxes for both relationships to **terminate**. 
+Double-click on the **PublishKafka** processor and navigate to **Relationships** and set the check-boxes for both relationships to **terminate**.
 
 ![Alt Image Text](./images/nifi-terminate-relationships.png "Schema Registry UI")
 
-Click **APPLY** to save the settings.
+Click **Apply** to save the settings.
 
 Now our data flow is ready, so let's run it. 
 
@@ -340,21 +345,21 @@ The **PublishKafka\_2\_6** by default uses the attribute `kafka.key` as the kafk
 
 Stop all running processors and drag a new Processor onto the Canvas, just below the **ConsumeMQTT** processor. 
 
-Enter **EvaluateJ** into the Filter and select the **EvaluateJsonPath** processor and click on **ADD** to add it to the canvas as well. 
+Enter **EvaluateJ** into the Filter and select the **EvaluateJsonPath** processor and click on **Add** to add it to the canvas as well. 
 
-Drag the connection (blue end) away from the  **PublishKafka\_2\_6** processor and connect it with the **EvaluateJsonPath** processor
+Drag the connection (blue end) away from the  **PublishKafka** processor and connect it with the **EvaluateJsonPath** processor.
 
 ![Alt Image Text](./images/nifi-evaluate-json.png "Schema Registry UI")
 
-Let's configure the new processor. Double-click on the `EvaluateJsonPath` and navigate to **PROPERTIES**. Configure the properties for publishing to Kafka.
+Let's configure the new processor. Double-click on the **EvaluateJsonPath** and navigate to **Properties**. Configure the properties for publishing to Kafka.
 
   * **Destination**: `flowfile-attribute`
 
-Add a new property using the **+** sign. Enter `kafka.key` into the **Property Name** field and click **OK**. Enter the following [JSONPath expression](https://jsonpath.com/) `$.truckId` into the edit field and click **OK**. This will extract the `truckId` field from the JSON formatted message and use it for the key. 
+Add a new property using the **+** sign. Enter `kafka.key` into the **Property Name** field and click **Ok**. Enter the following [JSONPath expression](https://jsonpath.com/) `$.truckId` into the edit field and click **OK**. This will extract the `truckId` field from the JSON formatted message and use it for the key. Click **Apply**.
 
-Drag a connection from **EvaluateJsonPath** to the **PublishKafka\_2\_6** processor and select the **matched** check box below **For Relationships** and click **ADD**. 
+Drag a connection from **EvaluateJsonPath** to the **PublishKafka** processor and select the **matched** check box below **For Relationships** and click **Add**. 
 
-Double-click on **EvaluateJsonPath** processor and navigate to **RELATIONSHIPS** tab and click on **terminate** for **failure** and **unmatched** relationship and click **APPLY**.
+Double-click on **EvaluateJsonPath** processor and navigate to **Relationships** tab and **terminate** the **failure** and **unmatched** relationship and click **Apply**.
 
 Now let's run all 3 processors again and check that the Kafka messages also include a valid key portion. 
 

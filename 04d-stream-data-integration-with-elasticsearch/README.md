@@ -112,7 +112,7 @@ Finally let's start the connector by running the `start-elasticsearch` script.
 ./start-elasticsearch.sh
 ```
 
-The connector will consume the Avro serialized messages, automatically create an Elasticsearch Index, register the Index Mapping, which is based on the Avro schema and stores the tweets as documents into the Elasticsearch datastore.
+The connector will consume the Avro serialized messages, automatically create an Elasticsearch Index, register the Index Mapping, which is based on the Avro schema and stores the wikipedia messages as documents into the Elasticsearch datastore.
 
 We can see that documents have been added by navigating to the Elasticsearch API in a browser to <http://dataplatform:9200/wikipedia-recent-changes-avro.v1/_search>:
 
@@ -201,7 +201,7 @@ if you re-check the index, it should now show the following for the `timestamp` 
 
 Now with the data properly indexed, let's see how we can visualize it using Kibana.
 
-## Visualize Tweets using Kibana
+## Visualize Wikipedia Recent Changes using Kibana
 
 [Kibana](https://www.elastic.co/kibana) is part of the so called [ELK-Stack](https://www.elastic.co/elastic-stack) and can be used to visualize the data stored in Elasticsearch. 
 
