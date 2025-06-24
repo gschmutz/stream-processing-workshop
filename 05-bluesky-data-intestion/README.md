@@ -511,33 +511,15 @@ Let's create an Elasticsearch mapping for the Bluesky post messages.
 
 ### Create the Elasticsearch mapping
 
-The automatic mapping does not work, as some of the fields can be mixed type (complex or primitive), what Elasticsearch does not support. Therefore we do not index `$type` attribute.  
+The automatic mapping does not work, as some of the fields can be mixed type (complex or primitive), what Elasticsearch does not support. Additionally we also do not index all `$type` attribute.  
 
-**Note:** we can get the mapping from a generated mapping by going through the following `jq` chain: 
+Navigate to the dev console in Kibana on <http://dataplatform:5601/app/dev_tools#/console/shell>
 
-```bash
-curl localhost:9200/app.bsky.feed.post/_mapping | jq '.["app.bsky.feed.post"]' | jq 'walk(if type == "object" then del(.["$type"]) else . end)'
-```
-
-```json
-    "dynamic_templates": [
-      {
-        "ignore_all_dollar_type": {
-          "match_mapping_type": "string",
-          "path_match": "*.\\$type",
-          "mapping": {
-            "index": false,
-            "type": "keyword"
-          }
-        }
-      }
-    ],  
-```
 
 Create the mapping using the following REST API call:
 
 ```bash
-curl -H "Content-Type: application/json" -XPUT http://dataplatform:9200/app.bsky.feed.post -d '
+PUT /app.bsky.feed.post
 {
   "mappings": {
     "properties": {
