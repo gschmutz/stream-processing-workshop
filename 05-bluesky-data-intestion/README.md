@@ -17,13 +17,13 @@ docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create -
 Now start it an use the Kafka connector to send the data to the the `bluesky.raw` topic. 
 
 ```bash
-docker run --rm -d -e DESTINATION=kafka -e KAFKA_BROKERS=${PUBLIC_IP}:9092 -e KAFKA_TOPIC=bluesky.raw ghcr.io/gschmutz/bluebird:latest
+docker run --rm -d -e DESTINATION=kafka -e KAFKA_BROKERS=dataplatform:9092 -e KAFKA_TOPIC=bluesky.raw ghcr.io/gschmutz/bluebird:latest
 ```
 
 If you use `kcat` to consume the message, you will see all the messages, posts, re-post as well as likes.
 
 ```bash
-kcat -q -b ${PUBLIC_IP}:9092 -t bluesky.raw
+kcat -q -b dataplatform:9092 -t bluesky.raw
 ```
 
 and you will see each message is returned in JSON format on one line
@@ -37,7 +37,7 @@ and you will see each message is returned in JSON format on one line
 We can pipe the result into `jq` to format the JSON
 
 ```bash
-kcat -q -b ${PUBLIC_IP}:9092 -t bluesky.raw | jq
+kcat -q -b dataplatform:9092 -t bluesky.raw | jq
 ```
 
 and you should see a result similar to the one shown below
@@ -189,7 +189,7 @@ Each message contains not only the text but also some meta data.
 The field `/record/commit/collection` contains the type of the message. Let's only select the value of this field
 
 ```bash
-kcat -q -b ${PUBLIC_IP}:9092 -t bluesky.raw | jq .record.commit.collection
+kcat -q -b dataplatform:9092 -t bluesky.raw | jq .record.commit.collection
 ```
 
 And we can see that we have seen `post`, `repost`, `like` and `follow` messages:
@@ -209,7 +209,7 @@ These are not all the types, there a few more.
 Let's use `jq` to `select` only the `app.bsky.feed.post` messages and now display only the `record/commit/record/text` field.
 
 ```bash
-kcat -q -b ${PUBLIC_IP}:9092 -t bluesky.raw | jq 'select(.record.commit.collection == "app.bsky.feed.post") | .record.commit.record.text'
+kcat -q -b dataplatform:9092 -t bluesky.raw | jq 'select(.record.commit.collection == "app.bsky.feed.post") | .record.commit.record.text'
 ```
 
 and we can see the post made in real-time
@@ -397,13 +397,13 @@ Let's check if the messages arrive in one of the topics. Let's try the one with 
 we can either pretty print the whole json using `jq`
 
 ```bash
-kcat -q -b ${PUBLIC_IP}:9092 -t app.bsky.feed.post | jq
+kcat -q -b dataplatform:9092 -t app.bsky.feed.post | jq
 ```
 
 or only display the `text` field with
 
 ```bash
-kcat -q -b ${PUBLIC_IP}:9092 -t app.bsky.feed.post | jq '.record.commit.record.text'
+kcat -q -b dataplatform:9092 -t app.bsky.feed.post | jq '.record.commit.record.text'
 ```
 
 In both cases you should see the new posts being published.
@@ -1570,7 +1570,7 @@ The connector will consume the JSON messages, automatically create an Elasticsea
 We can see that documents have been added by using the Elasticsearch API 
 
 ```bash
-curl ${PUBLIC_IP}:9200/app.bsky.feed.post/_search
+curl dataplatform:9200/app.bsky.feed.post/_search
 ```
 
 and you should see a result similar to the one below
