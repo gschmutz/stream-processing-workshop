@@ -513,10 +513,7 @@ Let's create an Elasticsearch mapping for the Bluesky post messages.
 
 The automatic mapping does not work, as some of the fields can be mixed type (complex or primitive), what Elasticsearch does not support. Additionally we also do not index all `$type` attribute.  
 
-Navigate to the dev console in Kibana on <http://dataplatform:5601/app/dev_tools#/console/shell>
-
-
-Create the mapping using the following REST API call:
+Navigate to the dev console in Kibana on <http://dataplatform:5601/app/dev_tools#/console/shell> and copy the following command into the shell window (as shown in the screentshot below):
 
 ```bash
 PUT /app.bsky.feed.post
@@ -1478,6 +1475,12 @@ PUT /app.bsky.feed.post
   }
 }
 ```
+
+Navigate to the command and click on the **play** icon (**click to send request) to execute the command against Eleastisearch.
+
+![](./images/kibana-create-mapping.png)
+
+**Note:** if you need to delete the mapping, you can use this command `DELETE /app.bsky.feed.post` (do not do that now!)
 
 ### Run the Elasticsearch connector
 
