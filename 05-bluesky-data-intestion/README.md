@@ -314,7 +314,10 @@ We will use the value of the `/record/commit/collection` as the target topic nam
 
 Drag a `EvaluateJsonPath` processor onto the Canvas, in between the **ConsumeKafka** and **PublishKafka** processor. 
 
-Double click on the processor and navigate to the **Properties** tab. This time we don't have to update existing properties. Rather we will create a new property by clicking on the **+** in the upper right corner of the properties. In the pop-up dialog window, enter `topicName` into the **Property Name** field and click **Ok**. Enter `$.record.commit.collection` into the edit field and click **Ok**. Click **Apply** to close the processor. 
+Double click on the processor and navigate to the **Properties** tab. 
+
+Select **flowfile-attribute** for the **Destination**. 
+Click on the **+** in the upper right corner of the properties. In the pop-up dialog window, enter `topicName` into the **Property Name** field and click **Ok**. Enter `$.record.commit.collection` into the edit field and click **Ok**. Click **Apply** to close the processor. 
 
 ### Connecting the first two Processors
 
