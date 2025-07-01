@@ -62,30 +62,30 @@ Navigate into the `plugins/kafka-connect` folder (which is a sub-folder of the `
 cd $DATAPLATFORM_HOME/plugins/kafka-connect/connectors
 ```
 
-and download the `4.2.0/kafka-connect-mqtt-4.2.0.zip` file from the [Landoop Stream-Reactor Project](https://github.com/Landoop/stream-reactor/tree/master/kafka-connect-mqtt) project.
+and download the `9.0.2/kafka-connect-mqtt-9.0.2.zip` file from the [Landoop Stream-Reactor Project](https://github.com/Landoop/stream-reactor/tree/master/kafka-connect-mqtt) project.
 
 ```
-sudo wget https://github.com/lensesio/stream-reactor/releases/download/4.2.0/kafka-connect-mqtt-4.2.0.zip
+sudo wget https://github.com/lensesio/stream-reactor/releases/download/9.0.2/kafka-connect-mqtt-9.0.2.zip
 ```
 
 Once it is successfully downloaded, uncompress it using this `tar` command and remove the file. 
 
 ```
-sudo unzip kafka-connect-mqtt-4.2.0.zip
-sudo rm kafka-connect-mqtt-4.2.0.zip
+sudo unzip kafka-connect-mqtt-9.0.2.zip
+sudo rm kafka-connect-mqtt-9.0.2.zip
 ```
 
 Now let's restart Kafka connect in order to pick up the new connector (Make sure to navigate back to the docker folder first, either using `cd $DATAPLATFORM_HOME` or `cd ../..`)
 
 ```
 cd $DATAPLATFORM_HOME
-docker-compose restart kafka-connect-1
+docker compose restart kafka-connect-1
 ```
 
 The connector should now be added to the Kafka cluster. You can confirm that by watching the log file of the two containers
 
 ```
-docker-compose logs -f kafka-connect-1
+docker compose logs -f kafka-connect-1
 ```
 
 After a while you should see an output similar to the one below with a message that the MQTT connector was added and later that the connector finished starting ...
@@ -132,10 +132,10 @@ curl -X PUT \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json' \
   -d '{
-    "connector.class": "com.datamountaineer.streamreactor.connect.mqtt.source.MqttSourceConnector",
+    "connector.class": "io.lenses.streamreactor.connect.mqtt.source.MqttSourceConnector",
     "connect.mqtt.connection.timeout": "1000",
     "tasks.max": "1",
-    "connect.mqtt.kcql": "INSERT INTO vehicle_tracking_sysA SELECT * FROM truck/+/position WITHCONVERTER=`com.datamountaineer.streamreactor.connect.converters.source.JsonSimpleConverter` WITHKEY(truckId)",
+    "connect.mqtt.kcql": "INSERT INTO vehicle_tracking_sysA SELECT * FROM truck/+/position WITHCONVERTER=`io.lenses.streamreactor.connect.converters.source.JsonSimpleConverter` WITHKEY(truckId)",
     "connect.mqtt.connection.clean": "true",
     "connect.mqtt.service.quality": "0",
     "connect.mqtt.connection.keep.alive": "1000",
