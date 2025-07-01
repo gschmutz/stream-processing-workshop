@@ -229,7 +229,7 @@ services:
       test: curl --user connectAdmin:connectAdmin --fail --silent --insecure https://kafka-connect-1:8083/ --output /dev/null || exit 1
   #  ================================== ksqlDB ========================================== #
   ksqldb-server-1:
-    image: confluentinc/ksqldb-server:0.29.0
+    image: confluentinc/cp-ksqldb-server:7.9.1
     hostname: ksqldb-server-1
     container_name: ksqldb-server-1
     labels:
@@ -241,7 +241,7 @@ services:
       - 8088:8088
       - 1095:1095
     environment:
-      KSQL_LOG4J_OPTS: -Dlog4j.configuration=file:/tmp/log4j.properties
+      KSQL_LOG4J_ROOT_LOGLEVEL: INFO
       KSQL_LOG4J_LOGGERS: org.apache.kafka.connect.runtime.rest=WARN,org.reflections=ERROR
       KSQL_LOG4J_PROCESSING_LOG_TOPIC: ksql_processing_log
       KSQL_LOG4J_PROCESSING_LOG_BROKERLIST: kafka-1:19092,kafka-2:19093,kafka-3:19094
@@ -278,7 +278,6 @@ services:
     volumes:
       - ./data-transfer:/data-transfer
       - ./plugins/ksqldb:/etc/ksqldb/ext
-      - ./conf/ksqldb/etc/log4j.properties:/tmp/log4j.properties.templ
       - ./plugins/kafka-connect/connectors:/etc/kafka-connect/addl-plugins
       - ./plugins/kafka-connect/jars:/etc/kafka-connect/jars
       - ./plugins/opentelemetry/agents:/otel
