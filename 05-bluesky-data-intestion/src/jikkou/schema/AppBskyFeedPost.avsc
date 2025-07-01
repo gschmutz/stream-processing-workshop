@@ -1,0 +1,278 @@
+{
+  "type": "record",
+  "name": "BlueskyCommitEnvelope",
+  "fields": [
+    {
+      "name": "capture_time",
+      "type": "string"
+    },
+    {
+      "name": "collection",
+      "type": "string"
+    },
+    {
+      "name": "record",
+      "type": {
+        "type": "record",
+        "name": "CommitRecord",
+        "fields": [
+          {
+            "name": "did",
+            "type": [ "null", "string" ]
+          },
+          {
+            "name": "time_us",
+            "type": "long"
+          },
+          {
+            "name": "kind",
+            "type": [ "null", "string" ]
+          },
+          {
+            "name": "commit",
+            "type": {
+              "type": "record",
+              "name": "CommitDetails",
+              "fields": [
+                {
+                  "name": "rev",
+                  "type": [ "null", "string" ],
+                  "default": null
+                },
+                {
+                  "name": "operation",
+                  "type": [ "null", "string" ],
+                  "default": null
+                },
+                {
+                  "name": "collection",
+                  "type": [ "null", "string" ],
+                  "default": null
+                },
+                {
+                  "name": "rkey",
+                  "type": [ "null", "string" ],
+                  "default": null
+                },
+                {
+                  "name": "cid",
+                  "type": [ "null", "string" ],
+                  "default": null
+                },
+                {
+                  "name": "record",
+                  "type": {
+                    "type": "record",
+                    "name": "PostRecord",
+                    "fields": [
+                      {
+                        "name": "type",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "default": null
+                      },
+                      {
+                        "name": "createdAt",
+                        "type": "string"
+                      },
+                      {
+                        "name": "embed",
+                        "type": [
+                          "null",
+                          {
+                            "type": "record",
+                            "name": "EmbedExternal",
+                            "fields": [
+                              {
+                                "name": "type",
+                                "type": [
+                                  "null",
+                                  "string"
+                                ],
+                                "default": null
+                              },
+                              {
+                                "name": "external",
+                                "type": [
+                                  "null",
+                                  {
+                                    "type": "record",
+                                    "name": "ExternalEmbed",
+                                    "fields": [
+                                      {
+                                        "name": "description",
+                                        "type": [
+                                          "null",
+                                          "string"
+                                        ],
+                                        "default": null
+                                      },
+                                      {
+                                        "name": "thumb",
+                                        "type": [
+                                          "null",
+                                          {
+                                            "type": "record",
+                                            "name": "ThumbnailBlob",
+                                            "fields": [
+                                              {
+                                                "name": "type",
+                                                "type": [
+                                                  "null",
+                                                  "string"
+                                                ],
+                                                "default": null
+                                              },
+                                              {
+                                                "name": "ref",
+                                                "type": {
+                                                  "type": "record",
+                                                  "name": "ThumbRef",
+                                                  "fields": [
+                                                    {
+                                                      "name": "link",
+                                                      "type": [
+                                                        "null",
+                                                        "string"
+                                                      ],
+                                                      "default": null
+                                                    }
+                                                  ]
+                                                }
+                                              },
+                                              {
+                                                "name": "mimeType",
+                                                "type": [
+                                                  "null",
+                                                  "string"
+                                                ],
+                                                "default": null
+                                              },
+                                              {
+                                                "name": "size",
+                                                "type": "int"
+                                              }
+                                            ]
+                                          }
+                                        ],
+                                        "default": null
+                                      },
+                                      {
+                                        "name": "title",
+                                        "type": [
+                                          "null",
+                                          "string"
+                                        ],
+                                        "default": null
+                                      },
+                                      {
+                                        "name": "uri",
+                                        "type": [
+                                          "null",
+                                          "string"
+                                        ],
+                                        "default": null
+                                      }
+                                    ]
+                                  }
+                                ],
+                                "default": null
+                              }
+                            ]
+                          }
+                        ],
+                        "default": null
+                      },
+                      {
+                        "name": "facets",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": {
+                              "type": "record",
+                              "name": "Facet",
+                              "fields": [
+                                {
+                                  "name": "features",
+                                  "type": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "record",
+                                      "name": "FacetFeature",
+                                      "fields": [
+                                        {
+                                          "name": "type",
+                                          "type": [
+                                            "null",
+                                            "string"
+                                          ],
+                                          "default": null
+                                        },
+                                        {
+                                          "name": "tag",
+                                          "type": [
+                                            "null",
+                                            "string"
+                                          ],
+                                          "default": null
+                                        }
+                                      ]
+                                    }
+                                  }
+                                },
+                                {
+                                  "name": "index",
+                                  "type": {
+                                    "type": "record",
+                                    "name": "TextIndex",
+                                    "fields": [
+                                      {
+                                        "name": "byteStart",
+                                        "type": "int"
+                                      },
+                                      {
+                                        "name": "byteEnd",
+                                        "type": "int"
+                                      }
+                                    ]
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        ],
+                        "default": null
+                      },
+                      {
+                        "name": "langs",
+                        "type": {
+                          "type": "array",
+                          "items": [
+                            "null",
+                            "string"
+                          ],
+                          "default": null
+                        }
+                      },
+                      {
+                        "name": "text",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "default": null
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

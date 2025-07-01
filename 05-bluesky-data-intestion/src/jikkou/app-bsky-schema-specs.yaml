@@ -1,0 +1,19 @@
+---
+apiVersion: "schemaregistry.jikkou.io/v1beta2"
+kind: "SchemaRegistrySubjectList"
+metadata: {}
+items:
+  - metadata:
+      name: "app.bsky.feed.post-value"
+      labels: { }
+      annotations:
+        schemaregistry.jikkou.io/normalize-schema: true
+    spec:
+      schemaRegistry:
+        vendor: Confluent
+      compatibilityLevel: "FULL_TRANSITIVE"
+      schemaType: "AVRO"
+      schema:
+        $ref: /jikkou/schema/AppBskyFeedPost.avsc
+        #$ref: classpath://avro/schema/action/DataSetIngestedAction.avsc
+        
