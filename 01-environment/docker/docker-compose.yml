@@ -213,7 +213,7 @@ services:
       - |
         echo "Installing Connectors"
         mkdir -p /etc/kafka-connect/cflthub-plugins
-        for i in $$(echo "jcustenborder/kafka-connect-json-schema:0.2.5,redhatinsights/expandjsonsmt:0.0.7,confluentinc/kafka-connect-json-schema-converter:7.4.0,confluentinc/kafka-connect-jdbc:10.6.3,confluentinc/kafka-connect-elasticsearch:14.0.4,confluent-hub install confluentinc/kafka-connect-mqtt:1.3.0,debezium/debezium-connector-postgresql:2.2.1,debezium/debezium-connector-mysql:2.2.1,cjmatta/kafka-connect-sse:1.0,confluentinc/kafka-connect-s3:10.5.1" | sed "s/,/ /g")
+        for i in $$(echo "jcustenborder/kafka-connect-json-schema:0.2.5,redhatinsights/expandjsonsmt:0.0.7,confluentinc/kafka-connect-json-schema-converter:8.0.0,confluentinc/kafka-connect-jdbc:10.8.4,confluentinc/kafka-connect-elasticsearch:15.0.0,confluentinc/kafka-connect-mqtt:1.7.5,debezium/debezium-connector-postgresql:3.1.2,debezium/debezium-connector-mysql:3.1.2,cjmatta/kafka-connect-sse:1.0,confluentinc/kafka-connect-s3:10.6.7" | sed "s/,/ /g")
         do
           confluent-hub install --no-prompt --component-dir /etc/kafka-connect/cflthub-plugins --verbose "$$i"
         done
@@ -350,7 +350,7 @@ services:
       start_period: 10s
       interval: 10s
       retries: 20
-      test: curl --user superUser:superUser --fail --silent --insecure https://schema-registry-1:8081/subjects --output /dev/null || exit 1
+      test: curl --fail --silent --insecure http://schema-registry-1:8081/subjects --output /dev/null || exit 1
   #  ================================== Schema Registry UI ========================================== #
   schema-registry-ui:
     image: landoop/schema-registry-ui:latest
@@ -385,6 +385,36 @@ services:
       - |
         while [ 1 -eq 1 ];do sleep 60;done
     restart: unless-stopped
+  #  ================================== Jikkou ========================================== #
+  jikkou:
+    image: streamthoughts/jikkou:main
+    container_name: jikkou
+    hostname: jikkou
+    labels:
+      com.platys.name: jikkou
+      com.platys.description: Resource as Code framework for Apache Kafka
+    environment:
+      JIKKOU_DEFAULT_KAFKA_BOOTSTRAP_SERVERS: kafka-1:19092,kafka-2:19093,kafka-3:19094
+      JIKKOU_DEFAULT_SCHEMA_REGISTRY_URL: http://schema-registry-1:8081
+      JIKKOU_KAFKA_BROKERS_WAIT_FOR_MIN_AVAILABLE: 3
+      JIKKOU_KAFKA_BROKERS_WAIT_FOR_ENABLED: 'true'
+      JIKKOU_KAFKA_BROKERS_WAIT_FOR_RETRY_BACKOFF_MS: 1000
+      JIKKOU_KAFKA_BROKERS_WAIT_FOR_TIMEOUT_MS: 120000
+      VALIDATION_DEFAULT_TOPIC_NAME_REGEX: '[a-zA-Z0-9\._\-]+'
+      VALIDATION_DEFAULT_TOPIC_MIN_NUM_PARTITIONS: 1
+      VALIDATION_DEFAULT_TOPIC_MIN_REPLICATION_FACTOR: 1
+    volumes:
+      - ./data-transfer:/data-transfer
+      - ./scripts/jikkou/:/jikkou
+      - ./conf/jikkou/application.conf:/appuser/.jikkou/application.conf
+      - ./conf/jikkou/config:/etc/jikkou/config
+    command:
+      - apply
+      - --files
+      - /jikkou/
+      - --file-name
+      - '**/*.{yaml,yml}'
+    restart: on-failure
   #  ================================== Kafka Connect UI ========================================== #
   kafka-connect-ui:
     image: landoop/kafka-connect-ui:latest

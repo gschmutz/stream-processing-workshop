@@ -96,7 +96,7 @@
       #
       KAFKA_CONNECT_enable: true
       KAFKA_CONNECT_nodes: 1
-      KAFKA_CONNECT_connectors: 'jcustenborder/kafka-connect-json-schema:0.2.5,redhatinsights/expandjsonsmt:0.0.7,confluentinc/kafka-connect-json-schema-converter:7.4.0,confluentinc/kafka-connect-jdbc:10.6.3,confluentinc/kafka-connect-elasticsearch:14.0.4,confluent-hub install confluentinc/kafka-connect-mqtt:1.3.0,debezium/debezium-connector-postgresql:2.2.1,debezium/debezium-connector-mysql:2.2.1,cjmatta/kafka-connect-sse:1.0,confluentinc/kafka-connect-s3:10.5.1'
+      KAFKA_CONNECT_connectors: 'jcustenborder/kafka-connect-json-schema:0.2.5,redhatinsights/expandjsonsmt:0.0.7,confluentinc/kafka-connect-json-schema-converter:8.0.0,confluentinc/kafka-connect-jdbc:10.8.4,confluentinc/kafka-connect-elasticsearch:15.0.0,confluentinc/kafka-connect-mqtt:1.7.5,debezium/debezium-connector-postgresql:3.1.2,debezium/debezium-connector-mysql:3.1.2,cjmatta/kafka-connect-sse:1.0,confluentinc/kafka-connect-s3:10.6.7'
       KAFKA_CONNECT_config_providers: 'file'
       KAFKA_CONNECT_config_providers_classes: 'org.apache.kafka.common.config.provider.FileConfigProvider'
       KAFKA_CONNECT_map_settings_file: false
@@ -212,7 +212,7 @@
       #
       # ===== jikkou ========
       #
-      JIKKOU_enable: false
+      JIKKOU_enable: true
       JIKKOU_use_verbose_option: false
       JIKKOU_use_delete_config_orphans_option: false
       JIKKOU_use_delete_topic_orphans_option: false
@@ -220,7 +220,7 @@
       JIKKOU_exclude_resources_regexp: ''
       JIKKOU_include_resources_regexp: ''
       JIKKOU_set_labels: ''
-      JIKKOU_set_variables: ''
+      JIKKOU_set_variables: 'topicConfigs.replicas=3'
       JIKKOU_kafka_brokers_wait_for_enabled: true
       JIKKOU_kafka_brokers_wait_for_retry_backoff_ms: 1000
       JIKKOU_kafka_brokers_wait_for_timeout_ms: 120000
