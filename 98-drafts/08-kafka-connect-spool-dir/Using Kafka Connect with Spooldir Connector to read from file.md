@@ -16,12 +16,18 @@ guido.schmutz@AMAXDKFVW0HYY ~/D/G/v/o/docker (main)> curl -s http://dataplatform
 "com.github.jcustenborder.kafka.connect.spooldir.elf.SpoolDirELFSourceConnector"
 ```
 
+Create the additional folders where the data will be picked up by the connector
+
 ```bash
 cd $DATAPLATFORM_HOME
 mkdir -p data-transfer/file/unprocessed
 mkdir -p data-transfer/file/processed
 mkdir -p data-transfer/file/error
 ```
+
+Copy the file `10002_data_1.csv` into the `data-transfer/file/unprocessed` folder.
+
+Create the Kafka Topic
 
 ```bash
 docker exec -ti kafka-1 kafka-topics --create --bootstrap-server kafka-1:19092 --topic sensor_spooldir_00 --partitions 3 --replication-factor 3
