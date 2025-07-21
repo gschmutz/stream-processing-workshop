@@ -96,7 +96,7 @@
       #
       KAFKA_CONNECT_enable: true
       KAFKA_CONNECT_nodes: 1
-      KAFKA_CONNECT_connectors: 'jcustenborder/kafka-connect-json-schema:0.2.5,redhatinsights/expandjsonsmt:0.0.7,confluentinc/kafka-connect-json-schema-converter:8.0.0,confluentinc/kafka-connect-jdbc:10.8.4,confluentinc/kafka-connect-elasticsearch:15.0.0,confluentinc/kafka-connect-mqtt:1.7.5,debezium/debezium-connector-postgresql:3.1.2,debezium/debezium-connector-mysql:3.1.2,cjmatta/kafka-connect-sse:1.0,confluentinc/kafka-connect-s3:10.6.7'
+      KAFKA_CONNECT_connectors: 'jcustenborder/kafka-connect-json-schema:0.2.5,redhatinsights/expandjsonsmt:0.0.7,confluentinc/kafka-connect-json-schema-converter:8.0.0,confluentinc/kafka-connect-jdbc:10.8.4,confluentinc/kafka-connect-elasticsearch:15.0.0,confluentinc/kafka-connect-mqtt:1.7.5,debezium/debezium-connector-postgresql:3.1.2,debezium/debezium-connector-mysql:3.1.2,cjmatta/kafka-connect-sse:1.0,confluentinc/kafka-connect-s3:10.6.7,jcustenborder/kafka-connect-spooldir:latest,jcustenborder/kafka-connect-transform-common:latest'
       KAFKA_CONNECT_config_providers: 'file'
       KAFKA_CONNECT_config_providers_classes: 'org.apache.kafka.common.config.provider.FileConfigProvider'
       KAFKA_CONNECT_map_settings_file: false
