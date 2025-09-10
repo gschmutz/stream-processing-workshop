@@ -21,8 +21,8 @@ docker exec -ti postgresql psql -d demodb -U demo
 Now let's first create the table `driver`
 
 ```
-CREATE SCHEMA IF NOT EXISTS dispatching_db;
-SET search_path TO dispatching_db;
+CREATE SCHEMA IF NOT EXISTS logistics_db;
+SET search_path TO logistics_db;
 
 DROP TABLE driver;
 
@@ -86,21 +86,20 @@ and perform the [CREATE CONNECTOR](https://docs.ksqldb.io/en/latest/developer-gu
 
  
 ``` sql
-CREATE SOURCE CONNECTOR jdbc_to_kafka_sc WITH (
+CREATE SOURCE CONNECTOR jdbc_logistics_sc WITH (
     "connector.class"='io.confluent.connect.jdbc.JdbcSourceConnector',
     "tasks.max" = '1',
     "connection.url" = 'jdbc:postgresql://postgresql/demodb?user=demo&password=abc123!',
     "mode" = 'timestamp',
     "timestamp.column.name" = 'last_update',
-    "schema.pattern" = 'dispatching_db',
+    "schema.pattern" = 'logistics_db',
     "table.whitelist" = 'driver',
     "validate.non.null" = 'false',
-    "topic.prefix" = 'dispatching_',
+    "topic.prefix" = 'logisticsdb_',
     "poll.interval.ms" = '10000',
     "key.converter" = 'org.apache.kafka.connect.converters.LongConverter',
     "key.converter.schemas.enable" = 'false',
-    "value.converter" = 'io.confluent.connect.avro.AvroConverter',
-    "value.converter.schema.registry.url" = 'http://schema-registry-1:8081',
+    "value.converter" = 'org.apache.kafka.connect.json.JsonConverter',
     "value.converter.schemas.enable" = 'false',
     "transforms" = 'createKey,extractInt',
     "transforms.createKey.type" = 'org.apache.kafka.connect.transforms.ValueToKey',
@@ -260,7 +259,7 @@ docker exec -ti postgresql psql -d demodb -U demo
 ```
 
 ```sql
-SET search_path TO dispatching_db;
+SET search_path TO logistics_db;
 
 INSERT INTO "driver" ("id", "first_name", "last_name", "available", "birthdate", "last_update") VALUES (12,'Laurence', 'Lindsey', 'Y', '19-MAY-78' ,CURRENT_TIMESTAMP);
 ```

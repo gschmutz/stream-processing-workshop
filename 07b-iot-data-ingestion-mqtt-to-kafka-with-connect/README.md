@@ -65,14 +65,14 @@ cd $DATAPLATFORM_HOME/plugins/kafka-connect/connectors
 and download the `9.0.2/kafka-connect-mqtt-9.0.2.zip` file from the [Landoop Stream-Reactor Project](https://github.com/Landoop/stream-reactor/tree/master/kafka-connect-mqtt) project.
 
 ```
-sudo wget https://github.com/lensesio/stream-reactor/releases/download/9.0.2/kafka-connect-mqtt-9.0.2.zip
+sudo wget https://github.com/lensesio/stream-reactor/releases/download/10.0.0/kafka-connect-mqtt-10.0.0.zip
 ```
 
 Once it is successfully downloaded, uncompress it using this `tar` command and remove the file. 
 
 ```
-sudo unzip kafka-connect-mqtt-9.0.2.zip
-sudo rm kafka-connect-mqtt-9.0.2.zip
+sudo unzip kafka-connect-mqtt-10.0.0.zip
+sudo rm kafka-connect-mqtt-10.0.0.zip
 ```
 
 Now let's restart Kafka connect in order to pick up the new connector (Make sure to navigate back to the docker folder first, either using `cd $DATAPLATFORM_HOME` or `cd ../..`)

@@ -17,7 +17,7 @@ docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create -
 Now start it an use the Kafka connector to send the data to the the `bluesky.raw` topic. 
 
 ```bash
-docker run --rm -d -e DESTINATION=kafka -e KAFKA_BROKERS=dataplatform:9092 -e KAFKA_TOPIC=bluesky.raw ghcr.io/gschmutz/bluebird:latest
+docker run --rm -d --name bsky-sensor --network streaming-data-platform -e DESTINATION=kafka -e KAFKA_BROKERS=kafka-1:19092 -e KAFKA_TOPIC=bluesky.raw ghcr.io/gschmutz/bluebird:latest
 ```
 
 If you use `kcat` to consume the message, you will see all the messages, posts, re-post as well as likes.
@@ -289,6 +289,67 @@ Click **Apply** to close the window.
 
 The `ConsumeKafka` processor still shows the yellow marker, this is because the out-going relationship is neither used nor terminated. Of course we want to use it, but for that we first need another Processor to publish the messages to the Kafka topics. 
 
+### Add 2 `ReplaceText` processors to replace the `$text` and `$link` fields
+
+Drag a `ReplaceText` processor onto the Canvas, after the **ConsumeKafka** processor. 
+
+Double click on the processor and navigate to the **Properties** tab. 
+
+Set the properties as follows:
+
+  * **Search Value**: `\$type`
+  * **Replacement Value**: `type`
+  * **Evaluation Mode**: `Entire Text`
+
+Click **Apply** to close the window.
+
+Drag a second `ReplaceText` processor onto the Canvas, after the first ** ReplaceText** processor. 
+
+Double click on the processor and navigate to the **Properties** tab. 
+
+Set the properties as follows:
+
+  * **Search Value**: `\$link`
+  * **Replacement Value**: `link`
+  * **Evaluation Mode**: `Entire Text`
+
+Click **Apply** to close the window.
+
+### Connecting the first three Processors
+
+Drag a connection from the **ConsumeKafka** processor to the **EvaluateJsonPath** and drop it. 
+
+![Alt Image Text](./images/nifi-drag-connection.png "Schema Registry UI")
+
+Make sure that the `success` **Relationship** is enabled and click **Add**. The **ConsumeKafka** still has an warning marker, because the **parse failure** relationship is not used. Double click on the **ConsumeKafka** processor, navigate to **Relationships** and click **terminate** on the **parse failure** relationship. Click **Apply** and now the marker is replaced by a red stopped icon. 
+
+We can not directly connnect to the **PublishKafka**, as we only want to route the messages for this 5 collections: `app.bsky.feed.post`, `app.bsky.feed.repost`, `app.bsky.feed.like`, `app.bsky.graph.follow` and `app.bsky.actor.profile`. All the others should be ignored. 
+
+We can use a `RouteOnAttribute` processor for that. 
+
+### Set Variable using `EvaluateJsonPath` processor
+
+Drag a `EvaluateJsonPath` processor onto the Canvas, in between the **ConsumeKafka** and **PublishKafka** processor. 
+
+Double click on the processor and navigate to the **Properties** tab. 
+
+Select **flowfile-attribute** for the **Destination**. 
+Click on the **+** in the upper right corner of the properties. In the pop-up dialog window, enter `topicName` into the **Property Name** field and click **Ok**. Enter `$.record.commit.collection` into the edit field and click **Ok**. Click **Apply** to close the processor. 
+
+### Adding a `RouteOnAttribute` Processor
+
+Drag a new Processor onto the Canvas, just below the **EvaluateJsonPath** processor. 
+
+Enter **RouteOn** into the **Filter types** field on top left and select the **RouteOnAttribute** processor. Click **Add** to place it on the canvas.
+
+Double-click and naviagate to the **Properties** tab. Again we don't have to update existing properties. Rather we will create a new property by clicking on the **+** in the upper right corner of the properties. In the pop-up dialog window, enter `passOn` into the **Property Name** field and click **Ok**. Enter `${topicName:in("app.bsky.feed.post","app.bsky.feed.repost","app.bsky.feed.like", "app.bsky.graph.follow", "app.bsky.actor.profile")}` into the edit field and click **Ok**. Click **Apply** to close the processor. 
+
+Now we have all the processors in place, all which is left to do is connect them together. 
+
+Drag a connection from **EvaluateJsonPath** to **RouteOnAttribute** and select the **matched** relationship and click **Add**. The other 2 relationship we have to terminate on that processor. Double click on the **EvaluateJsonPath** processor, navigate to **Relationships** and click on **terminate** for the **failure** and **unmatche** relationship. Click **Apply** and now the marker on the processor is replaced by a red stopped icon. 
+
+Last but not least, Drag a connection from **RouteOnAttribute** to **PublishKafka** and select the **passOn** relationship and click **Add**. This relationship exists because we added it when we defined the **RouteOnAttribute** processor above. Double click on the **RouteOnAttribute** processor, navigate to **Relationships** and click on **terminate** for the **unmatche** relationship. Click **Apply** and now the marker on the processor is replaced by a red stopped icon. Let's also terminate all the relationship of the **PublishKafka** processor, by double clicking on the **PublishKafka** processor, navigate to **Relationships** and click on **terminate** for the **failure** and **success** relationship. Click **Apply**. 
+
 ### Adding a `PublishKafka` Processor
 
 Drag a new Processor onto the Canvas, just below the **ConsumeKafka** processor. 
@@ -309,41 +370,6 @@ Let's configure the new processor. Double-click on the `PublishKafka` and naviga
 Click **Apply** to leave the configuration settings.
 
 We will use the value of the `/record/commit/collection` as the target topic name. Let's use an `EvaluateJsonPath` processor to get this value and store it in the `topicName` variable.
-
-### Set Variable using `EvaluateJsonPath` processor
-
-Drag a `EvaluateJsonPath` processor onto the Canvas, in between the **ConsumeKafka** and **PublishKafka** processor. 
-
-Double click on the processor and navigate to the **Properties** tab. 
-
-Select **flowfile-attribute** for the **Destination**. 
-Click on the **+** in the upper right corner of the properties. In the pop-up dialog window, enter `topicName` into the **Property Name** field and click **Ok**. Enter `$.record.commit.collection` into the edit field and click **Ok**. Click **Apply** to close the processor. 
-
-### Connecting the first two Processors
-
-Drag a connection from the **ConsumeKafka** processor to the **EvaluateJsonPath** and drop it. 
-
-![Alt Image Text](./images/nifi-drag-connection.png "Schema Registry UI")
-
-Make sure that the `success` **Relationship** is enabled and click **Add**. The **ConsumeKafka** still has an warning marker, because the **parse failure** relationship is not used. Double click on the **ConsumeKafka** processor, navigate to **Relationships** and click **terminate** on the **parse failure** relationship. Click **Apply** and now the marker is replaced by a red stopped icon. 
-
-We can not directly connnect to the **PublishKafka**, as we only want to route the messages for this 5 collections: `app.bsky.feed.post`, `app.bsky.feed.repost`, `app.bsky.feed.like`, `app.bsky.graph.follow` and `app.bsky.actor.profile`. All the others should be ignored. 
-
-We can use a `RouteOnAttribute` processor for that. 
-
-### Adding a `RouteOnAttribute` Processor
-
-Drag a new Processor onto the Canvas, just below the **EvaluateJsonPath** processor. 
-
-Enter **RouteOn** into the **Filter types** field on top left and select the **RouteOnAttribute** processor. Click **Add** to place it on the canvas.
-
-Double-click and naviagate to the **Properties** tab. Again we don't have to update existing properties. Rather we will create a new property by clicking on the **+** in the upper right corner of the properties. In the pop-up dialog window, enter `passOn` into the **Property Name** field and click **Ok**. Enter `${topicName:in("app.bsky.feed.post","app.bsky.feed.repost","app.bsky.feed.like", "app.bsky.graph.follow", "app.bsky.actor.profile")}` into the edit field and click **Ok**. Click **Apply** to close the processor. 
-
-Now we have all the processors in place, all which is left to do is connect them together. 
-
-Drag a connection from **EvaluateJsonPath** to **RouteOnAttribute** and select the **matched** relationship and click **Add**. The other 2 relationship we have to terminate on that processor. Double click on the **EvaluateJsonPath** processor, navigate to **Relationships** and click on **terminate** for the **failure** and **unmatche** relationship. Click **Apply** and now the marker on the processor is replaced by a red stopped icon. 
-
-Last but not least, Drag a connection from **RouteOnAttribute** to **PublishKafka** and select the **passOn** relationship and click **Add**. This relationship exists because we added it when we defined the **RouteOnAttribute** processor above. Double click on the **RouteOnAttribute** processor, navigate to **Relationships** and click on **terminate** for the **unmatche** relationship. Click **Apply** and now the marker on the processor is replaced by a red stopped icon. Let's also terminate all the relationship of the **PublishKafka** processor, by double clicking on the **PublishKafka** processor, navigate to **Relationships** and click on **terminate** for the **failure** and **success** relationship. Click **Apply**. 
 
 ### Create a Process Group with all the 4 processors
 
@@ -370,20 +396,15 @@ Now our data flow is ready, so let's run it.
 But before we can do that, we have to create the 5 target Kafka topics
 
 ```bash
-docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic app.bsky.feed.post
- --replication-factor 3 --partitions 8
+docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic app.bsky.feed.post --replication-factor 3 --partitions 8
  
-docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic app.bsky.feed.repost
- --replication-factor 3 --partitions 8
+docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic app.bsky.feed.repost --replication-factor 3 --partitions 8
  
-docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic app.bsky.feed.like
- --replication-factor 3 --partitions 8 
+docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic app.bsky.feed.like --replication-factor 3 --partitions 8 
  
-docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic app.bsky.graph.follow
- --replication-factor 3 --partitions 8 
+docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic app.bsky.graph.follow --replication-factor 3 --partitions 8 
  
-docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic app.bsky.actor.profile
- --replication-factor 3 --partitions 8   
+docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic app.bsky.actor.profile --replication-factor 3 --partitions 8   
 ```
 
 ### Starting the Data Flow 
