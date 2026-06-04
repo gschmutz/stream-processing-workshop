@@ -18,27 +18,20 @@
       data_centers: 'dc1,dc2'
       data_center_to_use: 0
       copy_cookbook_data_folder: true
-      # ========================================================================
-      # External Services
-      # ========================================================================
-      external:
-          KAFKA_enable: false
-          KAFKA_bootstrap_servers:
-          KAFKA_security_protocol:
-          KAFKA_sasl_mechanism:
-          SCHEMA_REGISTRY_enable: false
-          SCHEMA_REGISTRY_url:
-          S3_enable: false
-          S3_endpoint:
-          S3_default_region:
-          S3_path_style_access: false
-          S3_admin_bucket_name: 'admin-bucket'
-          ADLS_enable: false
-          ADLS_storage_account:
+
       # ========================================================================
       # Platys Services
       # ========================================================================
       PROVISIONING_DATA_enable: false
+      PROVISIONING_DATA_additional_data_folder: 
+
+      #
+      # ===== Platys Modern Data Platform Init ========
+      #    
+      PLATYS_MDP_INIT_enable: true
+      PLATYS_MDP_INIT_env_variables: ''
+      PLATYS_MDP_INIT_use_env_file: false
+      PLATYS_MDP_INIT_env_filename: '.env'
       #
       # ===== Apache Zookeeper ========
       #

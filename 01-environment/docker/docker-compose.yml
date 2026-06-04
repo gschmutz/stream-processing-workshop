@@ -1052,7 +1052,44 @@ services:
       - ./artefacts:/output
       - ./data-transfer:/data-transfer
     init: true
+  #  ================================== Platys Modern Data Platform Init Service ========================================== #
+  platys-mdp-init:
+    image: trivadis/platys-mdp-init:latest
+    container_name: platys-mdp-init
+    hostname: platys-mdp-init
+    labels:
+      com.platys.name: platys-mdp-init
+      com.platys.description: Platys MDP Init Service
+    environment:
+      AWS_ACCESS_KEY: ${PLATYS_AWS_ACCESS_KEY:-V42FCGRVMK24JJ8DHUYG}
+      AWS_SECRET_ACCESS_KEY: ${PLATYS_AWS_SECRET_ACCESS_KEY:-bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza}
+      S3_ENDPOINT: http://minio-1:9000
+      S3_PATH_STYLE_ACCESS: 'true'
+      MC_HOST_minio-1: http://${PLATYS_AWS_ACCESS_KEY:-V42FCGRVMK24JJ8DHUYG}:${PLATYS_AWS_SECRET_ACCESS_KEY:-bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza}@minio-1:9000
+      MINIO_ACCESS_KEY_ID: ${PLATYS_AWS_ACCESS_KEY:-V42FCGRVMK24JJ8DHUYG}
+      MINIO_SECRET_ACCESS_KEY: ${PLATYS_AWS_SECRET_ACCESS_KEY:-bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza}
+      MINIO_URL: http://minio-1:9000
+      NIFI2_URL: https://nifi2-1:18083
+      NIFI2_VERSION: 2.0.0
+      NIFI2_USERNAME: nifi
+      NIFI2_PASSWORD: ${PLATYS_NIFI2_PASSWORD:-1234567890ACD}
+    volumes:
+      - ./data-transfer:/data-transfer
+      - ./init/platys-mdp-init:/docker-entrypoint-init.d/
+      - ./security/platys-mdp-init/credentials:/tmp/credentials.templ
+      - aws-credentials-vol:/tmp/.aws:RO
+      - nifi-config-vol:/opt/nifi/conf/
+    init: true
+    command:
+      - /bin/sh
+      - -c
+      - |
+        mkdir -p /tmp/.aws
+        eval "echo \"$$(cat /tmp/credentials.templ)\"" >> /tmp/.aws/credentials
+        sleep 30
+    restart: no
 volumes:
   data-transfer-vol:
     name: data_transfer_vol
+  aws-credentials-vol:
   nifi-config-vol:
