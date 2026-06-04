@@ -2,7 +2,7 @@
 
 ## Introduction
 
-In this workshop we will learn the basics of working with Apache Kafka. 
+In this workshop we will learn the basics of working with Apache Kafka. Make sure that you have created the environment as described in [Preparing the Environment](../01-environment/README.md).
 
 The main units of interest in Kafka are topics and messages. A topic is simply what you publish a message to, topics are a stream of messages.
 
@@ -309,31 +309,76 @@ kafka-topics  --bootstrap-server kafka-1:19092,kafka-2:19093 --delete --topic te
 
 ## Working with the `kcat` utility
 
-[kcat](https://github.com/edenhill/kcat) is a command line utility that you can use to test and debug Apache Kafka deployments. You can use `kcat` to produce, consume, and list topic and partition information for Kafka. Described as “netcat for Kafka”, it is a swiss-army knife of tools for inspecting and creating data in Kafka.
+[kcat](https://github.com/edenhill/kcat) is a command line utility that you can use to test and debug Apache Kafka deployments. You can use `kafkacat` to produce, consume, and list topic and partition information for Kafka. Described as “netcat for Kafka”, it is a swiss-army knife of tools for inspecting and creating data in Kafka.
 
 It is similar to the `kafka-console-producer` and `kafka-console-consumer` you have learnt and used above, but much more powerful and also simpler to use. 
 
 `kcat` is an open-source utility, available at <hhttps://github.com/edenhill/kcat>. It is not part of the Confluent platform and also not part of the Data Platform we run in docker. 
 
-You can run **kcat** as a standalone utility on any **Linux** or **Mac** computer and remotely connect to a running Kafka cluster. 
+You can run `kcat` as a standalone utility on any **Linux** or **Mac** computer and remotely connect to a running Kafka cluster. 
 
 ### Installing `kcat`
 
 Officially `kcat` is either supported on **Linux** or **Mac OS-X**. There is no official support for **Windows** yet. There is a Docker image for `kcat` from Confluent as well.
 We will show how to install it on **Ubunut** and **Mac OS-X**. 
 
-In all the workshops we will assume that **Kcat** (used to be named **Kafkact** before version `1.7`) is installed locally on the Docker Host and that `dataplatform` alias has been added to `/etc/hosts`. 
+In all the workshops we will assume that `kcat` (used to be named `kafkacat` before version `1.7`) is installed locally on the Docker Host and that `dataplatform` alias has been added to `/etc/hosts`. 
 
-#### Ubuntu
+#### Ubuntu 20.04 or 22.04
 
-You can install `kcat` directly on the Ubuntu environment. 
+You can install `kcat` directly on the Ubuntu environment. On Ubuntu 20.04 and 22.04 version 1.7 of `kcat` is not available and therefore you still have to install `kafkacat`. 
 
-Run apt-get update and install the 2 dependencies as well as **kcat**
+First installhe Confluent public key, which is used to sign the packages in the APT repository:
+
+```bash
+wget -qO - https://packages.confluent.io/deb/5.2/archive.key | sudo apt-key add -
+```
+
+Add the repository to the `/etc/apt/sources.list`:
+
+```bash
+sudo add-apt-repository "deb [arch=amd64] https://packages.confluent.io/deb/5.2 stable main"
+```
+
+Run apt-get update and install the 2 dependencies as well as **kafkacat**
  
 ```bash
 sudo apt-get update
 sudo apt-get install librdkafka-dev libyajl-dev
+sudo apt-get install kafkacat
+```
+
+You can define an alias, so that you can work with `kcat` even though you "only" have `kafkacat`:
+
+```bash
+alias kcat=kafkacat
+```
+
+let's see the version
+
+```
+bfh@casmio-70:~$ kcat -V
+kafkacat - Apache Kafka producer and consumer tool
+https://github.com/edenhill/kafkacat
+Copyright (c) 2014-2019, Magnus Edenhill
+Version 1.6.0 (JSON, Transactions, librdkafka 1.8.0 builtin.features=gzip,snappy,ssl,sasl,regex,lz4,sasl_gssapi,sasl_plain,sasl_scram,plugins,zstd,sasl_oauthbearer)
+```
+
+#### Ubuntu 23.04
+
+```bash
 sudo apt-get install kcat
+```
+
+let's see the version
+
+
+```bash
+$ kcat -V
+kcat - Apache Kafka producer and consumer tool
+https://github.com/edenhill/kcat
+Copyright (c) 2014-2021, Magnus Edenhill
+Version 1.7.1 (JSON, Transactions, IncrementalAssign, librdkafka 2.0.2 builtin.features=gzip,snappy,ssl,sasl,regex,lz4,sasl_gssapi,sasl_plain,sasl_scram,plugins,zstd,sasl_oauthbearer)
 ```
 
 #### Mac OS-X
@@ -343,25 +388,28 @@ To install `kcat` on a Macbook, just run the following command:
 ```bash
 brew install kcat
 ```
+let's see the version
+
+```bash
+% kcat -V
+kcat - Apache Kafka producer and consumer tool
+https://github.com/edenhill/kcat
+Copyright (c) 2014-2021, Magnus Edenhill
+Version 1.7.0 (JSON, Avro, Transactions, IncrementalAssign, librdkafka 2.0.2 builtin.features=gzip,snappy,ssl,sasl,regex,lz4,sasl_gssapi,sasl_plain,sasl_scram,plugins,zstd,sasl_oauthbearer,http,oidc)
+```
 
 #### Docker Container
 
-There is also a Docker container from Confluent which can be used to run `kcat`
+There is also a Docker container which can be used to run `kcat`
 
 ```bash
-docker run --tty --network streaming-data-platform edenhill/kcat:1.7.1 kcat
+docker run --tty --network kafka-workshop edenhill/kcat:1.7.1 kcat
 ```
 
 By setting an alias, we can work with the dockerized version of `kcat` as it would be a local command. All further examples assume that this is the case. 
 
 ```bash
-alias kcat='docker run --tty --network streaming-data-platform edenhill/kcat:1.7.1 kcat'
-```
-
-The other option for using `kcat` is as part of the Data Platform, where `kcat` is running as a container. This method will be used in the other workshops.
-
-```bash
-docker exec -ti kcat kcat
+alias kcat='docker run --tty --network host --add-host dataplatform:127.0.0.1 edenhill/kcat:1.7.1 kcat'
 ```
 
 Check the [Running in Docker](https://github.com/edenhill/kcat#running-in-docker) to see more options for using `kcat` with Docker. 
@@ -374,7 +422,7 @@ An other option for Windows is to run it as a Docker container as shown above.
 
 ### Display `kcat` options
 
-`kcat` has many options. If you just enter `kcat` without any options, all the options with a short description is shown on the console. Additionally kcat will show the version which is installed. This is currently **1.7.0** if installed on Mac and **1.6.0** if on Ubuntu. 
+`kcat` has many options. If you just enter `kcat` without any options, all the options with a short description are shown on the console. Additionally kcat will show the version which is installed. This is currently **1.7.0** if installed on Mac and **1.6.0** if on Ubuntu. 
 
 
 ```bash
@@ -562,51 +610,48 @@ Now let's use it to Produce and Consume messages.
 
 ### Consuming messages using `kcat`
 
-All the examples below are shown using `kcat`. If you are still on the older version (before `1.7` replace `kcat` with `kafkacat`). 
-
-**Note:** Replace `kafka-1` by the IP address of the Kafka broker if needed.
-If you are using the dockerized version, you might have to add the port `19092` to `kafka-1` in all of the samples below (i.e. `kafka-1:19092`).
+All the examples below are shown using `kcat`. If you are still on the older version (before `1.7` replace `kcat` with `kafkacat` or specify an alias as shown above). 
 
 The simplest way to consume a topic is just specifying the broker and the topic. By default all messages from the beginning of the topic will be shown. 
 
 ```bash
-kcat -b kafka-1 -t test-topic
+kcat -b dataplatform -t test-topic
 ```
 
 If you want to start at the end of the topic, i.e. only show new messages, add the `-o` option. 
 
 ```bash
-kcat -b kafka-1 -t test-topic -o end
+kcat -b dataplatform -t test-topic -o end
 ```
 
 To show only the last message (one for each partition), set the `-o` option to `-1`. `-2` would show the last 2 messages.
 
 ```bash
-kcat -b kafka-1 -t test-topic -o -1
+kcat -b dataplatform -t test-topic -o -1
 ```
 
 To show only the last message from exactly one partition, add the `-p` option
 
 ```bash
-kcat -b kafka-1 -t test-topic -p1 -o -1
+kcat -b dataplatform -t test-topic -p1 -o -1
 ```
 
 You can use the `-f` option to format the output. Here we show the partition (`%p`) as well as key (`%k`) and value (`%s`):
 
 ```bash
-kcat -b kafka-1 -t test-topic -f 'Part-%p => %k:%s\n'
+kcat -b dataplatform -t test-topic -f 'Part-%p => %k:%s\n'
 ```
 
 If there are keys which are Null, then you can use `-Z` to actually show NULL in the output:
 
 ```bash
-kcat -b kafka-1 -t test-topic -f 'Part-%p => %k:%s\n' -Z
+kcat -b dataplatform -t test-topic -f 'Part-%p => %k:%s\n' -Z
 ```
 
 There is also the option `-J` to have the output emitted as JSON.
 
 ```bash
-kcat -b kafka-1 -t test-topic -J
+kcat -b dataplatform -t test-topic -J
 ```
 
 ### Producing messages using `kcat`
@@ -614,30 +659,124 @@ kcat -b kafka-1 -t test-topic -J
 Producing messages with `kcat` is as easy as consuming. Just add the `-P` option to switch to Producer mode.
 
 ```bash
-kcat -b kafka-1 -t test-topic -P
+kcat -b dataplatform -t test-topic -P
 ```
 
 To produce with key, specify the delimiter to split key and message, using the `-K` option. 
 
 ```bash
-kcat -b kafka-1 -t test-topic -P -K , -X topic.partitioner=murmur2_random
+kcat -b dataplatform -t test-topic -P -K , -X topic.partitioner=murmur2_random
 ```
 
 Find some more example on the [kcat GitHub project](https://github.com/edenhill/kcat) or in the [Confluent Documentation](https://docs.confluent.io/current/app-development/kafkacat-usage.html).
 
-### Send "realistic" test messages to Kafka using Mockaroo and kcat
+### Send "realistic" test messages to Kafka using Mockaroo and `kcat`
 
 In his [blog article](https://rmoff.net/2018/05/10/quick-n-easy-population-of-realistic-test-data-into-kafka-with-mockaroo-and-kafkacat/) Robin Moffatt shows an interesting and easy approach to send realistic mock data to Kafka. He is using [Mockaroo](https://mockaroo.com/), a free test data generator and API mocking tool, together with [kcat](https://github.com/edenhill/kcat) to produce mock messages. 
 
 Taking his example, you can send 10 orders to test-topic (it will not work if you use the dockerized version of `kcat`)
 
 ```bash
-curl -s "https://api.mockaroo.com/api/d5a195e0?count=20&key=ff7856d0"| kcat -b kafka-1 -t test-topic -P
+curl -s "https://api.mockaroo.com/api/d5a195e0?count=20&key=ff7856d0"| kcat -b dataplatform -t test-topic -P
 ```
 
-## Using Kafka Manager
+## Publishing a "real" data stream to Kafka
 
-[Kafka Manger](https://github.com/yahoo/kafka-manager) is an open source tool created by Yahoo for managing a Kafka cluster. It has been started as part of the **dataplatform** and can be reached on <http://dataplatform:28104/>.
+Next we will see a more realistic example using the [Streaming Synthetic Sales Data Simulator](https://github.com/TrivadisPF/various-bigdata-prototypes/tree/master/streaming-sources/sales-simulator). It is available as a [Docker Image](https://hub.docker.com/repository/docker/trivadis/sales-simulator).
+
+We can use it to stream simulated sales data into Kafka topics. By no longer manually producing data, we can see unbounded data "in action". 
+
+First let's create the necessary 3 topics:
+
+```bash
+docker exec -ti kafka-1 kafka-topics --create --bootstrap-server kafka-1:19092 --topic demo.products --replication-factor 3 --partitions 6 --config cleanup.policy=compact --config segment.ms=100 --config delete.retention.ms=100 --config min.cleanable.dirty.ratio=0.001 --if-not-exists --if-not-exists
+
+docker exec -ti kafka-1 kafka-topics --create --bootstrap-server kafka-1:19092 --topic demo.purchases --replication-factor 3 --partitions 6 --if-not-exists
+
+docker exec -ti kafka-1 kafka-topics --create --bootstrap-server kafka-1:19092 --topic demo.inventories --replication-factor 3 --partitions 6 --if-not-exists
+```
+
+The two topics `demo.purchases` and `demo.inventories` are created using the default retention time of 7 days, where as the topic `demo.products` is created using Kafka's log compaction feature with very frequent log compaction settings (for aggressively compacting logs, which increases resource compaction, but is good for demoing).
+
+The default configuration assumes that the container runs in the same network as the Kafka cluster, therefore we have to pass the name of the network when running the container. You can list the various docker networks with the following command:
+
+```bash
+docker network list
+```
+
+For the Kafka workshop environment, it should be `kafka-workshop`. If you are using the workshop with another environment, then you have to adapt the `--network` option in following  statement: 
+
+```bash
+docker run -ti --rm --network kafka-workshop -e KAFKA_BOOTSTRAP_SERVERS=kafka-1:19092,kafka-2:19093 trivadis/sales-simulator:latest
+```
+
+Because we connect to the network of the docker compose stack, we can use the service names (`kafka-1`) on port `19092` to connect to a kafka broker. We do that using the `KAFKA_BOOTSRAP_SERVERS` variable to override the default settings of the simulator.
+
+Alternatively you can also connect from "outside" to the docker compose stack, for example if you want to run the simulator locally and connect against a docker stack running remotely. The `dataplatform` alias needs to refer to the docker compose stack. 
+
+```bash
+docker run -ti --rm -e KAFKA_BOOTSTRAP_SERVERS=dataplatform:9092,dataplatform:9093 trivadis/sales-simulator:latest
+```
+
+Now use `kcat` to see the data streaming into the `demo.purchases` topic.
+
+```bash
+kcat -b dataplatform -t demo.purchases -q -f 'Part-%p => %k:%s\n'
+```
+
+You can also use the **Live Tail** option of **AKHQ** (see next section).
+
+## Using AKHQ
+
+[AKHQ](https://akhq.io/) is an open source Kafka GUI for Apache Kafka to manage topics, topics data, consumers group, schema registry, connect and more... It has been started as part of the **dataplatform** and can be reached on <http://dataplatform:28107/>.
+
+By default you will end-up on the topics overview page
+
+![Alt Image Text](./images/akhq-homepage.png "AKHQ Homepage")
+
+Navigate to **Nodes** in the menu on the left to see the Kafka cluster with its 3 brokers.
+
+![Alt Image Text](./images/akhq-nodes.png "Kafka Manager Add Cluster")
+
+To see again the topics, click on **Topics** in the menu.
+
+Currently there is only one topic shown, due to the default setting of hiding internal topics. 
+
+You can select **Show all topics** in the drop down to also view the internal topics, such as `__consumer_offsets`. 
+
+![Alt Image Text](./images/akhq-topics-all.png "AKHQ Homepage")
+
+To view the data stored in a topic, click on the **magnifying glass** icon on the right side
+
+![Alt Image Text](./images/akhq-topics-details.png "Kafka Manager Add Cluster")
+
+and you should see the first page of messages of the topic
+
+![Alt Image Text](./images/akhq-topics-details1.png "Kafka Manager Add Cluster")
+
+You can also view the live data arriving in a topic by navigating to **Live Tail** in the menu on the left. You might want to re-run the **Streaming Synthetic Sales Data Generator** seen before, if it is no longer running.
+
+Select one or more topics you wish to see the live data streaming in
+
+![Alt Image Text](./images/akhq-live-tail.png "Kafka Manager Add Cluster")
+
+Click on the **magnifying glass** icon and the data will be shown as it arrives in the topic
+
+![Alt Image Text](./images/akhq-live-tail2.png "Kafka Manager Add Cluster")
+
+If you want to empty a topic, then navigate to **Topics** in the menu, select a topic by clicking on the **magnifying glass** icon on the right side
+
+![Alt Image Text](./images/akhq-empty-topic.png "Kafka Manager Add Cluster")
+
+and click **Empty Topic**.
+
+AKHQ can also be used to copy data from one topic to another (**Copy Topic** button) and produce single messages to a topic (**Produce to topic** button).
+
+Other options in the menu allow to view the **Schema Registry**, Kafka Connect clusters (**connect-1**) and KSQLDB clusters (**ksqldb**).
+
+## Using CMAK (Cluster Manager for Apache Apache Kafka)
+
+[CMAK](https://github.com/yahoo/CMAK), previously known as **Kafka Manager** is an open source tool created by Yahoo for managing a Kafka cluster. It has been started as part of the **dataplatform** and can be reached on <http://dataplatform:28104/>.
 
 ![Alt Image Text](./images/kafka-manager-homepage.png "Kafka Manager Homepage")
 
