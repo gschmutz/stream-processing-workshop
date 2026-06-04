@@ -1,6 +1,9 @@
-# Modern Data Platform Cookbooks  - v1.19.0
+# Modern Data Platform Cookbooks  - v1.20.0
 
 Inhere we are documenting cookbooks on how to use the platform:
+
+ * **Data Catalogs**
+   * [Using Open Data Discovery Platform (ODD)](./recipes/using-odd/README) - `1.20.0`
 
  * **Airflow**
    * [Schedule and Run Simple Python Application with Airflow](./recipes/airflow-schedule-python-app/README) - `1.16.0`
@@ -45,6 +48,7 @@ Inhere we are documenting cookbooks on how to use the platform:
 
  * **Iceberg Table Format**
    * [Spark with Iceberg](./recipes/iceberg-with-spark/README) - `1.16.0`
+   * [Spark with Iceberg and Polaris](./recipes/spark-iceberg-polaris/README) - `1.19.0`
 
  * **Hadoop HDFS**
    * [Querying HDFS data using Presto](./recipes/querying-hdfs-with-presto/README)
@@ -75,6 +79,8 @@ Inhere we are documenting cookbooks on how to use the platform:
    * [SASL/SCRAM Authentication with Zookeeper](./recipes/kafka-sasl-scram-authentication-zk/README) - `1.17.0`
    * [SASL/SCRAM Authentication with KRaft](./recipes/kafka-sasl-scram-authentication-kraft/README) - `1.17.0`
    * [SASL/PLAIN Authentication](./recipes/kafka-sasl-plain-authentication/README) - `1.17.0`
+   * [Working with real and synthetic data streams](./recipes/kafka-working-with-real-and-synthetic-streams/README) - `1.19.0`
+	* [Using Shadowtraffic for simulating production traffic on Kafka](./recipes/using-shadowtraffic-with-kafka/README) - `1.19.0`
 
  * **Confluent Enterprise Platform**
    * [Using Confluent Enterprise Tiered Storage](./recipes/confluent-tiered-storage/README) - `1.13.0`
@@ -90,6 +96,9 @@ Inhere we are documenting cookbooks on how to use the platform:
 
  * **Apicurio Registry**
    * [Apicurio Registry with SQL Storage (PostgreSQL)](./recipes/apicurio-with-database-storage/README) - `1.14.0`
+
+ * **DuckDB**
+ 	* [Using DuckDB](./recipes/using-duckdb/README) - `1.19.0` 
 
  * **Oracle RDBMS**
    * [Using private (Trivadis) Oracle EE image](./recipes/using-private-oracle-ee-image/README) - `1.13.0`    

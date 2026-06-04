@@ -2,6 +2,108 @@
 
 See [Upgrade to a new platform stack version](https://github.com/TrivadisPF/platys/blob/master/documentation/upgrade-platform-stack) for how to upgrade to newer version.
 
+## What's new in 1.20.0
+
+### New Services
+
+ * OpenClaw
+ * AutoMQ
+ * Moat
+ * RustFS
+ * Lightdash
+ * Minio Aistor
+ * Redis MCP
+ * Mongo MCP
+ * Neo4J MCP
+ * Postgresql MCP
+ * Better Chatbot
+ * CockroachDB
+ * Cube.js
+ * RisingWave MCP
+
+### Version upgrades
+
+ * Update `ollama` to `0.16.3`
+ * Update `opa` to `1.17.0` 
+ * Update `opal` to `0.9.6`
+ * Update `starburstdata` to `480-e.1`
+ * Update `n8n` to `2.25.2`
+ * Update `fluss` to `0.9.1-incubating`
+ * Update `zeppelin` to `0.12.0`
+ * Update `lakefs` to `1.81`
+ * Update `trino` to `481`
+ * Update `telegraf` to `1.38`
+ * Update `redis` to `8.2`
+ * Update `valkey` to `8.1.3`
+ * Update `neo4j` to `2026-community`
+ * Update `graphdb` to `11.3.2`
+ * Update `qdrant` to `1.17`
+ * Update `oracle-adb` to `26.2.4.2-26ai`
+ * Update `risingwave` to `v2.8.4`
+ * Update `nifi` to `2.9.0`
+ * Update `singlestore` to `0.2.80`
+ * Update `risingwave-console` to `v0.7.4-pgbundle`
+ * Update `langflow` to `1.9.6`
+ * Update `flowise` to `3.1.2`
+ * Update `dataiku-dss` to `14.5.1`
+ * Update `confluent-platform` to `8.1.3`
+ * Update `kafka` to `4.3.0`
+ * Update `confluent-ccc-ng` to `2.5.0`
+ * Update `arroyo` to `master`
+ * Update `presto` to `0.297` 
+ * Update `drill` to `1.22.0`
+ * Update `kong-gateway` to `3.11`
+ * Update `nessie`to `0.107.6`
+ * Update `gravitino` to `1.1.1`
+ * Update `vault` to `2.0`
+ * Update `garage` to `v2.3.0`
+ * Update `nats` to `2.14`
+ * Update `emqx` to `5.10.4`
+ * Update `emqx-ee` to `4.4.36`
+ * Update `mosquitto` to `2.1-alpine`
+ * Update `hivemq-3` to `4.52.0`
+ * Update `hivemq-4` to `4.52.0`
+ * Update `trino-lb` to `0.6.0`
+ * Update `markdown-viewer` to `1.2.5`
+ * Update `markdown-madness` to `1.2.5`
+
+### Enhancements
+
+ * add default values for environment variables `PUBLIC_IP=127.0.0.1` and `DOCKER_HOST_IP=localhost`
+ * change docker image for the iceberg rest service from `tabulario/iceberg-rest` to `apache/iceberg-rest-fixture`
+ * add aistor as an editon of Minio
+ 
+### Breaking Changes
+ 
+ * rename `SPARK_install_jars_packages` to `SPARK_install_java_packages`
+ * new Trino/Starburst and Presto configuation for Hive S3 named to `hive.properties` - `minio.properties` is deprecated and will be removed in `1.21.0`
+ * rename `mcp-trino` to `trino-mcp`
+ * change from `neo4j-cypher-mcp` to `neo4j-mcp` (official one)
+
+## What's new in 1.19.1
+
+### New Services
+
+ * Open Data Discovery Platform (ODD)
+
+### Version upgrades
+
+ * Update `openmetadata` to `1.11.6` 
+ * Update `datahub` to `v1.4.0-preview`
+ * Update `langflow` to `1.7.3`
+ * Update `n8n` to `2.7.5`
+
+### Enhancements
+
+ * support for Hive Metastore Iceberg REST Catalog in Apache Spark (catalog `hiverest`)
+ * add Monitoring support to Datahub
+ 
+### Bug Fixes
+
+ * fix bug in DataHub support where gms service had wrong dependency
+ * fix Datahub CLI version for ingestion
+ * fix setup of OpenMetadata catalog
+
 ## What's new in 1.19.0
 
 The Modern Data Platform version 1.18.0 contains the following bug fixes and enhancements:
@@ -18,57 +120,172 @@ The Modern Data Platform version 1.18.0 contains the following bug fixes and enh
  * Platys MDP Docker Deploy
  * Presidio Analyzer
  * Presidio Anonymizer
+ * Lakekeeper
+ * MCP Inspector
+ * Allure Report
+ * Nimtable
+ * EHRBase
+ * OpenEHR Tool
+ * Polaris
+ * RisingWave Console
+ * Gravitino
+ * Gravitino Iceberg Rest Server
+ * Puppy Graph
+ * Azurite
+ * Cruise Control
+ * Confluent Control Center Next Generation
+ * XTDB
+ * Shadow Traffic
+ * PyIceberg
+ * Apache Fluss
+ * Data Contract Editor
+ * Data Contract CLI API
+ * Klag (new kafka lag exporter)
+ * Lakevision
+ * Graphiti
+ * OpenMetadata
  
 ### Version upgrades
 
- * Update `milvus` to `v2.5.12` 
- * Update `langflow` to `1.4.2`
- * Update `n8n` to `1.95.3`
- * Update `minio` to `RELEASE.2025-05-24T17-08-30Z`
- * Update `dgraph` to `v24.1.3`
- * Update `memgraph` to `3.2.1`
- * Update `airflow` to `2.11.0` and `3.0.1`
- * Update `nifi` to `2.4.0`
- * Update `nifi-registry` to `2.4.0`
- * Update `nifi-toolkit` to `2.4.0`
- * Update `ollama` to `0.9.0`
- * Update `local-ai` to `v2.29.0`
+ * Update `milvus` to `v2.6.8` 
+ * Update `attu` to `v2.6`
+ * Update `langflow` to `1.7.2`
+ * Update `n8n` to `2.3.6`
+ * Update `minio` to `RELEASE.2025-09-07T16-13-09Z`
+ * Update `dgraph` to `v25.1.0`
+ * Update `memgraph` to `3.7.2`
+ * Update `airflow` to `2.11.0` and `3.1.6`
+ * Update `nifi` to `2.7.2`
+ * Update `nifi-registry` to `2.7.2`
+ * Update `nifi-toolkit` to `2.7.2`
+ * Update `ollama` to `0.14.2`
+ * Update `local-ai` to `v3.9.0`
  * Update `anaconda` to `2024.10-1`
- * Update `grafana` to `12.0.1`
+ * Update `grafana` to `12.4.0-20977568970-ubuntu`
  * Update `memcached` to `1.6`
- * Update `flowise` to `3.0.1`
- * Update `trino` to `476`
- * Update `risingwave` to `v2.4.1`
- * Update `confluent-platform` to `7.9.1`
- * Update `apicurio-registry` to `2.6.11.Final`
- * Update `materialize` to `v0.146.1`
- * Update `arroyo` to `0.14.0`
+ * Update `flowise` to `3.0.12`
+ * Update `trino` to `479`
+ * Update `starburstdata` to `477-e.2`
+ * Update `risingwave` to `v2.7.1`
+ * Update `confluent-platform` to `8.1.1`
+ * Update `apicurio-registry` to `2.6.13.Final`
+ * Update `materialize` to `latest`
+ * Update `arroyo` to `0.15.0`
  * Update `sqlflow` to `0.6.0`
- * Update `timeplus-enterprise` to `2.8.1`
- * Update `timeplus-proton` to `1.6.16-r`
- * Update `burrow` to `v1.9.4`
+ * Update `timeplus-enterprise` to `2.8.9`
+ * Update `timeplus-proton` to `3.0.13`
+ * Update `burrow` to `v1.9.5`
  * Update `debezium-server` to `3.0.0.Final`
- * Update `tika` to `3.2.0.0-full`
- * Update `opa` to `1.6.0-dev`
- * Update `enterprise-opa` to `1.41.1-23-debug`
+ * Update `tika` to `3.2.3.0-full`
+ * Update `opa` to `1.13.0-dev`
+ * Update `enterprise-opa` to `1.42.0`
+ * Update `opal` to `0.9.2`
  * Update `datahub` to `head`
- * Update `openmetadata` to `1.7.1`
+ * Update `openmetadata` to `1.11.5`
  * Update `amundsen-frontend` to `4.3.0`
  * Update `amundsen-search` to `4.2.0`
  * Update `amundsen-metadata` to `3.13.0`
- * Update `data-product-portal` to `0.3.1`
+ * Update `data-product-portal` to `0.4.2`
  * Update `marquez` to `0.51.1`
  * Update `ckan` to `2.10`
  * Update `ckan-datapusher` to `0.0.21`
- * Update `mage-ai` to `0.9.76`
- * Update `kestra` to `v0.22.13`
+ * Update `mage-ai` to `0.9.78`
+ * Update `kestra` to `v1.0`
  * Update `mlfow` to `v2.22.1`
- * Update `dataiku` to `13.4.1`
- * Update `tyk-gateway` to `v5.7`
- * Update `tykio/tyk-pump-docker-pub` to `v1.12`
+ * Update `dataiku` to `14.3.0`
+ * Update `tyk-gateway` to `v5.8`
+ * Update `tyk-pump` to `v1.13`
  * Update `kong-gateway` to `3.10`
  * Update `s3fs` to `1.95`
  * Update `spring-boot-admin` to `3.4.1`
+ * Update `sqlserver` to `2025-latest`
+ * Update `dremio` to `26.0`
+ * Update `streampipes` to `0.98.0`
+ * Update `nessie` to `0.106.1`
+ * Update `unity-catalog` to `main`
+ * Update `unity-catalog-main` to `main`
+ * Update `flink` to `2.1.0-scala_2.12-java17`
+ * Update `postgresql` to `18` 
+ * Update `oracle-free` to `23.26.0.0`
+ * Update `oracle-adb` to `25.9.3.2-23ai`
+ * Update `kafka` to `4.1.1`
+ * Update `duckdb` to `v1.4.3`
+ * Update `hive-metastore` to `4.2.0`
+ * Update `atlas` to `2.4.0`
+ * Update `presto` to `0.296`
+ * Update `redis-stack` to `7.4.0-v8`
+ * Update `datastax` to `6.9.17`
+ * Update `solr` to `9.10`
+ * Update `elasticsearch` to `8.19.10` and `9.2.4`
+ * Update `kibana` to `8.19.10` and `9.2.4`
+ * Update `opensearch` to `3`
+ * Update `opensearch-dashboards` to `3`
+ * Update `splunk` to `10.0`
+ * Update `janusgraph` to `1.2.0-20251114-142114.b424a8f`
+ * Update `quite` to `1.10.0`
+ * Update `arcadedb` to `25.12.1`
+ * Update `graphdb` to `11.2.1`
+ * Update `telegraf` to `1.37`
+ * Update `influxdb` to `1.12` and `2.8`
+ * Update `kapacitor` to `1.8` 
+ * Update `questdb` to `9.3.1`
+ * Update `kudu` to `1.18`
+ * Update `chroma` to `1.4.2.dev24`
+ * Update `qdrant` to `v1.16`
+ * Update `weaviate` to `1.34.10-c84eba1`
+ * Update `infinity` to `v0.6.14`
+ * Update `druid` to `35.0.1`
+ * Update `pinot` to `1.4.0`
+ * Update `starrocks` to `4.0-latest`
+ * Update `clickhouse` to `25.12`
+ * Update `ignite` to `3.1.0`
+ * Update `prometheus` to `v3.9.1`
+ * Update `prometheus-pushgateway` to `v1.11.2`
+ * Update `prometheus-nodeexporter` to `v1.10.2`
+ * Update `prometheus-alertmanager` to `v0.30.1`
+ * Update `tile38` to `1.37.0`
+ * Update `yugabyte` to `2025.2.0.0-b131`
+ * Update `single-store` to `0.2.72`
+ * Update `mysql` to `9`
+ * Update `mariadb` to `12`
+ * Update `timescaledb` to `2.24.0-pg17`
+ * Update `hazelcast` to `5.6`
+ * Update `axon-server` to `2025.2.3`
+ * Update `eventstore` to `v24.10`
+ * Update `hasura` to `v2.48.10-ce`
+ * Update `directus` to `11`
+ * Update `hivemq` to `4.47.1`
+ * Update `cedalo-management-center` to `2.6.4`
+ * Update `thingsboard` to `4.2.1.1`
+ * Update `activemq` to `6.2.0` (classic) and `2.44.0` (artemis)
+ * Update `rabbitmq` to `4.2-management`
+ * Update `solace` to `10.25.13`
+ * Update `nats` to `2.12`
+ * Update `x4-server` to `7.4.15`
+ * Update `camunda-bpm-platform` to `7.24.0`
+ * Update `optimize` to `8-latest`
+ * Update `zeebe` to `8.7.22`
+ * Update `operate` to `8.8.9`
+ * Update `maildev` to `2.2.1`
+ * Update `mailpit` to `v1.28`
+ * Update `minio-key` to `2025-05-12T18-12-23Z-amd64`
+ * Update `garage` to `v2.1.0`
+ * Update `lakefs` to `1.75`
+ * Update `vault` to `1.21`
+ * Update `keycloak` to `26.5`
+ * Update `pact-broker` to `2.137.0-pactbroker2.118.0`
+ * Update `cadvisor` to `0.56.2`
+ * Update `docker-registry` to `3`
+ * Update `watchtower` to `1.7.1`
+ * Update `hapi-fhir` to `v8.6.0-1`
+ * Update `blaze-fhir` to `1.4`
+ * Update `fhir-gateway` to `v4.0.10`
+ * Update `kyuubi` to `1.10.3-all` 
+ * Update `langfuse` to `3`
+ 
+### New/Updated Cookbook Recipes
+
+ * [Using DuckDB](../cookbooks/recipes/using-duckdb/README)
  
 ### Enhancements
 
@@ -79,12 +296,23 @@ The Modern Data Platform version 1.18.0 contains the following bug fixes and enh
  * Add support for additional Trino connectors: `prometheus`, `jmx`, `opensearch`, `clickhouse`, `gsheets`, `ignite`, `singlestore`, `loki`, `snowflake` and `duckdb`
  * only create the sub-folders for the enabled services (based on service name) within the `applications`, `conf`, `container-volume`, `custom-conf`, `licenses`, `init`, `plugins`, `scripts` and `security` folders.
  * Maven dependency download now also supports downloading transitive dependency (using strategy `coursier`). Currently only used with Flink.
+ * set default for `HIVE_METASTORE_transactional_event_listeners` to be empty. You now have to explicitely set it to `org.apache.hive.hcatalog.listener.DbNotificationListener` or any custom listener implementation you can add to the classpath by using the new config setting `HIVE_METASTORE_plugin_jars`
+ * Add `inkless` as a new option for `KAFKA_edition` (Aiven's fork of preview of KIP-1150 - Diskless Kafka)
+ * Add support for `schema-registry` table descriptor supplier strategy to Trino's Kafka connector implementation
 
 ### Breaking Changes
 
  * `minio-console` removed as docker image is no longer available
  * `MINIO_browser_enable` renamed to `MINIO_browser_enabled` to be conforment with naming convention
  * Change internal port of `docker-registry` from `5000` to `5020`
+ * Any config setting which does not enable a service renamed from `XXXX_ddd_enable` to `XXXX_ddd_enabled`
+ * Change all bitnami images to the `bitnamilegacy` docker repository, due to all the bitnami images no longer be available for free
+ * Change default values of `MINIO_access_key` and `MINIO_secret_key` to a more memorable value
+ * Default value for `LAKEFS_use_as_drop_in_replacement_for_s3` changed to `false`
+ * Change Oracle REST Data Service (ORDS) to use the official oracle docker image
+ * `KAFKA_CCC_enable` renamed to `CONFLUENT_CCC_enable`
+ * VectorChord replaces pgvecto.rs 
+ * Removed `PRESTO_edition` option in presto (Ahana is now part of IBM)
 
 ## What's new in 1.18.1
 
@@ -174,7 +402,7 @@ The Modern Data Platform version 1.18.0 contains the following bug fixes and enh
  * Update `mongo` to `8.0` 
  * Update `solr` to `9.5` 
  * Update `janusgraph` to `1.0.0-20231010-065545.e3799d4`
- * Update `neo4j` to `5.26`
+ * Update `neo4j` to `5.26` and `2025`
  * Update `memgraph` to `2.16.0`
  * Update `memgraph-mage` to `1.16-memgraph-2.16-dev`
  * Update `arcadedb` to `24.2.1`

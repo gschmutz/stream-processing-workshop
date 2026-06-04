@@ -1,4 +1,4 @@
-# `modern-data-platform` - Port Mappings - 1.19.0
+# `modern-data-platform` - Port Mappings - 1.20.0
 
 This table reserves the external ports for the various services. Not all services have to be used in the platform at a given time. But by reserving, we can assure that there are no conflicts if a service is added at a later time.
 
@@ -101,6 +101,7 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 4000 | 4000 | graphql-mesh |
 4001 | 4000 | supabase-analytics |
 4002 | 4000 | litellm |
+4003 | 4000 | cubejs |
 4004 | 4004 | log4brains |
 4040 | 4040 | spark-master (ui) |
 4041 | 4041 | spark-master (ui) |
@@ -112,10 +113,12 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 4052 | 4052 | zeppelin (spark ui) |
 4053 | 4053 | zeppelin (spark ui) |
 4054 | 4054 | zeppelin (spark ui) |
+4173 | 4173 | data-contract-editor |
 4195 | 4195 | benthos-1 |
 4196 | 4196 | benthos-server |
 4200 | 4200 | cribl-master |
 4222 | 4222 | nats-1 |
+4242 | 4242 | data-contract-api |
 4317 | 4317 | otel-collector |
 4318 | 4318 | otel-collector |
 4319 | 4317 | jaeger |
@@ -145,6 +148,9 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 5440 | 5432 | proton-server (postgres batch) |
 5441 | 5432 | supabase-db |
 5442 | 5432 | hive-metastore-db |
+5443 | 5432 | ehrbase-db |
+5444 | 5432 | xtdb |
+5445 | 5432 | odd-platform-db |
 5500 | 5500 | oracledb-ee-1 |
 5501 | 5500 | oracledb-ee-1 |
 5502 | 5500 | oracledb-ee-1 |
@@ -176,6 +182,8 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 6222 | 6222 | nats-1 |
 6333 | 6333 | qdrant |
 6334 | 6334 | qdrant |
+6274 | 6274 | mcp-inspector |
+6277 | 6277 | mcp-inspector |
 6379 | 6379 | redis-1 |
 6380 | 6379 | redis-replica-1 |
 6381 | 6379 | redis-replica-2 |
@@ -195,7 +203,10 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 6749 | 6749 | curity |
 6789 | 6789 | mage-ai |
 6832 | 6832 | jaeger (udp) |
+6874 | 6874 | materialize-1 |
 6875 | 6875 | materialize-1 |
+6876 | 6876 | materialize-1 |
+6877 | 6877 | materialize-1 |
 7000 | 7000 | yb-master |
 7002 | 7002 | opal-server |
 7050 | 7050 | kudu-tserver-1 |
@@ -226,6 +237,7 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 8008 | 80 | markdown-viewer, markdown-viewer-dc1 |
 8009 | 80 | markdown-viewer-dc2 |
 8010 | 80 | markdown-viewer-dc3 |
+8020 | 8020 | risingwave-console |
 8024 | 8024 | axon-server |
 8047 | 8047 | drill |
 8048 | 8048 | kafka-eagle |
@@ -240,6 +252,7 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 8084 | 8084 | connect-2 |
 8085 | 8085 | connect-3 |
 8086 | 8086 | influxdb |
+8087 | 8086 | streampipes-influxdb |
 8088 | 8088 | ksqldb-server-1 |
 8089 | 8088 | ksqldb-server-2 |
 8090 | 8088 | ksqldb-server-3 |
@@ -273,11 +286,13 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 9001 | 9000 | minio-2 |
 9002 | 9000 | minio-3 |
 9003 | 9000 | minio-4 |
+9005 | 9000 | rustfs-1 |
 9009 | 9009 | questdb |
 9010 | 9010 | minio-1 ui |
 9011 | 9011 | minio-2 ui |
 9012 | 9012 | minio-3 ui |
 9013 | 9013 | minio-4 ui |
+9014 | 9001 | rustfs-1 ui |
 9042 | 9042 | dse-1 |
 9043 | 9042 | dse-2 |
 9044 | 9042 | dse-3 |
@@ -286,7 +301,12 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 9101 | 9001 | mosquitto-1 |
 9102 | 9002 | mosquitto-2 |
 9103 | 9003 | mosquitto-3 |
+9114 | 9114 | elasticsearch-exporter |
 9121 | 9121 | redis-exporter |
+9123 | 9123 | fluss-coordinator-service |
+9124 | 9123 | fluss-tablet-server-1 |
+9125 | 9123 | fluss-tablet-server-2 |
+9126 | 9123 | fluss-tablet-server-3 |
 9200 | 9200 | elasticsearch-1 |
 9201 | 9200 | langwatch-opensearch |
 9300 | 9300 | elasticsearch-1 |
@@ -296,8 +316,11 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 9163 | 9160 | cassandra-4 |
 9164 | 9160 | cassandra-5 |
 9083 | 9083 | hive-metastore |
+9084 | 9084 | hive-metastore (iceberg-rest) |
 9021 | 9021 | control-center (dc1) |
 9022 | 9021 | control-center (dc2) |
+9025 | 9021 | control-center-ng (dc1) |
+9026 | 9021 | control-center-ng (dc2) |
 9090 | 9090 | prometheus-1 |
 9091 | 9091 | prometheus-pushgateway |
 9092 | 9092 | kafka-1     |
@@ -317,9 +340,13 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 9412 | 9412 | jaeger |
 9413 | 9413 | pitchfork |
 9443 | 9443 | lfh-fhir |
+9492 | 9492 | automq-1     |
+9493 | 9493 | automq-2     |
+9494 | 9494 | automq-3     |
 9600 | 9600 | zeebe-1 |
 9601 | 9600 | langwatch-opensearch  |
 9851 | 9851 | tile38 |
+9832 | 9832 | xtdb |
 9870 | 9870 | namenode |
 9864 | 9864 | datanode-1 |
 9865 | 9864 | datanode-2 |
@@ -346,6 +373,9 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 10017 | 10000 | nifi2-3 |
 10009 | 10009 | kyuubi |
 10099 | 10099 | kyuubi |
+10020 | 10000 | azurite (blob service) |
+10021 | 10001 | azurite (queue service) |
+10022 | 10002 | azurite (table service) |
 11211 | 11211 | memcached |
 11212 | 11211 | ignite-1 |
 11235 | 11235 | crawl4ai |
@@ -399,6 +429,7 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 19201 | 9200 | amundsen-elasticsearch |
 19202 | 9200 | datahub-elasticsearch |
 19203 | 9200 | openmetadata-elasticsearch |
+19204 | 9300 | openmetadata-elasticsearch |
 19092 | 19092 | kafka-1 (docker-host)   |
 19093 | 19093 | kafka-2 (docker-host    |
 19094 | 19094 | kafka-3 (docker-host)   |
@@ -418,12 +449,16 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 23820 | 23820 | infinity (http) |
 24224 | 24224 | fluentd |
 24225 | 24224 | fluent-bit |
+26257 | 26257 | cockroachdb-1 |
+26258 | 26257 | cockroachdb-2 |
+26259 | 26257 | cockroachdb-3 |
 26500 | 26500 | zeebe-1 |
 27017 | 27017 | mongodb-1 |
 27018 | 27017 | mongodb-2 |
 27019 | 27017 | mongodb-3 |
 27020 | 27017 | mongodb-3 |
 27022 | 27017 | oracle-adb |
+27023 | 27017 | oracle-rest-1 |
 28080 | 8080 | zeppelin |
 28081 | 8080 | presto-1 |
 28082 | 8080 | trino-1 |
@@ -571,7 +606,7 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 28222 | 9000 | whisper |
 28223 | 80 | audio-transcriber |
 28224 | 8082 | centralmind-gateway  |
-28225 | |  |
+28225 | 8000 | redis-mcp  |
 28226 | 9000 | questdb |
 28227 | 8080 | debezium-ui |
 28228 | 9998 | tikka-server |
@@ -597,7 +632,7 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 28250 | 80 | gitweb |
 28251 | 8888 | oracle-xe |
 28252 | 8888 | oracle-rest-1 |
-28253 | 8888 | kouncil |
+28253 | 8443 | oracle-rest-1 |
 28254 | 80 | kafka-magic |
 28255 | 80 | streampipes-ui |
 28256 | 80 | remora |
@@ -765,6 +800,8 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 28419 | 8080 | data-product-portal-nginx |
 28420 | 8080 | sftpgo (webui) |
 28421 | 8000 | timeplus (enterprise) |
+28422 | 8080 | lightdash |
+28423 | 3000 | browserless |
 28242 | 3000 | openlit |
 28243 | 8123 | clickhouse |
 28244 | 9000 | clickhouse |
@@ -793,10 +830,45 @@ Container Port(s) | Internal Port(s)           | Service (alternatives) |
 28268 | 8443 | trino-lb (https) |
 28269 | 9090 | trino-lb (prometheus) |
 28270 | 8080 | trino-gateway |
-28271 | 8000 | mcp-neo4j-cypher |
-28272 | 8000 | mcp-neo4j-memory |
+28271 | 8000 | neo4j-mcp |
+28272 | |  |
 28273 | 3000 | presidio-analyzer |
 28274 | 8000 | presidio-anonymizer |
+28275 | 8181 | lakekeeper |
+28276 | | |
+28277 | | |
+28278 | 5050 | allure |
+28279 | 5252 | allure-ui |
+28280 | 3000 | nimtable-web |
+28281 | 8182 | nimtable |
+28282 | 8080 | ehrbase |
+28283 | 9000 | openehr-tool |
+28284 | 8081 | polaris |
+28285 | 8082 | polaris |
+28286 | 8090 | gravitino |
+28287 | 9001 | gravitino-iceberg-rest |
+28288 | 8000 | gravitino-mcp-server |
+28289 | 8081 | puppygraph |
+28290 | 8182 | puppygraph |
+28291 | 7687 | puppygraph |
+28292 | 8888 | kouncil |
+28293 | 9090 | cruise-control |
+28394 | 9090 | ccc-prometheus |
+28395 | 9093 | ccc-prometheus-alertmanager |
+28396 | 8080 | xtdb |
+28397 | 8081 | lakevision |
+28398 | 8080 | lakevision |
+28399 | 8080 | odd-platform |
+28400 | 8080 | shadowtraffic |
+28401 | 8080 | openclaw |
+28402 | 8000 | moat |
+28403 | 8000 | mongo-mcp |
+28404 | 8000 | postgresql-mcp |
+28405 | 3000 | better-chatbot |
+28406 | 8080 | cockroachdb-1 |
+28407 | 8080 | cockroachdb-2 |
+28408 | 8080 | cockroachdb-3 |
+28409 | 8000 | risingwave-mcp |
 
 ## Ports > 28500
 

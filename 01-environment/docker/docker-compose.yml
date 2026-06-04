@@ -11,7 +11,7 @@ networks:
 services:
 #  ================================== Kafka ========================================== #
   kafka-1:
-    image: confluentinc/cp-kafka:7.9.1
+    image: confluentinc/cp-kafka:8.1.3
     container_name: kafka-1
     hostname: kafka-1
     labels:
@@ -56,10 +56,10 @@ services:
       test: kafka-topics --bootstrap-server kafka-1:19092 --list
       interval: 30s
       timeout: 10s
-      retries: 3
+      retries: 25
       start_period: 20s
   kafka-2:
-    image: confluentinc/cp-kafka:7.9.1
+    image: confluentinc/cp-kafka:8.1.3
     container_name: kafka-2
     hostname: kafka-2
     labels:
@@ -104,10 +104,10 @@ services:
       test: kafka-topics --bootstrap-server kafka-1:19092 --list
       interval: 30s
       timeout: 10s
-      retries: 3
+      retries: 25
       start_period: 20s
   kafka-3:
-    image: confluentinc/cp-kafka:7.9.1
+    image: confluentinc/cp-kafka:8.1.3
     container_name: kafka-3
     hostname: kafka-3
     labels:
@@ -152,11 +152,11 @@ services:
       test: kafka-topics --bootstrap-server kafka-1:19092 --list
       interval: 30s
       timeout: 10s
-      retries: 3
+      retries: 25
       start_period: 20s
   #  ================================== Kafka Connect ========================================== #
   kafka-connect-1:
-    image: confluentinc/cp-kafka-connect:7.9.1
+    image: confluentinc/cp-kafka-connect:8.1.3
     container_name: kafka-connect-1
     hostname: kafka-connect-1
     labels:
@@ -166,6 +166,9 @@ services:
       com.platys.restapi.url: http://dataplatform:8083
     ports:
       - 8083:8083
+    depends_on:
+      kafka-1:
+        condition: service_healthy
     environment:
       CONNECT_BOOTSTRAP_SERVERS: kafka-1:19092,kafka-2:19093,kafka-3:19094
       CONNECT_LISTENERS: http://0.0.0.0:8083
@@ -213,7 +216,7 @@ services:
       - |
         echo "Installing Connectors"
         mkdir -p /etc/kafka-connect/cflthub-plugins
-        for i in $$(echo "jcustenborder/kafka-connect-json-schema:0.2.5,redhatinsights/expandjsonsmt:0.0.7,confluentinc/kafka-connect-json-schema-converter:8.0.0,confluentinc/kafka-connect-jdbc:10.8.4,confluentinc/kafka-connect-elasticsearch:15.0.0,confluentinc/kafka-connect-mqtt:1.7.5,debezium/debezium-connector-postgresql:3.1.2,debezium/debezium-connector-mysql:3.1.2,cjmatta/kafka-connect-sse:1.0,confluentinc/kafka-connect-s3:10.6.7" | sed "s/,/ /g")
+        for i in $$(echo "jcustenborder/kafka-connect-json-schema:0.2.5,redhatinsights/expandjsonsmt:0.0.7,confluentinc/kafka-connect-json-schema-converter:8.0.0,confluentinc/kafka-connect-jdbc:10.8.4,confluentinc/kafka-connect-elasticsearch:15.0.0,confluentinc/kafka-connect-mqtt:1.7.5,debezium/debezium-connector-postgresql:3.1.2,debezium/debezium-connector-mysql:3.1.2,cjmatta/kafka-connect-sse:1.0,confluentinc/kafka-connect-s3:10.6.7,jcustenborder/kafka-connect-spooldir:latest,jcustenborder/kafka-connect-transform-common:latest" | sed "s/,/ /g")
         do
           confluent-hub install --no-prompt --component-dir /etc/kafka-connect/cflthub-plugins --verbose "$$i"
         done
@@ -224,12 +227,12 @@ services:
         sleep infinity
     restart: unless-stopped
     healthcheck:
-      interval: 10s
-      retries: 20
+      interval: 30s
+      retries: 25
       test: curl --user connectAdmin:connectAdmin --fail --silent --insecure https://kafka-connect-1:8083/ --output /dev/null || exit 1
   #  ================================== ksqlDB ========================================== #
   ksqldb-server-1:
-    image: confluentinc/ksqldb-server:0.29.0
+    image: confluentinc/cp-ksqldb-server:8.1.3
     hostname: ksqldb-server-1
     container_name: ksqldb-server-1
     labels:
@@ -246,7 +249,9 @@ services:
       - 8088:8088
       - 1095:1095
     environment:
-      KSQL_LOG4J_OPTS: -Dlog4j.configuration=file:/tmp/log4j.properties
+      UB_CLASSPATH: /usr/share/java/confluent-security/ksql/*:/usr/share/java/ksqldb-server/*:/usr/share/java/cp-base-new/*
+      KSQL_LOG4J_ROOT_LOGLEVEL: INFO
+      KSQL_LOG4J_OPTS: -Dlog4j.configuration=file:/tmp/helper/log4j.properties
       KSQL_LOG4J_LOGGERS: org.apache.kafka.connect.runtime.rest=WARN,org.reflections=ERROR
       KSQL_LOG4J_PROCESSING_LOG_TOPIC: ksql_processing_log
       KSQL_LOG4J_PROCESSING_LOG_BROKERLIST: kafka-1:19092,kafka-2:19093,kafka-3:19094
@@ -283,32 +288,19 @@ services:
     volumes:
       - ./data-transfer:/data-transfer
       - ./plugins/ksqldb:/etc/ksqldb/ext
-      - ./conf/ksqldb/etc/log4j.properties:/tmp/log4j.properties.templ
       - ./plugins/kafka-connect/connectors:/etc/kafka-connect/addl-plugins
       - ./plugins/kafka-connect/jars:/etc/kafka-connect/jars
       - ./plugins/opentelemetry/agents:/otel
-    command:
-      # In the command section, $ are replaced with $$ to avoid the error 'Invalid interpolation format for "command" option'
-      - bash
-      - -c
-      - |
-        python -c 'import os,sys; sys.stdout.write(os.path.expandvars(sys.stdin.read()))' < /tmp/log4j.properties.templ > /tmp/log4j.properties
-        #
-        echo "Launching ksqlDB server"
-        #/etc/confluent/docker/run &
-        /usr/bin/docker/run &
-        #
-        sleep infinity
     restart: unless-stopped
     healthcheck:
       start_period: 10s
       interval: 10s
-      retries: 20
+      retries: 25
       test: curl --user ksqlDBUser:ksqlDBUser -fail --silent http://ksqldb-server-1:8088/info | grep RUNNING 1>/dev/null || exit 1
   # Access the cli by running:
   # > docker exec -it ksqldb-cli ksql http://ksqldb-server-1:8088
   ksqldb-cli:
-    image: confluentinc/ksqldb-cli:0.29.0
+    image: confluentinc/cp-ksqldb-server:8.1.3
     container_name: ksqldb-cli
     hostname: ksqldb-cli
     labels:
@@ -323,7 +315,7 @@ services:
     restart: unless-stopped
   #  ================================== Confluent Schema Registry ========================================== #
   schema-registry-1:
-    image: confluentinc/cp-schema-registry:7.9.1
+    image: confluentinc/cp-schema-registry:8.1.3
     hostname: schema-registry-1
     container_name: schema-registry-1
     labels:
@@ -333,6 +325,9 @@ services:
       com.platys.restapi.url: http://dataplatform:8081
     ports:
       - 8081:8081
+    depends_on:
+      kafka-1:
+        condition: service_healthy
     environment:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry-1
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
@@ -353,8 +348,8 @@ services:
     restart: unless-stopped
     healthcheck:
       start_period: 10s
-      interval: 10s
-      retries: 20
+      interval: 15s
+      retries: 25
       test: curl --fail --silent --insecure http://schema-registry-1:8081/subjects --output /dev/null || exit 1
   #  ================================== Schema Registry UI ========================================== #
   schema-registry-ui:
@@ -369,7 +364,7 @@ services:
     ports:
       - 28102:8000
     environment:
-      SCHEMAREGISTRY_URL: http://${PUBLIC_IP}:8081
+      SCHEMAREGISTRY_URL: http://${PUBLIC_IP:-127.0.0.1}:8081
     volumes:
       - ./data-transfer:/data-transfer
       - ./conf/schema-registry-ui/resolv.conf:/etc/resolv.conf:ro
@@ -388,11 +383,12 @@ services:
       - /bin/sh
       - -c
       - |
+        apk add jq;
         while [ 1 -eq 1 ];do sleep 60;done
     restart: unless-stopped
   #  ================================== Jikkou ========================================== #
   jikkou:
-    image: streamthoughts/jikkou:main
+    image: streamthoughts/jikkou:latest
     container_name: jikkou
     hostname: jikkou
     labels:
@@ -489,7 +485,7 @@ services:
     restart: unless-stopped
   #  ================================== Apache Flink ========================================== #
   flink-jobmanager:
-    image: flink:1.19.2-scala_2.12-java11
+    image: flink:1.20.3-java17
     container_name: flink-jobmanager
     hostname: flink-jobmanager
     labels:
@@ -506,28 +502,41 @@ services:
         jobmanager.memory.process.size: 1600m
         rest.bind-port: 8081
         execution.checkpointing.interval: 5000
-        table.catalog-store.kind: file
+        execution.checkpointing.mode: EXACTLY_ONCE
+        execution.restart-strategy.type: fixed-delay
+        execution.restart-strategy.fixed-delay.attempts: 3
+        execution.restart-strategy.fixed-delay.delay: 10 s   
+        table.catalog-store.kind: generic_in_memory
         table.catalog-store.file.path: ./conf/catalogs
-        state.backend: filesystem
-        state.checkpoints.dir: file:///tmp/flink-checkpoints-directory
-        state.savepoints.dir: file:///tmp/flink-savepoints-directory
-#        rest.flamegraph.enabled: true
+        state.backend.type: hashmap
+        state.backend.incremental: true
+        state.checkpoints.dir: file:///tmp/flink-checkpoints
+        state.savepoints.dir: file:///tmp/flink-savepoints
+        heartbeat.interval: 1000
+        heartbeat.timeout: 5000        
+        rest.flamegraph.enabled: true
+        web.backpressure.refresh-interval: 10000
+        s3.access.key: ${PLATYS_AWS_ACCESS_KEY:-V42FCGRVMK24JJ8DHUYG}
+        s3.secret.key: ${PLATYS_AWS_SECRET_ACCESS_KEY:-bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza}
+        s3.fs.impl: org.apache.hadoop.fs.s3a.S3AFileSystem
+        s3.endpoint: http://minio-1:9000
+        s3.path.style.access: true
       - s3.access.key=${PLATYS_AWS_ACCESS_KEY:-V42FCGRVMK24JJ8DHUYG}
       - s3.secret.key=${PLATYS_AWS_SECRET_ACCESS_KEY:-bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza}
+      - s3.fs.impl=org.apache.hadoop.fs.s3a.S3AFileSystem
       - s3.endpoint=http://minio-1:9000'
       - s3.path.style.access='true'
-      - FLINK_INSTALL_MAVEN_DEP=org.apache.flink:flink-sql-connector-kafka:3.3.0-1.19,org.apache.flink:flink-json:1.19.2,org.apache.flink:flink-avro:1.19.2,org.apache.flink:flink-avro-confluent-registry:1.19.2
+      - FLINK_INSTALL_MAVEN_DEP=org.apache.flink:flink-sql-connector-kafka:3.3.0-1.19,org.apache.flink:flink-json:1.19.2,org.apache.flink:flink-avro:1.19.2,org.apache.flink:flink-avro-confluent-registry:1.19.2,org.apache.iceberg:iceberg-flink-runtime-1.20:1.10.1
     volumes:
       - ./data-transfer:/data-transfer
       - ./scripts/docker/:/platys-scripts/
       - ./init/flink/docker-entrypoint-override.sh:/docker-entrypoint-override.sh
-      - flink-vol:/opt/flink
       - ./plugins/flink/udf_example-1.0.jar:/opt/flink/lib/udf_example-1.0.jar
     entrypoint: /docker-entrypoint-override.sh
     command: jobmanager
     restart: unless-stopped
   flink-taskmanager-1:
-    image: flink:1.19.2-scala_2.12-java11
+    image: flink:1.20.3-java17
     container_name: flink-taskmanager-1
     hostname: flink-taskmanager-1
     labels:
@@ -536,21 +545,34 @@ services:
     environment:
       - |
         FLINK_PROPERTIES=
-        jobmanager.rpc.address: flink-jobmanager
+        jobmanager.rpc.address: flink-jobmanager        
         taskmanager.numberOfTaskSlots: 10
         taskmanager.memory.process.size: 1728m
         parallelism.default: 2
         execution.checkpointing.interval: 5000
-        table.catalog-store.kind: file
+        execution.checkpointing.mode: EXACTLY_ONCE
+        execution.restart-strategy.type: fixed-delay
+        execution.restart-strategy.fixed-delay.attempts: 3
+        execution.restart-strategy.fixed-delay.delay: 10 s
+        table.catalog-store.kind: generic_in_memory
         table.catalog-store.file.path: ./conf/catalogs
-        state.backend: filesystem
-        state.checkpoints.dir: file:///tmp/flink-checkpoints-directory
-        state.savepoints.dir: file:///tmp/flink-savepoints-directory
+        state.backend.type: hashmap
+        state.backend.incremental: true
+        state.checkpoints.dir: file:///tmp/flink-checkpoints
+        state.savepoints.dir: file:///tmp/flink-savepoints
+        heartbeat.interval: 1000
+        heartbeat.timeout: 5000        
+        s3.access.key: ${PLATYS_AWS_ACCESS_KEY:-V42FCGRVMK24JJ8DHUYG}
+        s3.secret.key: ${PLATYS_AWS_SECRET_ACCESS_KEY:-bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza}
+        s3.fs.impl: org.apache.hadoop.fs.s3a.S3AFileSystem
+        s3.endpoint: http://minio-1:9000
+        s3.path.style.access: true
       - s3.access.key=${PLATYS_AWS_ACCESS_KEY:-V42FCGRVMK24JJ8DHUYG}
       - s3.secret.key=${PLATYS_AWS_SECRET_ACCESS_KEY:-bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza}
+      - s3.fs.impl=org.apache.hadoop.fs.s3a.S3AFileSystem
       - s3.endpoint=http://minio-1:9000'
       - s3.path.style.access='true'
-      - FLINK_INSTALL_MAVEN_DEP=org.apache.flink:flink-sql-connector-kafka:3.3.0-1.19,org.apache.flink:flink-json:1.19.2,org.apache.flink:flink-avro:1.19.2,org.apache.flink:flink-avro-confluent-registry:1.19.2
+      - FLINK_INSTALL_MAVEN_DEP=org.apache.flink:flink-sql-connector-kafka:3.3.0-1.19,org.apache.flink:flink-json:1.19.2,org.apache.flink:flink-avro:1.19.2,org.apache.flink:flink-avro-confluent-registry:1.19.2,org.apache.iceberg:iceberg-flink-runtime-1.20:1.10.1
     volumes:
       - ./data-transfer:/data-transfer
       - ./scripts/docker/:/platys-scripts/
@@ -560,7 +582,7 @@ services:
     command: taskmanager
     restart: unless-stopped
   flink-sql-cli:
-    image: flink:1.19.2-scala_2.12-java11
+    image: flink:1.20.3-java17
     container_name: flink-sql-cli
     hostname: flink-sql-cli
     labels:
@@ -573,7 +595,7 @@ services:
         rest.address: flink-jobmanager
         table.catalog-store.kind: file
         table.catalog-store.file.path: ./conf/catalogs
-      - FLINK_INSTALL_MAVEN_DEP=org.apache.flink:flink-sql-connector-kafka:3.3.0-1.19,org.apache.flink:flink-json:1.19.2,org.apache.flink:flink-avro:1.19.2,org.apache.flink:flink-avro-confluent-registry:1.19.2
+      - FLINK_INSTALL_MAVEN_DEP=org.apache.flink:flink-sql-connector-kafka:3.3.0-1.19,org.apache.flink:flink-json:1.19.2,org.apache.flink:flink-avro:1.19.2,org.apache.flink:flink-avro-confluent-registry:1.19.2,org.apache.iceberg:iceberg-flink-runtime-1.20:1.10.1
     volumes:
       - ./data-transfer:/data-transfer
       - ./scripts/docker/:/platys-scripts/
@@ -584,7 +606,7 @@ services:
     command: sleep infinity
   #  ================================== NiFi 2 ========================================== #
   nifi2-1:
-    image: apache/nifi:2.4.0
+    image: apache/nifi:2.9.0
     container_name: nifi2-1
     hostname: nifi2-1
     labels:
@@ -605,7 +627,7 @@ services:
     environment:
       NIFI_WEB_HTTPS_PORT: '18083'
       NIFI_WEB_HTTPS_HOST: 0.0.0.0
-      NIFI_WEB_PROXY_HOST: ${PUBLIC_IP}:18083,${DOCKER_HOST_IP}:18083
+      NIFI_WEB_PROXY_HOST: ${PUBLIC_IP:-127.0.0.1}:18083,${DOCKER_HOST_IP:-localhost}:18083
       NIFI_SECURITY_USER_AUTHORIZER: single-user-authorizer
       NIFI_SECURITY_USER_LOGIN_IDENTITY_PROVIDER: single-user-provider
       S3_ENDPOINT: http://minio-1:9000
@@ -638,7 +660,7 @@ services:
     restart: unless-stopped
   #  ================================== Jupyter ========================================== #
   jupyter:
-    image: quay.io/jupyter/all-spark-notebook:spark-3.5.3
+    image: quay.io/jupyter/all-spark-notebook:spark-4.1.1
     container_name: jupyter
     hostname: jupyter
     labels:
@@ -658,25 +680,23 @@ services:
       GRANT_SUDO: "'yes'"
       JUPYTER_TOKEN: ${PLATYS_JUPYTER_TOKEN:-abc123!}
       DOCKER_STACKS_JUPYTER_CMD: lab
-      MAVEN_DOWNLOAD_JARS: com.amazonaws:aws-java-sdk-bundle:1.12.262,org.apache.hadoop:hadoop-aws:3.3.4,com.google.guava:guava:27.1-jre
+      MAVEN_DOWNLOAD_JARS: com.amazonaws:aws-java-sdk-bundle:1.12.262,org.apache.hadoop:hadoop-aws:3.3.4,com.google.guava:guava:27.1-jre,software.amazon.awssdk:bundle:2.27.1
       # remove some JARS if they are conflicting with the ones installed above
       REMOVE_JARS: guava-14.0.1.jar
       # for awscli & s3cmd
       AWS_ACCESS_KEY_ID: ${PLATYS_AWS_ACCESS_KEY:-V42FCGRVMK24JJ8DHUYG}
-      AWS_SECRET_ACCESS_KEY: ${PLATYS_AWS_SECRET_ACCESS_KEY:-bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza}
+      AWS_SECRET_ACCESS_KEY: ${PLATYS_AWS_SECRET_ACCESS_KEY:-${PLATYS_AWS_SECRET_ACCESS_KEY:-bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza}}
       AWS_ENDPOINT: http://minio-1:9000
       AWS_REGION: us-east-1
       AWS_DEFAULT_REGION: us-east-1
       #PYSPARK_PYTHON: /opt/bitnami/python/bin/python3.12
-      PYSPARK_DRIVER_PYTHON: /usr/bin/python3.12
+      #PYSPARK_DRIVER_PYTHON: /usr/bin/python3.12   
     volumes:
       - ./data-transfer:/data-transfer
       - ./init/jupyter/on-startup-jupyter/:/usr/local/bin/start-notebook.d/
       - ./init/jupyter/on-startup-jupyter-finished/:/usr/local/bin/before-notebook.d/
       - ./init/jupyter/on-startup-notebook-kernel:/home/jovyan/.ipython/profile_default/startup/
       - ./scripts/docker/maven-download.sh:/maven-download.sh
-      - flink-vol:/opt/flink:RO
-    #  - "./conf/jupyter/spark-defaults.conf:/usr/local/spark-3.1.1-bin-hadoop3.2/conf/spark-defaults.conf"
     command:
       # In the command section, $ are replaced with $$ to avoid the error 'Invalid interpolation format for "command" option'
       - bash
@@ -691,7 +711,7 @@ services:
     restart: unless-stopped
   #  ================================== Redis ========================================== #
   redis-1:
-    image: bitnami/redis:7.4
+    image: bitnamilegacy/redis:8.2
     hostname: redis-1
     container_name: redis-1
     labels:
@@ -716,7 +736,7 @@ services:
       retries: 5
   #  ================================== Elasticsearch ========================================== #
   elasticsearch-1:
-    image: elasticsearch:8.17.4
+    image: elasticsearch:8.19.10
     hostname: elasticsearch-1
     container_name: elasticsearch-1
     labels:
@@ -735,7 +755,7 @@ services:
       xpack.security.http.ssl.enabled: false
       xpack.security.transport.ssl.enabled: false
       http.cors.enabled: 'true'
-      http.cors.allow-origin: http://${DOCKER_HOST_IP}:28275,http://${PUBLIC_IP}:28275,http://dejavu:1358,http://dataplatform:28125,http://dataplatform:28125,http://${PUBLIC_IP}:28125,http://${DOCKER_HOST_IP}:28125,http://127.0.0.1:1358
+      http.cors.allow-origin: http://${DOCKER_HOST_IP:-localhost}:28275,http://${PUBLIC_IP:-127.0.0.1}:28275,http://dejavu:1358,http://dataplatform:28125,http://dataplatform:28125,http://${PUBLIC_IP:-127.0.0.1}:28125,http://${DOCKER_HOST_IP:-localhost}:28125,http://127.0.0.1:1358
       http.cors.allow-headers: X-Requested-With,X-Auth-Token,Content-Type,Content-Length,Authorization
       http.cors.allow-credentials: 'true'
       cluster.routing.allocation.disk.threshold_enabled: 'true'
@@ -754,7 +774,7 @@ services:
       interval: 10s
   #  ================================== Kibana ========================================== #
   kibana:
-    image: kibana:8.17.4
+    image: kibana:8.19.10
     hostname: kibana
     container_name: kibana
     labels:
@@ -808,7 +828,7 @@ services:
     init: true
   #  ================================== PostgreSQL ========================================== #
   postgresql:
-    image: postgres:17
+    image: postgres:18
     container_name: postgresql
     hostname: postgresql
     labels:
@@ -821,6 +841,7 @@ services:
       - POSTGRES_PASSWORD=${PLATYS_POSTGRESQL_PASSWORD:-abc123!}
       - POSTGRES_USER=postgres
       - POSTGRES_DB=postgres
+#      - POSTGRES_INITDB_ARGS=--encoding=UTF8 --data-checksums      
       - POSTGRES_MULTIPLE_DATABASES=demodb
       - POSTGRES_MULTIPLE_USERS=demo
       - POSTGRES_MULTIPLE_PASSWORDS=${PLATYS_POSTGRESQL_MULTIPLE_PASSWORD:-abc123!}
@@ -862,7 +883,7 @@ services:
     restart: unless-stopped
   #  ================================== Minio ========================================== #
   minio-1:
-    image: minio/minio:RELEASE.2025-05-24T17-08-30Z
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
     container_name: minio-1
     hostname: minio-1
     labels:
@@ -870,7 +891,7 @@ services:
       com.platys.description: Software-defined Object Storage
       com.platys.webui.title: MinIO UI
       com.platys.webui.url: http://dataplatform:9010
-      com.platys.password.envvars: PLATYS_AWS_SECRET_ACCESS_KEY
+      com.platys.password.envvars: 'PLATYS_AWS_SECRET_ACCESS_KEY, '
     ports:
       # S3 API Port
       - 9000:9000
@@ -883,13 +904,18 @@ services:
       #MINIO_REGION_NAME: us-east-1
       #MINIO_REGION: us-east-1
       MINIO_DOMAIN: minio
-      MINIO_SERVER_URL: http://${PUBLIC_IP}:9000
+      MINIO_SERVER_URL: http://${PUBLIC_IP:-127.0.0.1}:9000
       MINIO_COMPRESSION_ENABLE: off
       MINIO_PROMETHEUS_AUTH_TYPE: public
       MINIO_PROMETHEUS_URL: http://prometheus-1:9090
     volumes:
       - ./data-transfer:/data-transfer
-    command: server /data --console-address ":9010"
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        mkdir -p /root/.minio && echo "$$MINIO_LICENSE" > /root/.minio/minio.license && exec /usr/bin/docker-entrypoint.sh "$$@"
+    command: minio server /data --console-address ":9010"
     restart: unless-stopped
     healthcheck:
       test: [CMD, curl, -f, http://minio-1:9000/minio/health/live]
@@ -912,15 +938,11 @@ services:
     volumes:
       - ./data-transfer:/data-transfer
       - ./scripts/docker/wait-for-it.sh:/usr/src/app/wait-for-it.sh
-      - ./security/aws/credentials:/tmp/credentials.templ
-      - aws-credentials-vol:/tmp/.aws:RO
     entrypoint:
       - /bin/sh
       - -c
       - |
         /usr/src/app/wait-for-it.sh -t 180 minio-1:9000
-        mkdir -p /tmp/.aws
-        eval "echo \"$$(cat /tmp/credentials.templ)\"" >> /tmp/.aws/credentials
         mc mb --ignore-existing minio-1/admin-bucket
               for bucket in $$(tr ',' '\n' <<< "")
         do
@@ -931,7 +953,7 @@ services:
     restart: unless-stopped
   #  ================================== Mosquitto ========================================== #
   mosquitto-1:
-    image: eclipse-mosquitto:2.0
+    image: eclipse-mosquitto:2.1-alpine
     hostname: mosquitto-1
     container_name: mosquitto-1
     labels:
@@ -972,7 +994,7 @@ services:
     ports:
       - 3001:3000
     environment:
-      - SSHHOST=${DOCKER_HOST_IP}
+      - SSHHOST=${DOCKER_HOST_IP:-localhost}
       - SSHPORT=22
       - SSHUSER=
       - SSHAUTH=password
@@ -983,7 +1005,7 @@ services:
     restart: unless-stopped
   #  ================================== markdown-viewer ========================================== #
   markdown-viewer:
-    image: dannyben/madness:latest
+    image: dannyben/madness:1.2.5
     container_name: markdown-viewer
     hostname: markdown-viewer
     labels:
@@ -1014,8 +1036,8 @@ services:
       com.platys.description: Platys Platform homepage rendering
     environment:
       USE_PUBLIC_IP: 'True'
-      PUBLIC_IP: ${PUBLIC_IP}
-      DOCKER_HOST_IP: ${DOCKER_HOST_IP}
+      PUBLIC_IP: ${PUBLIC_IP:-127.0.0.1}
+      DOCKER_HOST_IP: ${DOCKER_HOST_IP:-localhost}
       DATAPLATFORM_HOME: ${DATAPLATFORM_HOME}
       PLATYS_PLATFORM_NAME: streaming-data-platform
       PLATYS_PLATFORM_STACK: trivadis/platys-modern-data-platform
@@ -1033,6 +1055,4 @@ services:
 volumes:
   data-transfer-vol:
     name: data_transfer_vol
-  flink-vol:
-  aws-credentials-vol:
   nifi-config-vol:
