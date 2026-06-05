@@ -189,15 +189,15 @@ Double-click the processor and click the **Properties** tab. Configure the follo
 - **Kafka Connection Service**: click the three dots, select **+ Create new service**, choose **Kafka3ConnectionService**, and click **Add**. Click the three dots again and select **Go To Service**. In the service list click the three dots and select **Edit**, navigate to **Properties**, and set:
   - **Bootstrap Servers**: `kafka-1:19092`
 
-  Click **Apply**, then enable the service by clicking the three dots and selecting **Enable**. Click **Close** and **Back to Service**.
+  Click **Apply**, then enable the service by clicking the three dots and selecting **Enable**. Click **Close** and **Back to Processor**.
 - **Group ID**: `bluesky.raw-cg`
 - **Topics**: `bluesky.raw`
 - **Processing Strategy**: `RECORD`
-- **Record Reader**: click the three dots, select **+ Create new service**, choose **JsonTreeReader**, and click **Add**. Enable the service via its three-dot menu. Click **Close** and **Back to Service**.
-- **Record Writer**: click the three dots, select **+ Create new service**, choose **JsonRecordSetWriter**, and click **Add**. Edit the service and set:
+- **Record Reader**: click the three dots, select **+ Create new service**, choose **JsonTreeReader**, and click **Add**. Click the three dots again and select **Go To Service**. Enable the service via its three-dot menu. Click **Close** and **Back to Processor**.
+- **Record Writer**: click the three dots, select **+ Create new service**, choose **JsonRecordSetWriter**, and click **Add**. Click the three dots again and select **Go To Service**. In the service list click the three dots and select **Edit**, navigate to **Properties** and set:
   - **Output Grouping**: `One Line per Object`
 
-  Click **Apply** and enable the service. Click **Close** and **Back to Service**.
+  Click **Apply** and enable the service. Click **Close** and **Back to Processor**.
 
 The configured processor should look as shown below:
 
@@ -217,7 +217,9 @@ Drag a **ReplaceText** processor onto the canvas. Double-click it and navigate t
 
 Click **Apply**.
 
-Drag a **second ReplaceText** processor onto the canvas. Configure it with:
+Drag a second **ReplaceText** processor onto the canvas (or alternatively copy/paste the first one). 
+
+Configure it with:
 
 - **Search Value**: `\$link`
 - **Replacement Value**: `link`
@@ -227,7 +229,7 @@ Click **Apply**.
 
 ### Adding an `EvaluateJsonPath` processor
 
-Drag an **EvaluateJsonPath** processor onto the canvas. Double-click it and navigate to **Properties**. Set **Destination** to `flowfile-attribute`. Click **+** in the upper right, enter `topicName` as the property name, and set its value to `$.record.commit.collection`. Click **Apply**.
+Drag an **EvaluateJsonPath** processor onto the canvas. Double-click it and navigate to **Properties**. Set **Destination** to `flowfile-attribute`. Click **+** in the upper right, enter `topicName` as the property name, and set its value to `$.record.commit.collection`. Click **OK** and then **Apply**.
 
 > **What just happened?** This processor reads the `collection` field from each JSON message and stores its value in the NiFi FlowFile attribute `topicName`. Downstream processors can then reference `${topicName}` as a variable.
 
@@ -260,13 +262,17 @@ Click **Apply**.
 
 Wire up the processors in order: **ConsumeKafka → ReplaceText ($type) → ReplaceText ($link) → EvaluateJsonPath → RouteOnAttribute → PublishKafka**.
 
-For each connection, drag from the source processor's edge to the destination and select the appropriate relationship in the dialog. Terminate unused relationships on each processor:
+For each connection, drag from the source processor's edge to the destination and select the appropriate relationship in the dialog and terminate unused relationships on each processor:
 
-- **ConsumeKafka**: terminate `parse.failure`
-- **ReplaceText** (both): terminate `failure`
-- **EvaluateJsonPath**: terminate `failure` and `unmatched`
-- **RouteOnAttribute**: terminate `unmatched`
+- **ConsumeKafka**: link `success`, terminate `parse.failure`
+- **ReplaceText** (both): link `success`, terminate `failure`
+- **EvaluateJsonPath**: link `matched`, terminate `failure` and `unmatched`
+- **RouteOnAttribute**: link `passOn`, terminate `unmatched`
 - **PublishKafka**: terminate `failure` and `success`
+
+After that the data flow should look as follows:
+
+![Alt Image Text](./images/nifi-flow-connected.png "Flow Connected")
 
 ### Create the target Kafka topics
 
@@ -306,24 +312,68 @@ The messages in `app.bsky.feed.post` look like the following example:
 
 ```json
 {
-  "capture_time": "2025-06-21T13:23:10.874Z",
+  "capture_time": "2026-06-05T19:48:45.564Z",
   "collection": "commit",
   "record": {
-    "did": "did:plc:yz42tmpgmr67472ropqltass",
-    "time_us": 1750512190830536,
+    "did": "did:plc:4muclvmhoko3nqttzc25ftbd",
+    "time_us": 1780688925780291,
     "kind": "commit",
     "commit": {
-      "rev": "3ls4nko6eqp2f",
+      "rev": "3mnkvthdrsa2c",
       "operation": "create",
       "collection": "app.bsky.feed.post",
-      "rkey": "3ls4nkn2h3k2k",
+      "rkey": "3mnkvtgimnk2z",
       "record": {
         "type": "app.bsky.feed.post",
-        "createdAt": "2025-06-21T13:23:08.798Z",
-        "langs": ["en"],
-        "text": "Two weeks' notice: Trump's deadline on Iran is a familiar one"
+        "createdAt": "2026-06-05T19:48:44.135Z",
+        "embed": {
+          "type": "app.bsky.embed.external",
+          "external": {
+            "description": "Department of Justice lawyers made the bizarre argument while defending Donald Trump’s ballroom.",
+            "thumb": {
+              "type": "blob",
+              "ref": {
+                "link": "bafkreicfgsijijyjygl7nvm5zxn3r7mlwncwzca6fucvhaab44b57yv2wq"
+              },
+              "mimeType": "image/jpeg",
+              "size": 332850
+            },
+            "title": "DOJ Declares Trump Has Right to Bulldoze Statue of Liberty — The New Republic",
+            "uri": "https://apple.news/AICAEt0M3SBKNFOTdXwvG8Q"
+          }
+        },
+        "facets": [
+          {
+            "features": [
+              {
+                "type": "app.bsky.richtext.facet#tag",
+                "tag": "8647NOW"
+              }
+            ],
+            "index": {
+              "byteEnd": 263,
+              "byteStart": 255
+            }
+          },
+          {
+            "features": [
+              {
+                "type": "app.bsky.richtext.facet#link",
+                "uri": "https://apple.news/AICAEt0M3SBKNFOTdXwvG8Q"
+              }
+            ],
+            "index": {
+              "byteEnd": 292,
+              "byteStart": 266
+            }
+          }
+        ],
+        "langs": [
+          "en"
+        ],
+        "text": "These scumbags think they can do whatever they want. What is it going to take before we the people have to step in and take back the peoples house? This criminal administration is not for the people and apparently think Trump is king. Thus needs to end!  #8647NOW \n\napple.news/AICAEt0M3SBK..."
       },
-      "cid": "bafyreigybdeaegvkt6b3xo4vukq7e373hgd242dk7netzgqlea6pqh6qzu"
+      "cid": "bafyreiacqxqq5htxzdy6gaolmv5fnsw67nda7iwxyqwr2iurizyrjb4w6e"
     }
   }
 }
@@ -1347,7 +1397,7 @@ Click the **Analytics** tile.
 
 ![Alt Image Text](./images/kibana-analytics-view.png "Kibana Analytics")
 
-> **What you should see:** A prompt saying Elasticsearch data is ready to explore. Click **Create data view**.
+Click **Create data view**.
 
 ### Create a data view
 
@@ -1359,7 +1409,7 @@ Click **Save data view to Kibana**.
 
 ### Explore live data in Discover
 
-Click the **Discover** tile.
+Click on the **Hamburger** icon to show the left-side menu and click on **Discover**.
 
 ![Alt Image Text](./images/kibana-analytics-discoverer.png "Kibana Discover")
 
@@ -1369,7 +1419,7 @@ Click the **Discover** tile.
 
 ### Enable live refresh
 
-Click the calendar icon to change the date range. Set the range to **Last 1 hour**. Then click the refresh interval drop-down and choose **10 seconds**.
+Click the calendar icon to change the date range. Set the range to **Last 1 hour**. Again click on the calendar icon and now enable the **Refresh every** option and in the drop down choose **10** and **Seconds**.
 
 ![Alt Image Text](./images/kibana-analytics-discoverer-2.png "Set Time Range")
 
