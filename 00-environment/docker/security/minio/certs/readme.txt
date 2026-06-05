@@ -1,1 +1,0 @@
-Place minio keystore and truststore here.

@@ -1,1 +1,0 @@
-Place custom keystone and truststore files here to configure NiFi.
