@@ -199,6 +199,90 @@ Type a few messages and press **Ctrl-D** to send them. Send a final message with
 
 ![](./images/python-consumer.png)
 
+### Producer reliability settings
+
+By default the producer uses `acks=1` (the leader broker acknowledges the write) and will not retry on transient errors. For production workloads you generally want stronger guarantees:
+
+| Config key | Recommended value | What it does |
+|---|---|---|
+| `acks` | `all` (or `-1`) | The leader waits for all in-sync replicas to acknowledge before responding — prevents data loss if the leader crashes immediately after the write |
+| `retries` | `5` (or higher) | Automatically retry on retriable errors (network glitches, leader elections) |
+| `enable.idempotence` | `true` | Guarantees exactly-once delivery to the broker even when retries cause duplicate network requests — requires `acks=all` |
+
+```python
+from confluent_kafka import Producer
+
+topic_name = "test-python-topic"
+
+p = Producer({
+    'bootstrap.servers': 'kafka-1:19092,kafka-2:19093',
+    'acks': 'all',
+    'retries': 5,
+    'enable.idempotence': True,
+})
+
+def delivery_report(err, msg):
+    if err is not None:
+        print('Message delivery failed: {}'.format(err))
+    else:
+        print('Message delivered to {} [{}] at offset {}'.format(
+            msg.topic(), msg.partition(), msg.offset()))
+
+for data in ["message1", "message2", "message3"]:
+    p.poll(0)
+    p.produce(topic_name, key='1', value=data.encode('utf-8'), callback=delivery_report)
+
+p.flush()
+```
+
+> **What just happened?** With `acks=all` the broker only acknowledges once every in-sync replica has written the message to its log, so a broker crash immediately after the write cannot cause loss. `enable.idempotence=True` assigns each message a sequence number; if a retry re-sends a message the broker silently discards the duplicate, giving you exactly-once producer semantics without any code changes. `p.flush()` still blocks until the delivery callback has fired for every enqueued message, so any delivery failure surfaces as an error in `delivery_report`.
+
+### Manual offset commits
+
+By default the consumer auto-commits the offset every 5 seconds (`enable.auto.commit=True`). This means Kafka can mark a message as processed before your code has actually finished handling it — if the process crashes between the auto-commit and the end of your processing logic, that message is lost.
+
+Disabling auto-commit and committing manually after successful processing gives you **at-least-once** delivery: in the worst case you reprocess a message, but you never silently skip one.
+
+```python
+from confluent_kafka import Consumer, KafkaError
+
+topic_name = "test-python-topic"
+
+c = Consumer({
+    'bootstrap.servers': 'kafka-1:19092,kafka-2:19093',
+    'group.id': 'test-consumer-group-manual',
+    'auto.offset.reset': 'earliest',
+    'enable.auto.commit': False,
+})
+
+c.subscribe([topic_name])
+
+try:
+    while True:
+        msg = c.poll(1.0)
+
+        if msg is None:
+            continue
+        if msg.error():
+            print('Consumer error: {}'.format(msg.error()))
+            continue
+
+        value = msg.value().decode('utf-8')
+        print('Received message: {}'.format(value))
+
+        # commit only after successful processing
+        c.commit(msg)
+
+        if value == 'STOP':
+            break
+finally:
+    c.close()
+```
+
+> **What just happened?** `enable.auto.commit=False` tells the client library never to commit on its own. After each message is processed, `c.commit(msg)` synchronously commits that message's offset back to Kafka. If the process crashes before `commit()` is called, the broker has no record of the offset advance — the next consumer in the group will re-read from the last committed position and reprocess the message. `c.close()` in the `finally` block commits any pending offsets and sends a leave-group request so the rebalance happens immediately rather than waiting for a session timeout.
+
+> **Tip:** `c.commit(msg)` performs a synchronous commit, which adds a small round-trip per message. For high-throughput consumers, call `c.commit(asynchronous=True)` to fire-and-forget, or batch messages and commit once per batch.
+
 ## Working with Avro Messages
 
 The Confluent Python client supports Avro-serialised messages via the [Confluent Schema Registry](https://docs.confluent.io/current/schema-registry/docs/index.html). The Schema Registry manages Avro schemas centrally and enforces schema compatibility rules so producers and consumers stay in sync.
