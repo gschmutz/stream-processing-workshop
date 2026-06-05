@@ -265,6 +265,10 @@
       #
       KAFKA_UI_enable: false
       #
+      # ===== Kafbat UI ========
+      #
+      KAFBAT_UI_enable: true      
+      #
       # ===== EFAK (previously Kafka Eagle) ========
       #
       EFAK_enable: false
@@ -1468,6 +1472,7 @@
       # ===== Wetty ========
       #
       WETTY_enable: true
+      WETTY_version: 2
       #
       # ===== Markdown Viewer ========
       #
