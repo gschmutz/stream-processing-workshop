@@ -2,6 +2,15 @@
 
 In this workshop we will implement a streaming pipeline that ingests live data from **Bluesky** and routes it through Apache Kafka into Elasticsearch for search and visualisation. The solution architecture is shown in the diagram below.
 
+[Bluesky](https://bsky.app) is a decentralised social network built on the [AT Protocol](https://atproto.com/) — an open standard for federated social applications. Unlike traditional social platforms, AT Protocol is fully open: every post, like, repost, and follow is publicly readable through a real-time event stream called the **firehose**. The firehose delivers a continuous, unfiltered stream of all activity across the network — typically thousands of events per second — making it an excellent real-world source for streaming data workshops.
+
+The pipeline we build follows a classic **ingest → route → index → visualise** pattern:
+
+1. **BlueBird** connects to the Bluesky firehose and publishes every event to a single raw Kafka topic
+2. **Apache NiFi** reads from that topic and routes each message to a type-specific topic based on the Bluesky collection type
+3. **Kafka Connect** reads from the posts topic and sinks the data into an Elasticsearch index
+4. **Kibana** queries Elasticsearch and renders the results as a searchable, auto-refreshing dashboard
+
 ![Alt Image Text](./images/bluesky-data-integration-workshop.png "Solution Architecture")
 
 ## Table of Contents
@@ -32,6 +41,20 @@ In this workshop we will implement a streaming pipeline that ingests live data f
 ## Run the Bluesky sensor
 
 To consume from Bluesky, we use [BlueBird](https://github.com/sdairs/bluebird), a CLI that consumes the Bluesky firehose and forwards it to a downstream destination. A Docker version is available at <https://github.com/gschmutz/bluebird>.
+
+### About the Bluesky firehose
+
+The firehose is a WebSocket stream that delivers every event on the network in real time. Each event is called a **commit** and belongs to a **collection** — the AT Protocol's name for a record type. The five collections we work with in this workshop are:
+
+| Collection | Description |
+|---|---|
+| `app.bsky.feed.post` | A new post (text, optional images, links, or quoted posts) |
+| `app.bsky.feed.repost` | A user reposting someone else's content |
+| `app.bsky.feed.like` | A like on a post |
+| `app.bsky.graph.follow` | A user following another account |
+| `app.bsky.actor.profile` | A profile creation or update |
+
+There are additional collection types in the firehose (e.g. block, mute, list operations), but we ignore them in this workshop. Each event carries the raw record payload plus metadata such as the author's DID (Decentralised Identifier), a microsecond timestamp (`time_us`), a revision hash, and the operation type (`create`, `update`, or `delete`).
 
 ### Create the raw topic
 
@@ -160,6 +183,20 @@ kcat -q -b dataplatform:9092 -t bluesky.raw \
 
 With raw Bluesky messages flowing into the `bluesky.raw` topic, we now use [Apache NiFi](http://nifi.apache.org) to fan them out into five type-specific topics based on the `collection` field.
 
+### Why route by collection type?
+
+Keeping all event types in a single topic works for exploration (we did it with `kcat` and `jq` earlier), but it creates problems for downstream consumers:
+
+- A consumer that only cares about posts must deserialise every message — likes, follows, reposts — just to discard it
+- Different event types have different schemas, so an Elasticsearch index or a database table that expects a post schema will reject or mangle a like record
+- Topic partitioning is most effective when all messages in a topic have the same key domain (e.g. all keyed by post ID); mixing types makes that impossible
+
+By routing each collection type to its own topic, each consumer subscribes only to what it needs, schemas stay homogeneous per topic, and the pipeline remains easy to extend — adding a new consumer for `app.bsky.feed.like` does not require touching any existing flow.
+
+### Why Apache NiFi?
+
+[Apache NiFi](https://nifi.apache.org) is a visual data flow tool designed for routing, transforming, and mediating data between systems. It is a natural fit here because the routing logic — extract a field, match it against a list, publish to a dynamic topic name — is exactly the kind of stateless per-message transformation NiFi handles without writing any code. NiFi also provides a live monitoring view of throughput and backpressure on every connection, which makes it easy to observe the data flow during the workshop.
+
 ### Open NiFi
 
 In a browser navigate to <https://dataplatform:18083/nifi>. NiFi uses a self-signed certificate, so confirm the browser security warning before proceeding.
@@ -207,7 +244,13 @@ Click **Apply** to close the dialog.
 
 ### Adding two `ReplaceText` processors
 
-The Bluesky JSON contains fields named `$type` and `$link`. The leading `$` makes them problematic in NiFi expressions, so we rename them before routing.
+The Bluesky JSON contains fields named `$type` and `$link`. The leading `$` character causes problems in three places downstream:
+
+- **NiFi Expression Language** — `$` is the delimiter that opens an expression (`${...}`), so a field name containing `$` is misinterpreted as an incomplete expression and causes a parse error
+- **Elasticsearch dynamic mapping** — field names beginning with `$` are not valid in Elasticsearch's dot-notation and trigger a mapping exception when the connector tries to index the document
+- **jq** — while jq can handle `$`-prefixed keys with quoted syntax (`.["$type"]`), it makes ad-hoc queries awkward and easy to get wrong
+
+We strip the `$` prefix from both field names before any downstream processing sees the data. This is a purely cosmetic rename — the field values and structure are unchanged.
 
 Drag a **ReplaceText** processor onto the canvas. Double-click it and navigate to **Properties**. Set:
 
@@ -307,6 +350,17 @@ kcat -q -b dataplatform:9092 -t app.bsky.feed.post | jq '.record.commit.record.t
 > **What you should see:** A live stream of post text from the type-specific topic — identical to the filtered output you saw earlier, but now sourced from its own dedicated topic.
 
 ## Using Kafka Connect to send data to Elasticsearch
+
+[Elasticsearch](https://www.elastic.co/elasticsearch) is a distributed search and analytics engine built on Apache Lucene. It stores documents as JSON, indexes every field by default, and answers full-text and structured queries in milliseconds even over billions of documents. Paired with Kibana it provides the search, filtering, and visualisation layer of the pipeline.
+
+### Why Elasticsearch needs an explicit mapping
+
+By default Elasticsearch uses **dynamic mapping**: when the first document arrives it inspects each field value and infers a type (`text`, `long`, `date`, etc.). This works well for simple, uniform schemas but breaks for the Bluesky post schema for two reasons:
+
+- **Mixed-type fields** — several fields in the Bluesky schema can appear as either a simple string or a nested object depending on the post content. Elasticsearch detects the type from the first document it sees; when a subsequent document sends the same field with a different shape, indexing fails with a `mapper_parsing_exception`.
+- **The `embed` subtree** — the `embed` field has radically different structures depending on whether the post embeds an image, an external link, a quoted post, or a video. Dynamic mapping cannot handle a field being sometimes an object with `images` and sometimes an object with `external`.
+
+We therefore create an explicit mapping before starting the connector. The mapping we use takes a permissive approach: all string fields are mapped as `text` with a `keyword` sub-field (enabling both full-text search and exact aggregations), numeric fields are `long`, date fields are `date`, and the most variable sub-trees are mapped as `object` with `"enabled": false` to store them without indexing.
 
 The messages in `app.bsky.feed.post` look like the following example:
 
