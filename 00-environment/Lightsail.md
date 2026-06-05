@@ -11,11 +11,13 @@ Click **Create instance** to navigate to the **Create an instance** dialog.
 ![Alt Image Text](./images/lightsail-create-instance-1.png "Lightsail Homepage")
 
 Optionally change the **Instance Location** to a AWS region of your liking.
-Keep **Linux/Unix** for the **Select a platform** and click on **OS Only** and select **Ubuntu 22.04 LTS** for the **Select a blueprint**.
+Keep **Linux/Unix** for the **Select a platform** and click on **OS Only** and select **Ubuntu 24.04 LTS** for the **Select a blueprint**.
 
 ![Alt Image Text](./images/lightsail-create-instance-2.png "Lightsail Homepage")
 
-Scroll down to **Launch script** and add the following script
+Scroll down to **Launch script** and add the following script.
+
+Optionally change the password from the default value of abc123! to a more secure one.
 
 ```
 export GITHUB_PROJECT=stream-processing-workshop
@@ -65,7 +67,7 @@ sudo chown root:root /usr/local/bin/platys
 sudo rm /tmp/platys.tar.gz 
 
 # Install various Utilities
-sudo apt-get install -y curl jq kafkacat tmux unzip tree
+sudo apt-get install -y curl jq kcat tmux unzip tree
 
 # needed for elasticsearch
 sudo sysctl -w vm.max_map_count=262144   
@@ -75,7 +77,7 @@ cd /home/${USERNAME}
 git clone https://github.com/${GITHUB_OWNER}/${GITHUB_PROJECT}
 chown -R ${USERNAME}:${USERNAME} ${GITHUB_PROJECT}
 
-cd /home/${USERNAME}/${GITHUB_PROJECT}/01-environment/docker
+cd /home/${USERNAME}/${GITHUB_PROJECT}/00-environment/docker
 
 # Make Environment Variables persistent
 sudo echo "export PUBLIC_IP=$PUBLIC_IP" | sudo tee -a /etc/profile.d/platys-platform-env.sh
@@ -90,15 +92,17 @@ into the **Launch Script** edit field
 
 ![Alt Image Text](./images/lightsail-create-instance-3.png "Lightsail Homepage")
 
-Under **Choose your instance plan** click on the arrow on the right and select the **16 GB** instance.  
-
-Under **Identify your istance** enter **Ubuntu-Streaming** into the edit field.
+Scroll further down and under **Choose your instance plan** leave the **Dual Stack** selected and select the **16 GB** instance. It will cost you **$84** per month (but you can stop it anytime).
 
 ![Alt Image Text](./images/lightsail-create-instance-4.png "Lightsail Homepage")
 
-Click on **Create Instance** to start provisioning the instance.
+Under **Identify your istance** enter **Ubuntu-Streaming** into the edit field.
 
-The new instance will show up in the Instances list on the Lightsail homepage.
+![Alt Image Text](./images/lightsail-create-instance-5.png "Lightsail Homepage")
+
+Click on **Create Instance** to start provisioning the instance. 
+
+The new instance will show up in the Instances list on the Lightsail homepage. 
 
 ![Alt Image Text](./images/lightsail-image-started.png "Lightsail Homepage")
 
@@ -123,10 +127,10 @@ The platform contains some web-based documentation, which can be accessed once t
 ![Alt Image Text](./images/platform-overview.png "Platform Overview")
 
 If you click on the "A list of available services is available here" a page with the list of available services and their IP address will appear
-
+   
 ![Alt Image Text](./images/platform-services.png "Platform Services")
 
-So with all services running, there is one last step to do. We have to configure the Firewall to allow traffic into the Lightsail instance.
+So with all services running, there is one last step to do. We have to configure the Firewall to allow traffic into the Lightsail instance. 
 
 ## Open Network Firewall
 
@@ -135,7 +139,7 @@ For accessing the services running in the cloud from our machine, we have two op
 1. Open the ports on the firewall (this is what we do here)
 2. Create an SSH Tunnel
 
-Because the Lightsail instance is exposed to the public internet, generally opening the ports is not the best idea. But if you open it to accept only traffic from your own IP address, the risk can be minimised. Using an SSH tunnel is more secure, but also more difficult to setup.
+Because the Lightsail instance is exposed to the public internet, generally opening the ports is not the best idea. But if you open it to accept only traffic from your own IP address, the risk can be minimised. Using an SSH tunnel is more secure, but also more difficult to setup. 
 
 So let see how we can open the ports on the firewall. Click on the **Networking** tab/link to navigate to the network settings.
 
@@ -143,19 +147,18 @@ So let see how we can open the ports on the firewall. Click on the **Networking*
 
 Click on **Add rule** to add a new Firewall rule.
 
-For simplicity reasons, we allow all TCP traffic by selecting **All TCP** on port range **0 - 65535**.
-To increase security, you should restrict incoming traffic to one or more IP addresses by selecting the option **Restrict to IP address** and adding the IP address of your client as the **Source IP address**.
+For simplicity reasons, we allow all TCP traffic by selecting **All TCP** on port range **0 - 65535**. 
+To increase security, you should restrict incoming traffic to one or more IP addresses by selecting the option **Custom IPv4 address** and adding the IP address of your client as the **Source IP address**.
 
 ![Alt Image Text](./images/lightsail-image-networking-add-firewall-rule-1.png "Lightsail Homepage")
 
-To find out your IP address, browse to <https://www.whatismyip.com/> and use the `XXX.XXX.XXX.XXX` value shown right to **My Public IPv4 is:** to replace the `188.60.35.196` value in the image above.
+To find out your IP address, browse to <https://www.whatismyip.com/> and use the `XXX.XXX.XXX.XXX` value shown right to **My Public IPv4 is:** to replace the value in the **Source IP address** field. You can also add multiple Source IP addresses.
 
-Click on **Create** to save this new Firewall rule and it should be added to the list of rules.
+Click on **Create** to save this new Firewall rule and it should be added to the list of rules. 
 
 ![Alt Image Text](./images/lightsail-image-networking-add-firewall-rule-2.png "Lightsail Homepage")
 
 Your instance is now ready to use. Complete the post installation steps documented the [here](README.md).
-
 
 ## Using the Web-Terminal
 
