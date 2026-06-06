@@ -1,8 +1,10 @@
 # Getting started with Apache Kafka
 
-In this workshop we will learn the basics of working with Apache Kafka. Make sure that you have created the environment as described in [Preparing the Environment](../00-environment/README.md).
+Apache Kafka is a distributed event streaming platform built for high-throughput, fault-tolerant, and real-time data pipelines. Unlike traditional message queues, Kafka persists messages on disk and lets multiple consumers read the same data independently — making it the backbone of modern event-driven architectures.
 
-The main units of interest in Kafka are topics and messages. A topic is simply what you publish a message to; topics are a stream of messages.
+The two core abstractions are **topics** and **messages**. A topic is a named, ordered log of messages that producers write to and consumers read from. Topics are split into **partitions**, which allow Kafka to scale horizontally and process messages in parallel across a cluster of brokers.
+
+In this workshop you will get hands-on experience with a real multi-broker Kafka cluster: creating topics, producing and consuming messages, working with consumer groups, and using both built-in CLI tools and third-party utilities.
 
 ## Table of Contents
 
