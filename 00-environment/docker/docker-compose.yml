@@ -198,8 +198,8 @@ services:
       CONNECT_CONNECTOR_CLIENT_CONFIG_OVERRIDE_POLICY: All
       CONNECT_SECURITY_PROTOCOL: PLAINTEXT
       #CLASSPATH: /usr/share/java/monitoring-interceptors/monitoring-interceptors-4.0.0.jar
-      AWS_ACCESS_KEY_ID: ${PLATYS_AWS_ACCESS_KEY:-V42FCGRVMK24JJ8DHUYG}
-      AWS_SECRET_ACCESS_KEY: ${PLATYS_AWS_SECRET_ACCESS_KEY:-bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza}
+      AWS_ACCESS_KEY_ID: ${PLATYS_AWS_ACCESS_KEY:-admin}
+      AWS_SECRET_ACCESS_KEY: ${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}
       # External secrets config
       # See https://docs.confluent.io/current/connect/security.html#externalizing-secrets
       CONNECT_CONFIG_PROVIDERS: file
@@ -312,6 +312,86 @@ services:
       - ./data-transfer:/data-transfer
     entrypoint: /bin/sh
     tty: true
+    restart: unless-stopped
+  #  ================================== RisingWave ========================================== #
+  risingwave:
+    image: risingwavelabs/risingwave:v2.8.4
+    hostname: risingwave
+    container_name: risingwave
+    labels:
+      com.platys.name: risingwave
+      com.platys.description: Risingwave Streaming DB
+      com.platys.webui.title: Risingwave UI
+      com.platys.webui.url: http://dataplatform:5691
+      com.platys.password.envvars: PLATYS_RISINGWAVE_DATABASE_PASSWORD
+    depends_on:
+      - rustfs-1
+    expose:
+      - '6660'
+      - '4566'
+      - '5688'
+      - '5690'
+      - '1250'
+      - '5691'
+    ports:
+      - 4566:4566
+      - 5690:5690
+      - 5691:5691
+      - 1250:1250
+    environment:
+      - RUST_BACKTRACE="1"
+      # If ENABLE_TELEMETRY is not set, telemetry will start by default
+      - ENABLE_TELEMETRY=False
+      - RW_TELEMETRY_TYPE="docker-compose"
+      - RW_SECRET_STORE_PRIVATE_KEY_HEX=0123456789abcdef0123456789abcdef
+      - RW_LICENSE_KEY=
+      - RW_S3_ENDPOINT=http://rustfs-1:9000
+      - RW_IS_FORCE_PATH_STYLE=true
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=${PLATYS_AWS_ACCESS_KEY:-admin}
+      - AWS_SECRET_ACCESS_KEY=${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}
+    volumes:
+      - ./data-transfer:/data-transfer
+      - ./conf/risingwave/risingwave.toml:/risingwave.toml
+    command: "standalone --meta-opts=\" --listen-addr 0.0.0.0:5690 --advertise-addr 0.0.0.0:5690 --dashboard-host 0.0.0.0:5691 --prometheus-host 0.0.0.0:1250 \n--backend sql                       --sql-endpoint sqlite:///tmp/metadata.db?mode=rwc                       --state-store hummock+s3://risingwave-bucket   --data-directory risingwave-state --config-path /risingwave.toml\" --compute-opts=\" --config-path /risingwave.toml --listen-addr 0.0.0.0:5688 --prometheus-listener-addr 0.0.0.0:1250 --advertise-addr 0.0.0.0:5688 --async-stack-trace verbose --parallelism 8 --total-memory-bytes 16808173568 --role both --meta-address http://0.0.0.0:5690 --memory-manager-target-bytes 22333829939 \" --frontend-opts=\" --config-path /risingwave.toml --listen-addr 0.0.0.0:4566 --advertise-addr 0.0.0.0:4566 --prometheus-listener-addr 0.0.0.0:1250 --health-check-listener-addr 0.0.0.0:6786 --meta-addr http://0.0.0.0:5690 --frontend-total-memory-bytes=4294967296\" --compactor-opts=\" --listen-addr 0.0.0.0:6660
+      --prometheus-listener-addr 0.0.0.0:1250 --advertise-addr 0.0.0.0:6660 --meta-address http://0.0.0.0:5690   --compactor-total-memory-bytes=4294967296\""
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 28G
+        reservations:
+          memory: 28G
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - bash -c 'printf \"GET / HTTP/1.1\n\n\" > /dev/tcp/127.0.0.1/6660; exit $$?;'
+        - bash -c 'printf \"GET / HTTP/1.1\n\n\" > /dev/tcp/127.0.0.1/5688; exit $$?;'
+        - bash -c '> /dev/tcp/127.0.0.1/4566; exit $$?;'
+        - bash -c 'printf \"GET / HTTP/1.1\n\n\" > /dev/tcp/127.0.0.1/5690; exit $$?;'
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+  #  ================================== RisingWave Events API ========================================== #
+  risingwave-events-api:
+    image: risingwavelabs/events-api:v0.1.4
+    container_name: risingwave-events-api
+    hostname: risingwave-events-api
+    labels:
+      com.platys.name: risingwave-events-api
+      com.platys.description: RisingWave Events API
+      com.platys.restapi.title: RisingWave Events API
+      com.platys.restapi.url: http://dataplatform:28424/v1/healthz
+    depends_on:
+      risingwave:
+        condition: service_healthy
+    ports:
+      - 28424:8000
+    environment:
+      EVENTS_API_RW_DSN: postgres://root:root@host.docker.internal:4566/dev
+    volumes:
+      - ./data-transfer:/data-transfer
     restart: unless-stopped
   #  ================================== Confluent Schema Registry ========================================== #
   schema-registry-1:
@@ -553,15 +633,15 @@ services:
         heartbeat.timeout: 5000        
         rest.flamegraph.enabled: true
         web.backpressure.refresh-interval: 10000
-        s3.access.key: ${PLATYS_AWS_ACCESS_KEY:-V42FCGRVMK24JJ8DHUYG}
-        s3.secret.key: ${PLATYS_AWS_SECRET_ACCESS_KEY:-bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza}
+        s3.access.key: ${PLATYS_AWS_ACCESS_KEY:-admin}
+        s3.secret.key: ${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}
         s3.fs.impl: org.apache.hadoop.fs.s3a.S3AFileSystem
-        s3.endpoint: http://minio-1:9000
+        s3.endpoint: http://rustfs-1:9000
         s3.path.style.access: true
-      - s3.access.key=${PLATYS_AWS_ACCESS_KEY:-V42FCGRVMK24JJ8DHUYG}
-      - s3.secret.key=${PLATYS_AWS_SECRET_ACCESS_KEY:-bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza}
+      - s3.access.key=${PLATYS_AWS_ACCESS_KEY:-admin}
+      - s3.secret.key=${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}
       - s3.fs.impl=org.apache.hadoop.fs.s3a.S3AFileSystem
-      - s3.endpoint=http://minio-1:9000'
+      - s3.endpoint=http://rustfs-1:9000'
       - s3.path.style.access='true'
       - FLINK_INSTALL_MAVEN_DEP=org.apache.flink:flink-sql-connector-kafka:3.3.0-1.19,org.apache.flink:flink-json:1.19.2,org.apache.flink:flink-avro:1.19.2,org.apache.flink:flink-avro-confluent-registry:1.19.2,org.apache.iceberg:iceberg-flink-runtime-1.20:1.10.1
     volumes:
@@ -599,15 +679,15 @@ services:
         state.savepoints.dir: file:///tmp/flink-savepoints
         heartbeat.interval: 1000
         heartbeat.timeout: 5000        
-        s3.access.key: ${PLATYS_AWS_ACCESS_KEY:-V42FCGRVMK24JJ8DHUYG}
-        s3.secret.key: ${PLATYS_AWS_SECRET_ACCESS_KEY:-bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza}
+        s3.access.key: ${PLATYS_AWS_ACCESS_KEY:-admin}
+        s3.secret.key: ${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}
         s3.fs.impl: org.apache.hadoop.fs.s3a.S3AFileSystem
-        s3.endpoint: http://minio-1:9000
+        s3.endpoint: http://rustfs-1:9000
         s3.path.style.access: true
-      - s3.access.key=${PLATYS_AWS_ACCESS_KEY:-V42FCGRVMK24JJ8DHUYG}
-      - s3.secret.key=${PLATYS_AWS_SECRET_ACCESS_KEY:-bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza}
+      - s3.access.key=${PLATYS_AWS_ACCESS_KEY:-admin}
+      - s3.secret.key=${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}
       - s3.fs.impl=org.apache.hadoop.fs.s3a.S3AFileSystem
-      - s3.endpoint=http://minio-1:9000'
+      - s3.endpoint=http://rustfs-1:9000'
       - s3.path.style.access='true'
       - FLINK_INSTALL_MAVEN_DEP=org.apache.flink:flink-sql-connector-kafka:3.3.0-1.19,org.apache.flink:flink-json:1.19.2,org.apache.flink:flink-avro:1.19.2,org.apache.flink:flink-avro-confluent-registry:1.19.2,org.apache.iceberg:iceberg-flink-runtime-1.20:1.10.1
     volumes:
@@ -667,12 +747,12 @@ services:
       NIFI_WEB_PROXY_HOST: ${PUBLIC_IP:-127.0.0.1}:18083,${DOCKER_HOST_IP:-localhost}:18083
       NIFI_SECURITY_USER_AUTHORIZER: single-user-authorizer
       NIFI_SECURITY_USER_LOGIN_IDENTITY_PROVIDER: single-user-provider
-      S3_ENDPOINT: http://minio-1:9000
+      S3_ENDPOINT: http://rustfs-1:9000
       S3_PATH_STYLE_ACCESS: 'true'
       S3_REGION: us-east-1
       # these two env variables are also needed for the s3-credentials.properties file gen to work! 
-      AWS_ACCESS_KEY: ${PLATYS_AWS_ACCESS_KEY:-V42FCGRVMK24JJ8DHUYG}
-      AWS_SECRET_ACCESS_KEY: ${PLATYS_AWS_SECRET_ACCESS_KEY:-bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza}
+      AWS_ACCESS_KEY: ${PLATYS_AWS_ACCESS_KEY:-admin}
+      AWS_SECRET_ACCESS_KEY: ${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}
       NIFI_REMOTE_INPUT_SOCKET_PORT: '10015'
       NIFI_REMOTE_INPUT_HOST: nifi-1
       NIFI_SENSITIVE_PROPS_KEY: 12345678901234567890A
@@ -721,9 +801,9 @@ services:
       # remove some JARS if they are conflicting with the ones installed above
       REMOVE_JARS: guava-14.0.1.jar
       # for awscli & s3cmd
-      AWS_ACCESS_KEY_ID: ${PLATYS_AWS_ACCESS_KEY:-V42FCGRVMK24JJ8DHUYG}
-      AWS_SECRET_ACCESS_KEY: ${PLATYS_AWS_SECRET_ACCESS_KEY:-${PLATYS_AWS_SECRET_ACCESS_KEY:-bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza}}
-      AWS_ENDPOINT: http://minio-1:9000
+      AWS_ACCESS_KEY_ID: ${PLATYS_AWS_ACCESS_KEY:-admin}
+      AWS_SECRET_ACCESS_KEY: ${PLATYS_AWS_SECRET_ACCESS_KEY:-${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}}
+      AWS_ENDPOINT: http://rustfs-1:9000
       AWS_REGION: us-east-1
       AWS_DEFAULT_REGION: us-east-1
       #PYSPARK_PYTHON: /opt/bitnami/python/bin/python3.12
@@ -918,60 +998,58 @@ services:
       - ./data-transfer:/data-transfer
     command: php -S 0.0.0.0:8080 -t /var/www/html
     restart: unless-stopped
-  #  ================================== Minio ========================================== #
-  minio-1:
-    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
-    container_name: minio-1
-    hostname: minio-1
+  #  ================================== RustFS (S3 Storage) ========================================== #
+  rustfs-1:
+    image: rustfs/rustfs:latest
+    container_name: rustfs-1
+    hostname: rustfs-1
+    security_opt:
+      - no-new-privileges:true
     labels:
-      com.platys.name: minio
+      com.platys.name: rustfs
       com.platys.description: Software-defined Object Storage
-      com.platys.webui.title: MinIO UI
-      com.platys.webui.url: http://dataplatform:9010
-      com.platys.password.envvars: 'PLATYS_AWS_SECRET_ACCESS_KEY, '
+      com.platys.webui.title: RustFS Console
+      com.platys.webui.url: http://dataplatform:9014
+      com.platys.password.envvars: PLATYS_AWS_SECRET_ACCESS_KEY
     ports:
-      # S3 API Port
-      - 9000:9000
-      # UI Port
-      - 9010:9010
+      - 9005:9000   # S3 API port
+      - 9014:9010   # Console port    
     environment:
-      MINIO_ROOT_USER: ${PLATYS_AWS_ACCESS_KEY:-V42FCGRVMK24JJ8DHUYG}
-      MINIO_ROOT_PASSWORD: ${PLATYS_AWS_SECRET_ACCESS_KEY:-bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza}
-      # remove region due to problems with RisingWave
-      #MINIO_REGION_NAME: us-east-1
-      #MINIO_REGION: us-east-1
-      MINIO_DOMAIN: minio
-      MINIO_SERVER_URL: http://${PUBLIC_IP:-127.0.0.1}:9000
-      MINIO_COMPRESSION_ENABLE: off
-      MINIO_PROMETHEUS_AUTH_TYPE: public
-      MINIO_PROMETHEUS_URL: http://prometheus-1:9090
+      - RUSTFS_VOLUMES=/data/rustfs{0..3} # Define 4 storage volumes
+      - RUSTFS_ADDRESS=0.0.0.0:9000
+      - RUSTFS_CONSOLE_ADDRESS=0.0.0.0:9010
+      - RUSTFS_CONSOLE_ENABLE=true
+      - RUSTFS_CORS_ALLOWED_ORIGINS=*
+      - RUSTFS_CONSOLE_CORS_ALLOWED_ORIGINS=*
+      - RUSTFS_ACCESS_KEY=${PLATYS_AWS_ACCESS_KEY:-admin}
+      - RUSTFS_SECRET_KEY=${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}
+      - RUSTFS_OBS_LOGGER_LEVEL=info
+      # Keep strict disk topology checks enabled by default.
+      # For local testing only, set `RUSTFS_UNSAFE_BYPASS_DISK_CHECK=true` explicitly.      
+      - RUSTFS_UNSAFE_BYPASS_DISK_CHECK=true
+#      - RUSTFS_TLS_PATH=/opt/tls
     volumes:
       - ./data-transfer:/data-transfer
-    entrypoint:
-      - /bin/sh
-      - -c
-      - |
-        mkdir -p /root/.minio && echo "$$MINIO_LICENSE" > /root/.minio/minio.license && exec /usr/bin/docker-entrypoint.sh "$$@"
-    command: minio server /data --console-address ":9010"
     restart: unless-stopped
     healthcheck:
-      test: [CMD, curl, -f, http://minio-1:9000/minio/health/live]
-      interval: 15s
-      timeout: 20s
+      test: [CMD, sh, -c, curl -f http://127.0.0.1:9000/health && curl -f http://127.0.0.1:9010/rustfs/console/health]
+      interval: 30s
+      timeout: 10s
       retries: 3
-  #  ================================== Minio MC ========================================== #
-  minio-mc:
+      start_period: 40s
+  #  ================================== RustFS MC ========================================== #
+  rustfs-mc:
     image: minio/mc:latest
-    container_name: minio-mc
-    hostname: minio-mc
+    container_name: rustfs-mc
+    hostname: rustfs-mc
     labels:
-      com.platys.name: minio
-      com.platys.description: MinIO Console
+      com.platys.name: rustfs
+      com.platys.description: RustFS CLI
     environment:
       # these two env variables are also needed for the s3-credentials.properties file gen to work! 
-      AWS_ACCESS_KEY: ${PLATYS_AWS_ACCESS_KEY:-V42FCGRVMK24JJ8DHUYG}
-      AWS_SECRET_ACCESS_KEY: ${PLATYS_AWS_SECRET_ACCESS_KEY:-bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza}
-      MC_HOST_minio-1: http://${PLATYS_AWS_ACCESS_KEY:-V42FCGRVMK24JJ8DHUYG}:${PLATYS_AWS_SECRET_ACCESS_KEY:-bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza}@minio-1:9000
+      AWS_ACCESS_KEY: ${PLATYS_AWS_ACCESS_KEY:-admin}
+      AWS_SECRET_ACCESS_KEY: ${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}
+      MC_HOST_rustfs-1: http://${PLATYS_AWS_ACCESS_KEY:-admin}:${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}@rustfs-1:9000
     volumes:
       - ./data-transfer:/data-transfer
       - ./scripts/docker/wait-for-it.sh:/usr/src/app/wait-for-it.sh
@@ -979,11 +1057,11 @@ services:
       - /bin/sh
       - -c
       - |
-        /usr/src/app/wait-for-it.sh -t 180 minio-1:9000
-        mc mb --ignore-existing minio-1/admin-bucket
-              for bucket in $$(tr ',' '\n' <<< "")
+        /usr/src/app/wait-for-it.sh -t 180 rustfs-1:9000
+        mc mb --ignore-existing rustfs-1/admin-bucket
+              for bucket in $$(tr ',' '\n' <<< "risingwave-bucket")
         do
-          mc mb --ignore-existing minio-1/$$bucket
+          mc mb --ignore-existing rustfs-1/$$bucket
         done
         #
         while [ 1 -eq 1 ];do sleep 60;done
@@ -1098,14 +1176,14 @@ services:
       com.platys.name: platys-mdp-init
       com.platys.description: Platys MDP Init Service
     environment:
-      AWS_ACCESS_KEY: ${PLATYS_AWS_ACCESS_KEY:-V42FCGRVMK24JJ8DHUYG}
-      AWS_SECRET_ACCESS_KEY: ${PLATYS_AWS_SECRET_ACCESS_KEY:-bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza}
-      S3_ENDPOINT: http://minio-1:9000
+      AWS_ACCESS_KEY: ${PLATYS_AWS_ACCESS_KEY:-admin}
+      AWS_SECRET_ACCESS_KEY: ${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}
+      S3_ENDPOINT: http://rustfs-1:9000
       S3_PATH_STYLE_ACCESS: 'true'
-      MC_HOST_minio-1: http://${PLATYS_AWS_ACCESS_KEY:-V42FCGRVMK24JJ8DHUYG}:${PLATYS_AWS_SECRET_ACCESS_KEY:-bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza}@minio-1:9000
-      MINIO_ACCESS_KEY_ID: ${PLATYS_AWS_ACCESS_KEY:-V42FCGRVMK24JJ8DHUYG}
-      MINIO_SECRET_ACCESS_KEY: ${PLATYS_AWS_SECRET_ACCESS_KEY:-bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza}
-      MINIO_URL: http://minio-1:9000
+      MC_HOST_rustfs-1: http://${PLATYS_AWS_ACCESS_KEY:-admin}:${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}@rustfs-1:9000
+      RUSTFS_ACCESS_KEY_ID: ${PLATYS_AWS_ACCESS_KEY:-admin}
+      RUSTFS_SECRET_ACCESS_KEY: ${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}
+      RUSTFS_URL: http://rustfs-1:9000
       NIFI2_URL: https://nifi2-1:18083
       NIFI2_VERSION: 2.0.0
       NIFI2_USERNAME: nifi
