@@ -27,7 +27,7 @@ In this workshop you will get hands-on experience with a real multi-broker Kafka
 - How to use `kcat` as a powerful alternative CLI for producing and consuming messages
 - How to stream realistic test data into Kafka using a sales data simulator
 - How topic retention controls how long data is kept, and how log compaction keeps only the latest value per key
-- How to inspect and manage your Kafka cluster using the AKHQ and CMAK web UIs
+- How to inspect and manage your Kafka cluster using the AKHQ web UIs
 
 ## Prerequisites
 
@@ -36,17 +36,74 @@ In this workshop you will get hands-on experience with a real multi-broker Kafka
 
 ## Using built-in Command Line Utilities
 
+Kafka ships with a set of shell scripts that wrap the underlying Java tools. On a running broker you will find them in `/usr/bin` (or on the `$PATH`). The most commonly used ones are:
+
+| Utility | Purpose |
+|---|---|
+| `kafka-topics` | Create, list, describe, and delete topics |
+| `kafka-console-producer` | Publish messages to a topic from stdin |
+| `kafka-console-consumer` | Read messages from a topic to stdout |
+| `kafka-consumer-groups` | List consumer groups and inspect/reset offsets |
+| `kafka-broker-api-versions` | Discover all brokers and the API versions they support |
+| `kafka-metadata-quorum` | Inspect KRaft controller state and replication lag |
+| `kafka-configs` | Get and set dynamic broker and topic configuration |
+
+All of these tools accept a `--bootstrap-server` flag to locate the cluster — you only need to supply one or two broker addresses; Kafka discovers the rest automatically.
+
 ### Connect to a Kafka Broker
 
-The environment contains a Kafka cluster with 3 brokers, all running on the Docker host. It is not designed for production fault tolerance, but it gives you a realistic multi-broker environment to work with.
+The CLI utilities listed above are installed inside the broker containers, not on the Docker host, so all commands in this section must be run inside one of the broker containers. 
 
-The command line utilities are available on each broker. The `kafka-topics` utility is used to create, alter, describe, and delete topics. `kafka-console-producer` and `kafka-console-consumer` are used to produce and consume messages.
-
-Connect to one of the Kafka brokers. In the terminal window, run a `docker exec` command to open a shell in the `kafka-1` container:
+In the terminal window, run a `docker exec` command to open a shell in the `kafka-1` container:
 
 ```bash
 docker exec -ti kafka-1 bash
 ```
+
+### Describe the Cluster
+
+Before exploring topics, it is useful to confirm which version of Kafka is running and how many brokers are in the cluster.
+
+Run the following to print the Kafka version:
+
+```bash
+kafka-broker-api-versions --bootstrap-server kafka-1:19092 --version
+```
+
+You should see something like:
+
+```
+8.1.3-ccs
+```
+
+Use `kafka-broker-api-versions` to see every broker that is currently part of the cluster:
+
+```bash
+kafka-broker-api-versions --bootstrap-server kafka-1:19092,kafka-2:19093 \
+  | grep "id:"
+```
+
+You should see one line per broker, for example:
+
+```
+kafka-1:19092 (id: 1 rack: null) -> (
+kafka-2:19093 (id: 2 rack: null) -> (
+kafka-3:19094 (id: 3 rack: null) -> (
+```
+
+The environment contains a Kafka cluster with 3 brokers, all running on the Docker host. It is not designed for production fault tolerance, but it gives you a realistic multi-broker environment to work with.
+
+For a more detailed view of the cluster metadata — including the current controller and all broker addresses — use `kafka-metadata-quorum` (available in KRaft-mode clusters):
+
+```bash
+kafka-metadata-quorum --bootstrap-server kafka-1:19092,kafka-2:19093 describe --status
+```
+
+> **What you should see:** A summary showing the current leader (controller), the cluster ID, and how far each broker's log is from being fully caught up.
+
+> **What just happened?** Both commands connect to the bootstrap server and ask for cluster metadata. The bootstrap server responds with the full broker list, so it does not matter which of the three brokers you list in `--bootstrap-server` — Kafka discovers the rest automatically.
+
+### List Topics
 
 Running `kafka-topics` without any options prints the help page:
 
