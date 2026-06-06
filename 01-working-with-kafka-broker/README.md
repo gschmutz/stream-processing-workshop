@@ -52,13 +52,29 @@ All of these tools accept a `--bootstrap-server` flag to locate the cluster — 
 
 ### Connect to a Kafka Broker
 
-The CLI utilities listed above are installed inside the broker containers, not on the Docker host, so all commands in this section must be run inside one of the broker containers. 
+The CLI utilities listed above are installed inside the broker containers, not on the Docker host, so all commands in this section must be run inside one of the broker containers.
 
-In the terminal window, run a `docker exec` command to open a shell in the `kafka-1` container:
+In the terminal window, run a `docker exec` command to open an interactive shell in the `kafka-1` container:
 
 ```bash
 docker exec -ti kafka-1 bash
 ```
+
+You should see the prompt change to:
+
+```bash
+[appuser@kafka-1 ~]$
+```
+
+This confirms that you are inside the `kafka-1` broker container. You can now run the CLI commands shown below.
+
+Alternatively, you can run any CLI command directly from the Docker host without opening a shell, by passing it after the container name:
+
+```bash
+docker exec -ti kafka-1 kafka-topics --list --bootstrap-server kafka-1:19092,kafka-2:19093
+```
+
+Both approaches work — the interactive shell is more convenient when running several commands in a row, while the direct form is handy for one-off commands or scripting.
 
 ### Describe the Cluster
 
@@ -99,6 +115,19 @@ For a more detailed view of the cluster metadata — including the current contr
 kafka-metadata-quorum --bootstrap-server kafka-1:19092,kafka-2:19093 describe --status
 ```
 
+You should see something like:
+
+```bash
+ClusterId:              y4vRIwfDT0SkZ65tD7Ey2A
+LeaderId:               2
+LeaderEpoch:            9
+HighWatermark:          25266
+MaxFollowerLag:         0
+MaxFollowerLagTimeMs:   389
+CurrentVoters:          [{"id": 1, "endpoints": ["CONTROLLER://kafka-1:49092"]}, {"id": 2, "endpoints": ["CONTROLLER://kafka-2:49093"]}, {"id": 3, "endpoints": ["CONTROLLER://kafka-3:49094"]}]
+CurrentObservers:       []
+```
+
 > **What you should see:** A summary showing the current leader (controller), the cluster ID, and how far each broker's log is from being fully caught up.
 
 > **What just happened?** Both commands connect to the bootstrap server and ask for cluster metadata. The bootstrap server responds with the full broker list, so it does not matter which of the three brokers you list in `--bootstrap-server` — Kafka discovers the rest automatically.
@@ -112,24 +141,115 @@ root@kafka-1:/# kafka-topics
 Create, delete, describe, or change a topic.
 Option                                   Description
 ------                                   -----------
---alter                                  Alter the number of partitions,
-                                           replica assignment, and/or
-                                           configuration for the topic.
---at-min-isr-partitions                  if set when describing topics, only
+--alter                                  Alter the number of partitions and
+                                           replica assignment. (To alter topic
+                                           configurations, the kafka-configs
+                                           tool can be used.)
+--at-min-isr-partitions                  If set when describing topics, only
                                            show partitions whose isr count is
                                            equal to the configured minimum.
 --bootstrap-server <String: server to    REQUIRED: The Kafka server to connect
   connect to>                              to.
+--command-config <String: command        Property file containing configs to be
+  config property file>                    passed to Admin Client.
+--config <String: name=value>            A topic configuration override for the
+                                           topic being created. The following
+                                           is a list of valid configurations:
+                                         	cleanup.policy
+                                         	compression.gzip.level
+                                         	compression.lz4.level
+                                         	compression.type
+                                         	compression.zstd.level
+                                         	delete.retention.ms
+                                         	file.delete.delay.ms
+                                         	flush.messages
+                                         	flush.ms
+                                         	follower.replication.throttled.
+                                           replicas
+                                         	index.interval.bytes
+                                         	leader.replication.throttled.replicas
+                                         	local.retention.bytes
+                                         	local.retention.ms
+                                         	max.compaction.lag.ms
+                                         	max.message.bytes
+                                         	message.timestamp.after.max.ms
+                                         	message.timestamp.before.max.ms
+                                         	message.timestamp.type
+                                         	min.cleanable.dirty.ratio
+                                         	min.compaction.lag.ms
+                                         	min.insync.replicas
+                                         	preallocate
+                                         	remote.log.copy.disable
+                                         	remote.log.delete.on.disable
+                                         	remote.storage.enable
+                                         	retention.bytes
+                                         	retention.ms
+                                         	segment.bytes
+                                         	segment.index.bytes
+                                         	segment.jitter.ms
+                                         	segment.ms
+                                         	unclean.leader.election.enable
+                                         See the Kafka documentation for full
+                                           details on the topic configs. It is
+                                           supported only in combination with --
+                                           create. (To alter topic
+                                           configurations, the kafka-configs
+                                           tool can be used.)
 --create                                 Create a new topic.
---delete                                 Delete a topic
+--delete                                 Delete a topic.
+--delete-config <String: name>           This option is no longer supported and
+                                           has been deprecated since 4.0
 --describe                               List details for the given topics.
+--exclude-internal                       Exclude internal topics when listing
+                                           or describing topics. By default,
+                                           the internal topics are included.
+--help                                   Print usage information.
+--if-exists                              If set when altering or deleting or
+                                           describing topics, the action will
+                                           only execute if the topic exists.
+--if-not-exists                          If set when creating topics, the
+                                           action will only execute if the
+                                           topic does not already exist.
 --list                                   List all available topics.
+--partition-size-limit-per-response      The maximum partition size to be
+  <Integer: maximum number of              included in one
+  partitions per response>                 DescribeTopicPartitions response.
 --partitions <Integer: # of partitions>  The number of partitions for the topic
-                                           being created or altered.
+                                           being created or altered. If not
+                                           supplied with --create, the topic
+                                           uses the cluster default. (WARNING:
+                                           If partitions are increased for a
+                                           topic that has a key, the partition
+                                           logic or ordering of the messages
+                                           will be affected).
+--replica-assignment <String:            A list of manual partition-to-broker
+  broker_id_for_part1_replica1 :           assignments for the topic being
+  broker_id_for_part1_replica2 ,           created or altered.
+  broker_id_for_part2_replica1 :
+  broker_id_for_part2_replica2 , ...>
 --replication-factor <Integer:           The replication factor for each
-  replication factor>                      partition in the topic being created.
+  replication factor>                      partition in the topic being
+                                           created. If not supplied, the topic
+                                           uses the cluster default.
 --topic <String: topic>                  The topic to create, alter, describe
-                                           or delete.
+                                           or delete. It also accepts a regular
+                                           expression, except for --create
+                                           option. Put topic name in double
+                                           quotes and use the '\' prefix to
+                                           escape regular expression symbols; e.
+                                           g. "test\.topic".
+--topic-id <String: topic-id>            The topic-id to describe.
+--topics-with-overrides                  If set when describing topics, only
+                                           show topics that have overridden
+                                           configs.
+--unavailable-partitions                 If set when describing topics, only
+                                           show partitions whose leader is not
+                                           available.
+--under-min-isr-partitions               If set when describing topics, only
+                                           show partitions whose isr count is
+                                           less than the configured minimum.
+--under-replicated-partitions            If set when describing topics, only
+                                           show under-replicated partitions.
 --version                                Display Kafka version.
 ```
 
@@ -143,7 +263,7 @@ kafka-topics --list --bootstrap-server kafka-1:19092,kafka-2:19093
 
 > **What you should see:** A list of topic names. Even on a fresh cluster you will see at least one internal topic — `_schemas` — which is where the Confluent Schema Registry stores its schemas. Later you will see `__consumer_offsets` appear once consumers start committing offsets.
 
-> **What just happened?** `kafka-topics --list` sends a metadata request to the broker and returns the names of all topics known to the cluster. The `--bootstrap-server` flag is the initial contact point — Kafka uses it to discover the full cluster and route the request to the appropriate controller.
+> **What just happened?** `kafka-topics --list` sends a metadata request to the broker and returns the names of all topics known to the cluster. 
 
 ### Creating a topic in Kafka
 
@@ -171,16 +291,16 @@ kafka-topics --describe --bootstrap-server kafka-1:19092,kafka-2:19093 --topic t
 ```
 
 ```
-Topic: test-topic   PartitionCount: 6   ReplicationFactor: 2   Configs:
-    Topic: test-topic   Partition: 0    Leader: 3   Replicas: 3,2   Isr: 3,2
-    Topic: test-topic   Partition: 1    Leader: 1   Replicas: 1,3   Isr: 1,3
-    Topic: test-topic   Partition: 2    Leader: 2   Replicas: 2,1   Isr: 2,1
-    Topic: test-topic   Partition: 3    Leader: 3   Replicas: 3,1   Isr: 3,1
-    Topic: test-topic   Partition: 4    Leader: 1   Replicas: 1,2   Isr: 1,2
-    Topic: test-topic   Partition: 5    Leader: 2   Replicas: 2,3   Isr: 2,3
+Topic: test-topic	TopicId: SfunpJNjT7yZv_mWpb3YLg	PartitionCount: 6	ReplicationFactor: 2	Configs: min.insync.replicas=1
+	Topic: test-topic	Partition: 0	Leader: 1	Replicas: 1,2	Isr: 2,1	Elr: 	LastKnownElr:
+	Topic: test-topic	Partition: 1	Leader: 2	Replicas: 2,3	Isr: 2,3	Elr: 	LastKnownElr:
+	Topic: test-topic	Partition: 2	Leader: 3	Replicas: 3,1	Isr: 3,1	Elr: 	LastKnownElr:
+	Topic: test-topic	Partition: 3	Leader: 3	Replicas: 3,2	Isr: 2,3	Elr: 	LastKnownElr:
+	Topic: test-topic	Partition: 4	Leader: 2	Replicas: 2,1	Isr: 2,1	Elr: 	LastKnownElr:
+	Topic: test-topic	Partition: 5	Leader: 1	Replicas: 1,3	Isr: 3,1	Elr: 	LastKnownElr:
 ```
 
-> **What you should see:** Six rows, one per partition. Each row shows which broker is the current **Leader**, which brokers hold **Replicas**, and which replicas are in the **In-Sync Replica (ISR)** set — the replicas that are fully caught up with the leader.
+> **What you should see:** Six rows, one per partition. Each row shows which broker is the current **Leader**, which brokers hold **Replicas**, and which replicas are in the **In-Sync Replica (ISR)** set — the replicas that are fully caught up with the leader. You will also see two newer KRaft fields: **Elr** (Eligible Leader Replicas) lists replicas that are allowed to be elected leader even if they have fallen slightly behind the ISR; **LastKnownElr** records the last known set of eligible replicas before a controller failover. Both fields are empty on a healthy cluster.
 
 > **What just happened?** Kafka distributed the 6 partition leaders evenly across the 3 brokers. If a leader broker goes down, Kafka automatically elects a new leader from the ISR set — this is how the cluster stays available without losing data.
 
@@ -267,17 +387,18 @@ The trailing `&` runs each producer in the background in parallel.
 
 A Kafka message consists of a key and a value. The value carries the event payload; the key is optional but controls which partition the message is routed to. When no key is provided, Kafka sets it to `null` and distributes messages across partitions using round-robin.
 
-We can verify this by consuming with `--from-beginning` and enabling key display. Stop the existing consumer and restart it:
+We can verify this by consuming with `--from-beginning` and enabling partition and key display. Stop the existing consumer and restart it:
 
 ```bash
 kafka-console-consumer --bootstrap-server kafka-1:19092,kafka-2:19093 \
                       --topic test-topic \
+                      --property print.partition=true \
                       --property print.key=true \
                       --property key.separator=, \
                       --from-beginning
 ```
 
-> **What you should see:** Every message is printed as `null,aaa` — the `null` key followed by the comma separator and the value. This confirms that all messages produced so far had no key.
+> **What you should see:** Every message is printed as `Partition:N	null,aaa` — the partition number, followed by the `null` key and the value separated by a comma. This confirms that all messages produced so far had no key, and lets you see which partition each message was routed to.
 
 > **What just happened?** Kafka stores a key field alongside every message. When the producer sends no key, it stores `null`. The consumer's `print.key=true` property makes this visible at consumption time.
 
@@ -298,139 +419,34 @@ Type a few messages in `key,value` format, e.g. `key1,value1`, and verify they a
 
 ### Deleting a Kafka topic
 
-Delete a topic using the `--delete` option:
+Let's first create a topic and add some messages. 
 
 ```bash
-kafka-topics  --bootstrap-server kafka-1:19092,kafka-2:19093 --delete --topic test-topic
+kafka-topics --create \
+             --if-not-exists \
+             --bootstrap-server kafka-1:19092,kafka-2:19093 \
+             --topic test-delete-topic \
+             --partitions 6 \
+             --replication-factor 2
+
+for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20
+do
+   echo "This is message $i" | kafka-console-producer \
+          --bootstrap-server kafka-1:19092,kafka-2:19093 \
+          --topic test-delete-topic \
+          --batch-size 1 &
+done
+```             
+
+Now let's delete this topic using the `--delete` option:
+
+```bash
+kafka-topics  --bootstrap-server kafka-1:19092,kafka-2:19093 --delete --topic test-delete-topic
 ```
 
 > **What you should see:** The command completes silently. Re-run `kafka-topics --list` and `test-topic` will no longer appear.
 
 > **What just happened?** Kafka queued the topic for deletion. With `delete.topic.enable=true` (configured in the platform), the broker asynchronously removes the underlying partition log files. The topic disappears from the metadata immediately, even before the file cleanup completes.
-
-## Working with Consumer Groups
-
-A **consumer group** is a set of consumers that cooperate to consume messages from a set of topics. Kafka automatically assigns each partition to exactly one consumer within the group, so messages within a partition are processed in order, while different partitions can be processed in parallel.
-
-When consumers join or leave a group, Kafka triggers a **rebalance** to redistribute partitions evenly. This is the mechanism that lets you scale consumption horizontally by simply starting additional consumers.
-
-### Create a topic for the consumer group demo
-
-Create a fresh topic with 6 partitions for this section:
-
-```bash
-kafka-topics --create \
-             --if-not-exists \
-             --bootstrap-server kafka-1:19092 \
-             --topic cg-test-topic \
-             --partitions 6 \
-             --replication-factor 3
-```
-
-### Start consumers in the same group
-
-Open **three separate terminal windows** and connect to `kafka-1` in each one:
-
-```bash
-docker exec -ti kafka-1 bash
-```
-
-In each terminal, start a consumer that joins the **same consumer group** `my-consumer-group`:
-
-```bash
-kafka-console-consumer --bootstrap-server kafka-1:19092 \
-                       --topic cg-test-topic \
-                       --group my-consumer-group
-```
-
-> **What you should see:** Each consumer starts and waits for messages. With 6 partitions and 3 consumers, each consumer is assigned 2 partitions. Each terminal prints a log line showing its assigned partitions, such as `Assigned partitions: [cg-test-topic-0, cg-test-topic-1]`.
-
-> **What just happened?** When the first consumer joined the group, it was assigned all 6 partitions. When the second joined, Kafka triggered a **rebalance** and redistributed the partitions — 3 to each consumer. When the third joined, another rebalance gave each consumer exactly 2 partitions. The **group coordinator** broker manages this process using the consumers' heartbeats to track who is alive in the group.
-
-### Produce messages and observe distribution
-
-Open a **fourth terminal**, connect to `kafka-1`, and produce 30 messages in a loop:
-
-```bash
-docker exec -ti kafka-1 bash
-```
-
-```bash
-for i in $(seq 1 30)
-do
-   echo "message-$i" | kafka-console-producer \
-          --bootstrap-server kafka-1:19092 \
-          --topic cg-test-topic \
-          --batch-size 1
-done
-```
-
-> **What you should see:** The 30 messages are spread across the three consumer terminals. Each consumer only receives messages from the partitions it owns — the same message will never appear in two consumers.
-
-> **What just happened?** Kafka used the default round-robin partitioner (no key was set) to distribute messages across the 6 partitions. Since each consumer owns 2 partitions, each received roughly 10 of the 30 messages. The fundamental guarantee is **exclusive partition ownership**: within a consumer group, each partition is consumed by exactly one consumer at a time.
-
-### Observe a rebalance
-
-Stop one of the three consumers with **Ctrl-C**. After a few seconds the two surviving consumers will each take on 3 partitions instead of 2.
-
-Restart the stopped consumer. A second rebalance fires and all three consumers return to 2 partitions each.
-
-> **What you should see:** When you stop a consumer, the other two each print a new partition assignment showing they now own 3 partitions. When you restart, a third rebalance returns all three consumers to 2 partitions each.
-
-> **What just happened?** Each consumer sends periodic **heartbeats** to the group coordinator. When a consumer stops, its heartbeats cease. After `session.timeout.ms` (default 45 seconds for the console consumer), the coordinator declares it dead and triggers a rebalance. The surviving consumers re-join the group and the coordinator uses the configured assignment strategy (range or round-robin) to redistribute all partitions evenly.
-
-### List and describe consumer groups
-
-The `kafka-consumer-groups` utility lets you inspect all active consumer groups and see how far behind each consumer is.
-
-List all consumer groups:
-
-```bash
-kafka-consumer-groups --bootstrap-server kafka-1:19092 --list
-```
-
-Describe the group to see partition assignments and **lag** (the number of messages produced but not yet consumed):
-
-```bash
-kafka-consumer-groups --bootstrap-server kafka-1:19092 \
-                      --describe \
-                      --group my-consumer-group
-```
-
-```
-GROUP              TOPIC          PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG  CONSUMER-ID                          HOST
-my-consumer-group  cg-test-topic  0          5               5               0    consumer-1-...                       /172.x.x.x
-my-consumer-group  cg-test-topic  1          5               5               0    consumer-1-...                       /172.x.x.x
-my-consumer-group  cg-test-topic  2          5               5               0    consumer-2-...                       /172.x.x.x
-my-consumer-group  cg-test-topic  3          5               5               0    consumer-2-...                       /172.x.x.x
-my-consumer-group  cg-test-topic  4          5               5               0    consumer-3-...                       /172.x.x.x
-my-consumer-group  cg-test-topic  5          5               5               0    consumer-3-...                       /172.x.x.x
-```
-
-Stop all three consumers and produce a few more messages — then re-run `--describe` to see the lag grow.
-
-> **What you should see:** Six rows, one per partition. Each row shows the consumer's ID, its `CURRENT-OFFSET` (the last committed offset), the `LOG-END-OFFSET` (the highest offset written to that partition), and the `LAG` (the difference). When all consumers are running and caught up, lag is 0. After stopping all consumers and producing more messages, the lag will grow to match the number of new unread messages.
-
-> **What just happened?** Consumers periodically **commit** their current offset back to Kafka (stored in the internal `__consumer_offsets` topic). `CURRENT-OFFSET` is the last committed position — the offset the consumer will resume from on restart. `LOG-END-OFFSET` is the next offset the broker will assign to an incoming message. The difference between the two is the **consumer lag**, which is the primary operational metric for knowing whether your consumers are keeping up with producers.
-
-### Reset consumer group offsets
-
-To re-process messages from the beginning, reset the group's offsets. All consumers in the group must be stopped first:
-
-```bash
-kafka-consumer-groups --bootstrap-server kafka-1:19092 \
-                      --group my-consumer-group \
-                      --topic cg-test-topic \
-                      --reset-offsets \
-                      --to-earliest \
-                      --execute
-```
-
-Restart the consumers and they will replay all messages from the start of each partition.
-
-> **What you should see:** Each partition's `CURRENT-OFFSET` is reset to 0. When you restart the consumers, the lag briefly spikes to the total message count before dropping back to 0 as they catch up.
-
-> **What just happened?** `--reset-offsets --to-earliest` overwrote the committed offsets in `__consumer_offsets` for every partition in the group. The next time a consumer starts, it reads this stored offset and resumes from that position — in this case, offset 0 (the beginning of each partition).
 
 ## Using `kcat`
 
@@ -481,13 +497,13 @@ Version 1.7.0 (JSON, Avro, Transactions, IncrementalAssign, librdkafka 2.0.2 bui
 You can also run `kcat` as a Docker container:
 
 ```bash
-docker run --tty --network kafka-workshop edenhill/kcat:1.7.1 kcat
+docker exec -ti kcat kcat
 ```
 
 Set an alias to use the containerised version transparently:
 
 ```bash
-alias kcat='docker run --tty --network host --add-host dataplatform:127.0.0.1 edenhill/kcat:1.7.1 kcat'
+alias kcat='docker exec -ti kcat kcat'
 ```
 
 See [Running in Docker](https://github.com/edenhill/kcat#running-in-docker) for more options.
@@ -740,17 +756,83 @@ To produce messages with a key, use `-K` to specify the key/value delimiter:
 kcat -b dataplatform:9092 -t test-topic -P -K , -X topic.partitioner=murmur2_random
 ```
 
-Find more examples on the [kcat GitHub project](https://github.com/edenhill/kcat) or in the [Confluent Documentation](https://docs.confluent.io/current/app-development/kafkacat-usage.html).
+Find more examples on the [kcat GitHub project](https://github.com/edenhill/kcat) or in the [Confluent Documentation](https://docs.confluent.io/platform/current/tools/kafkacat-usage.html).
 
-### Send realistic test messages to Kafka using Mockaroo and `kcat`
+## Using AKHQ
 
-In his [blog article](https://rmoff.net/2018/05/10/quick-n-easy-population-of-realistic-test-data-into-kafka-with-mockaroo-and-kafkacat/) Robin Moffatt demonstrates how to combine [Mockaroo](https://mockaroo.com/) — a free test data generator — with `kcat` to produce realistic mock messages with a single command.
+[AKHQ](https://akhq.io/) is an open-source web UI for managing Kafka topics, consumer groups, the schema registry, connectors, and more. It runs as part of the **Data Platform** and is accessible at <http://dataplatform:28107/>.
 
-The following example sends 20 simulated orders to `test-topic`. This requires a locally installed `kcat`; the containerised version will not work here because it cannot reach the Mockaroo API from inside Docker.
+By default you will land on the topics overview page.
 
-```bash
-curl -s "https://api.mockaroo.com/api/d5a195e0?count=20&key=ff7856d0" | kcat -b dataplatform:9092 -t test-topic -P
-```
+![Alt Image Text](./images/akhq-homepage.png "AKHQ Homepage")
+
+Navigate to **Nodes** in the left menu to see the Kafka cluster and its 3 brokers.
+
+![Alt Image Text](./images/akhq-nodes.png "AKHQ Nodes")
+
+Click on **Topics** in the menu to return to the topics view.
+
+By default only user-created topics are shown. Select **Show all topics** from the dropdown to also display internal topics such as `__consumer_offsets`.
+
+![Alt Image Text](./images/akhq-topics-all.png "AKHQ All Topics")
+
+To browse the messages stored in a topic, click the **magnifying glass** icon on the right side of any topic row.
+
+![Alt Image Text](./images/akhq-topics-details.png "AKHQ Topic Details")
+
+> **What you should see:** The first page of messages for that topic, displayed in a table with offset, partition, timestamp, key, and value columns.
+
+![Alt Image Text](./images/akhq-topics-details1.png "AKHQ Topic Messages")
+
+To watch live data arriving in a topic, navigate to **Live Tail** in the left menu. If the sales simulator is no longer running, restart it first.
+
+Select one or more topics to tail:
+
+![Alt Image Text](./images/akhq-live-tail.png "AKHQ Live Tail")
+
+Click the **magnifying glass** icon to start the live tail — messages will appear as they arrive.
+
+![Alt Image Text](./images/akhq-live-tail2.png "AKHQ Live Tail Running")
+
+To empty a topic, click its **magnifying glass** icon on the Topics page and then click **Empty Topic**.
+
+![Alt Image Text](./images/akhq-empty-topic.png "AKHQ Empty Topic")
+
+AKHQ also supports copying data between topics (**Copy Topic**) and producing individual test messages (**Produce to topic**). The left menu provides access to the **Schema Registry**, Kafka Connect clusters, and ksqlDB clusters.
+
+## Using Kafbat UI
+
+[Kafbat UI](https://github.com/kafbat/kafka-ui) is an open-source web UI for Apache Kafka, originally forked from the Provectus Kafka UI project and now actively maintained by the Kafbat community. It provides a clean, modern interface for browsing topics, inspecting messages, monitoring consumer groups, and managing your cluster. It runs as part of the **Data Platform** and is accessible at <http://dataplatform:28136/>.
+
+By default you will land on the **Dashboard**, which gives a high-level overview of the cluster — number of brokers, topics, and active consumer groups.
+
+![Alt Image Text](./images/kafbat-dashboard.png "Kafbat UI Dashboard")
+
+Navigate to **Brokers** in the left menu to see the three brokers in the cluster, along with their host, port, and partition leadership counts.
+
+![Alt Image Text](./images/kafbat-brokers.png "Kafbat UI Brokers")
+
+Click on **Topics** in the left menu to see all topics. By default, internal topics are hidden. Toggle **Show Internal Topics** to also display `__consumer_offsets` and other internal topics.
+
+![Alt Image Text](./images/kafbat-topics.png "Kafbat UI Topics")
+
+Click on any topic name to open its detail view. The **Messages** tab lets you browse messages with filtering by partition, offset, or timestamp.
+
+![Alt Image Text](./images/kafbat-topic-messages.png "Kafbat UI Topic Messages")
+
+> **What you should see:** A paginated table of messages showing offset, partition, timestamp, key, and value. You can search or filter messages directly in the UI without a consumer client.
+
+The **Overview** tab shows partition count, replication factor, and the ISR status for each partition — useful for spotting under-replicated partitions at a glance.
+
+Navigate to **Consumers** in the left menu to see all active consumer groups, their assigned topics, and the current lag per partition.
+
+![Alt Image Text](./images/kafbat-consumers.png "Kafbat UI Consumer Groups")
+
+> **What you should see:** Each consumer group listed with its state (Stable, Empty, or Dead), the topics it is consuming, and the total lag across all partitions. Click a group name to drill into per-partition lag details.
+
+To produce a test message directly from the UI, open a topic and click **Produce Message**. You can set the key, value, partition, and any custom headers without needing a command line client.
+
+Kafbat UI also provides access to the **Schema Registry** and **Kafka Connect** clusters via the left menu, making it a convenient all-in-one management console alternative to AKHQ.
 
 ## Publishing a "real" data stream to Kafka
 
@@ -792,21 +874,21 @@ The simulator container must join the same Docker network as the Kafka cluster. 
 docker network list
 ```
 
-For this workshop environment the network is `kafka-workshop`. Start the simulator with:
+For this workshop environment the network is `streaming-data-platform`. Start the simulator with:
 
 ```bash
-docker run -ti --rm --network kafka-workshop \
+docker run -ti --rm --network streaming-data-platform \
     -e KAFKA_BOOTSTRAP_SERVERS=kafka-1:19092,kafka-2:19093 \
     trivadis/sales-simulator:latest
 ```
 
 Because the container joins the broker's network, it can address brokers by service name (`kafka-1`) and internal port (`19092`).
 
-Alternatively, if you want to run the simulator locally against a remote Docker stack, use the `dataplatform` alias and the external ports:
+Alternatively, if you want to run the simulator locally against a remote Docker stack, use the IP address of the dataplatform and the external ports:
 
 ```bash
 docker run -ti --rm \
-    -e KAFKA_BOOTSTRAP_SERVERS=dataplatform:9092,dataplatform:9093 \
+    -e KAFKA_BOOTSTRAP_SERVERS=nnn.nnn.nnn.nnn:9092,nnn.nnn.nnn.nnn:9093 \
     trivadis/sales-simulator:latest
 ```
 
@@ -817,6 +899,131 @@ kcat -b dataplatform:9092 -t demo.purchases -q -f 'Part-%p => %k:%s\n'
 ```
 
 You can also use the **Live Tail** option of **AKHQ** (see the [Using AKHQ](#using-akhq) section below).
+
+## Working with Consumer Groups
+
+A **consumer group** is a set of consumers that cooperate to consume messages from a set of topics. Kafka automatically assigns each partition to exactly one consumer within the group, so messages within a partition are processed in order, while different partitions can be processed in parallel.
+
+When consumers join or leave a group, Kafka triggers a **rebalance** to redistribute partitions evenly. This is the mechanism that lets you scale consumption horizontally by simply starting additional consumers.
+
+### Create a topic for the consumer group demo
+
+Create a fresh topic with 6 partitions for this section:
+
+```bash
+kafka-topics --create \
+             --if-not-exists \
+             --bootstrap-server kafka-1:19092 \
+             --topic cg-test-topic \
+             --partitions 6 \
+             --replication-factor 3
+```
+
+### Start consumers in the same group
+
+Open **three separate terminal windows** and connect to `kafka-1` in each one:
+
+```bash
+docker exec -ti kafka-1 bash
+```
+
+In each terminal, start a consumer that joins the **same consumer group** `my-consumer-group`:
+
+```bash
+kafka-console-consumer --bootstrap-server kafka-1:19092 \
+                       --topic cg-test-topic \
+                       --group my-consumer-group
+```
+
+> **What you should see:** Each consumer starts and waits for messages. With 6 partitions and 3 consumers, each consumer is assigned 2 partitions. Each terminal prints a log line showing its assigned partitions, such as `Assigned partitions: [cg-test-topic-0, cg-test-topic-1]`.
+
+> **What just happened?** When the first consumer joined the group, it was assigned all 6 partitions. When the second joined, Kafka triggered a **rebalance** and redistributed the partitions — 3 to each consumer. When the third joined, another rebalance gave each consumer exactly 2 partitions. The **group coordinator** broker manages this process using the consumers' heartbeats to track who is alive in the group.
+
+### Produce messages and observe distribution
+
+Open a **fourth terminal**, connect to `kafka-1`, and produce 30 messages in a loop:
+
+```bash
+docker exec -ti kafka-1 bash
+```
+
+```bash
+for i in $(seq 1 30)
+do
+   echo "message-$i" | kafka-console-producer \
+          --bootstrap-server kafka-1:19092 \
+          --topic cg-test-topic \
+          --batch-size 1
+done
+```
+
+> **What you should see:** The 30 messages are spread across the three consumer terminals. Each consumer only receives messages from the partitions it owns — the same message will never appear in two consumers.
+
+> **What just happened?** Kafka used the default round-robin partitioner (no key was set) to distribute messages across the 6 partitions. Since each consumer owns 2 partitions, each received roughly 10 of the 30 messages. The fundamental guarantee is **exclusive partition ownership**: within a consumer group, each partition is consumed by exactly one consumer at a time.
+
+### Observe a rebalance
+
+Stop one of the three consumers with **Ctrl-C**. After a few seconds the two surviving consumers will each take on 3 partitions instead of 2.
+
+Restart the stopped consumer. A second rebalance fires and all three consumers return to 2 partitions each.
+
+> **What you should see:** When you stop a consumer, the other two each print a new partition assignment showing they now own 3 partitions. When you restart, a third rebalance returns all three consumers to 2 partitions each.
+
+> **What just happened?** Each consumer sends periodic **heartbeats** to the group coordinator. When a consumer stops, its heartbeats cease. After `session.timeout.ms` (default 45 seconds for the console consumer), the coordinator declares it dead and triggers a rebalance. The surviving consumers re-join the group and the coordinator uses the configured assignment strategy (range or round-robin) to redistribute all partitions evenly.
+
+### List and describe consumer groups
+
+The `kafka-consumer-groups` utility lets you inspect all active consumer groups and see how far behind each consumer is.
+
+List all consumer groups:
+
+```bash
+kafka-consumer-groups --bootstrap-server kafka-1:19092 --list
+```
+
+Describe the group to see partition assignments and **lag** (the number of messages produced but not yet consumed):
+
+```bash
+kafka-consumer-groups --bootstrap-server kafka-1:19092 \
+                      --describe \
+                      --group my-consumer-group
+```
+
+```
+GROUP              TOPIC          PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG  CONSUMER-ID                          HOST
+my-consumer-group  cg-test-topic  0          5               5               0    consumer-1-...                       /172.x.x.x
+my-consumer-group  cg-test-topic  1          5               5               0    consumer-1-...                       /172.x.x.x
+my-consumer-group  cg-test-topic  2          5               5               0    consumer-2-...                       /172.x.x.x
+my-consumer-group  cg-test-topic  3          5               5               0    consumer-2-...                       /172.x.x.x
+my-consumer-group  cg-test-topic  4          5               5               0    consumer-3-...                       /172.x.x.x
+my-consumer-group  cg-test-topic  5          5               5               0    consumer-3-...                       /172.x.x.x
+```
+
+Stop all three consumers and produce a few more messages — then re-run `--describe` to see the lag grow.
+
+> **What you should see:** Six rows, one per partition. Each row shows the consumer's ID, its `CURRENT-OFFSET` (the last committed offset), the `LOG-END-OFFSET` (the highest offset written to that partition), and the `LAG` (the difference). When all consumers are running and caught up, lag is 0. After stopping all consumers and producing more messages, the lag will grow to match the number of new unread messages.
+
+> **What just happened?** Consumers periodically **commit** their current offset back to Kafka (stored in the internal `__consumer_offsets` topic). `CURRENT-OFFSET` is the last committed position — the offset the consumer will resume from on restart. `LOG-END-OFFSET` is the next offset the broker will assign to an incoming message. The difference between the two is the **consumer lag**, which is the primary operational metric for knowing whether your consumers are keeping up with producers.
+
+### Reset consumer group offsets
+
+To re-process messages from the beginning, reset the group's offsets. All consumers in the group must be stopped first:
+
+```bash
+kafka-consumer-groups --bootstrap-server kafka-1:19092 \
+                      --group my-consumer-group \
+                      --topic cg-test-topic \
+                      --reset-offsets \
+                      --to-earliest \
+                      --execute
+```
+
+Restart the consumers and they will replay all messages from the start of each partition.
+
+> **What you should see:** Each partition's `CURRENT-OFFSET` is reset to 0. When you restart the consumers, the lag briefly spikes to the total message count before dropping back to 0 as they catch up.
+
+> **What just happened?** `--reset-offsets --to-earliest` overwrote the committed offsets in `__consumer_offsets` for every partition in the group. The next time a consumer starts, it reads this stored offset and resumes from that position — in this case, offset 0 (the beginning of each partition).
+
 
 ## Retention and Log Compaction
 
@@ -932,45 +1139,3 @@ kafka-console-consumer --bootstrap-server kafka-1:19092 \
 > **What just happened?** Kafka's **log cleaner** thread scanned the log segments and built an offset map of the highest offset seen for each key. It then rewrote the segments, keeping only the message at the highest offset per key and discarding all earlier duplicates. The aggressive settings (`segment.ms=100`, `min.cleanable.dirty.ratio=0.001`) forced this to happen within a few seconds rather than the hours it would take with production defaults.
 
 This is exactly the behaviour used by the `demo.products` topic created in the previous section — it stores the current state of every product, and compaction ensures the topic never grows unboundedly even though products are updated continuously.
-
-## Using AKHQ
-
-[AKHQ](https://akhq.io/) is an open-source web UI for managing Kafka topics, consumer groups, the schema registry, connectors, and more. It runs as part of the **Data Platform** and is accessible at <http://dataplatform:28107/>.
-
-By default you will land on the topics overview page.
-
-![Alt Image Text](./images/akhq-homepage.png "AKHQ Homepage")
-
-Navigate to **Nodes** in the left menu to see the Kafka cluster and its 3 brokers.
-
-![Alt Image Text](./images/akhq-nodes.png "AKHQ Nodes")
-
-Click on **Topics** in the menu to return to the topics view.
-
-By default only user-created topics are shown. Select **Show all topics** from the dropdown to also display internal topics such as `__consumer_offsets`.
-
-![Alt Image Text](./images/akhq-topics-all.png "AKHQ All Topics")
-
-To browse the messages stored in a topic, click the **magnifying glass** icon on the right side of any topic row.
-
-![Alt Image Text](./images/akhq-topics-details.png "AKHQ Topic Details")
-
-> **What you should see:** The first page of messages for that topic, displayed in a table with offset, partition, timestamp, key, and value columns.
-
-![Alt Image Text](./images/akhq-topics-details1.png "AKHQ Topic Messages")
-
-To watch live data arriving in a topic, navigate to **Live Tail** in the left menu. If the sales simulator is no longer running, restart it first.
-
-Select one or more topics to tail:
-
-![Alt Image Text](./images/akhq-live-tail.png "AKHQ Live Tail")
-
-Click the **magnifying glass** icon to start the live tail — messages will appear as they arrive.
-
-![Alt Image Text](./images/akhq-live-tail2.png "AKHQ Live Tail Running")
-
-To empty a topic, click its **magnifying glass** icon on the Topics page and then click **Empty Topic**.
-
-![Alt Image Text](./images/akhq-empty-topic.png "AKHQ Empty Topic")
-
-AKHQ also supports copying data between topics (**Copy Topic**) and producing individual test messages (**Produce to topic**). The left menu provides access to the **Schema Registry**, Kafka Connect clusters, and ksqlDB clusters.
