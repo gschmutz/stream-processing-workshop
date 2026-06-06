@@ -62,7 +62,7 @@ docker exec -ti kafka-1 kafka-topics --create \
 Open a separate terminal and start `kcat` to watch messages arrive in real time. The `-f` format string prints the partition, key, and value of each message:
 
 ```bash
-kcat -b dataplatform -t test-python-topic -f "P-%p: %k=%s\n" -Z
+kcat -b dataplatform:9092 -t test-python-topic -f "P-%p: %k=%s\n" -Z
 ```
 
 If you are using the `kcat` container that ships with the Data Platform, use:
@@ -146,7 +146,7 @@ P-5: 1=message3
 The following script subscribes to the topic and prints each message it receives. It exits cleanly when it receives a message with the value `STOP`:
 
 ```python
-from confluent_kafka import Consumer, KafkaError
+from confluent_kafka import Consumer
 
 topic_name = "test-python-topic"
 
@@ -165,11 +165,8 @@ while go_on:
     if msg is None:
         continue
     if msg.error():
-        if msg.error().code() == KafkaError._PARTITION_EOF:
-            continue
-        else:
-            print(msg.error())
-            break
+        print(msg.error())
+        break
 
     print('Received message: {}'.format(msg.value().decode('utf-8')))
     if msg.value().decode('utf-8') == 'STOP':
@@ -187,7 +184,7 @@ Received message: message3
 ...
 ```
 
-> **What just happened?** `c.subscribe()` registers the consumer with the group coordinator broker, which assigns partitions to it. `c.poll(1.0)` fetches the next batch of messages, blocking for up to 1 second if no messages are available. `auto.offset.reset = earliest` tells Kafka to start from the beginning of each partition the first time this `group.id` subscribes — subsequent runs will resume from the last committed offset.
+> **What just happened?** `c.subscribe()` registers the consumer with the group coordinator broker, which assigns partitions to it. `c.poll(1.0)` fetches the next batch of messages, blocking for up to 1 second if none are available. `'auto.offset.reset': 'earliest'` tells Kafka to start from the beginning of each partition the first time this `group.id` subscribes — subsequent runs resume from the last committed offset.
 
 To send a new message while the consumer is running, open a second terminal and use `kcat` as a producer:
 
@@ -239,7 +236,7 @@ p.flush()
 
 ### Manual offset commits
 
-By default the consumer auto-commits the offset every 5 seconds (`enable.auto.commit=True`). This means Kafka can mark a message as processed before your code has actually finished handling it — if the process crashes between the auto-commit and the end of your processing logic, that message is lost.
+By default the consumer automatically commits the current offset back to Kafka every 5 seconds. This behaviour is controlled by two settings: `enable.auto.commit=True` (on by default) and `auto.commit.interval.ms=5000`. The risk is that Kafka marks a message as processed before your code has finished handling it — if the process crashes between the auto-commit and the end of your processing logic, that message is lost.
 
 Disabling auto-commit and committing manually after successful processing gives you **at-least-once** delivery: in the worst case you reprocess a message, but you never silently skip one.
 
@@ -309,7 +306,7 @@ docker exec -ti kafka-1 kafka-topics --create \
 Monitor the new topic with `kcat` in a separate terminal:
 
 ```bash
-kcat -b dataplatform -t test-python-avro-topic -f "P-%p: %k=%s\n" -Z
+kcat -b dataplatform:9092 -t test-python-avro-topic -f "P-%p: %k=%s\n" -Z
 ```
 
 ### Producing Avro messages
@@ -376,7 +373,7 @@ producer.flush()
 Record b'1001' successfully produced to test-python-avro-topic [1] at offset 0
 ```
 
-> **What just happened?** On the first run, the `AvroSerializer` checked whether the `Person` schema already exists in the Schema Registry. Since it did not, it registered it automatically. It then serialised the `Person` object into Avro binary format, prefixed with a 5-byte magic byte + schema ID (the Confluent wire format), and handed the payload to the producer. The Schema Registry enforces the configured compatibility level on subsequent schema changes — by default `BACKWARD`, meaning new schemas must be able to read data written with the previous schema.
+> **What just happened?** On the first run, the `AvroSerializer` checked whether the `Person` schema already exists in the Schema Registry. Since it did not, it registered it automatically. It then serialised the `Person` object into Avro binary format and prepended a 5-byte Confluent wire format header — 1 magic byte (`0x00`) followed by a 4-byte schema ID — before handing the payload to the producer. The Schema Registry enforces the configured compatibility level on subsequent schema changes — by default `BACKWARD`, meaning new schemas must be able to read data written with the previous schema.
 
 ### Viewing schemas via the REST API
 
