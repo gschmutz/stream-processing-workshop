@@ -40,12 +40,7 @@ The environment contains a Kafka cluster with 3 brokers, all running on the Dock
 
 The command line utilities are available on each broker. The `kafka-topics` utility is used to create, alter, describe, and delete topics. `kafka-console-producer` and `kafka-console-consumer` are used to produce and consume messages.
 
-Let's connect to one of the brokers through a terminal window.
-
-  * If you have access through Guacamole, right-click on the dashboard and select **Open Terminal**.
-  * If you have a username and password, you can also use the browser-based terminal at <http://localhost:3001>.
-
-In the terminal window, run a `docker exec` command to open a shell in the `kafka-1` container:
+Connect to one of the Kafka brokers. In the terminal window, run a `docker exec` command to open a shell in the `kafka-1` container:
 
 ```bash
 docker exec -ti kafka-1 bash
@@ -629,31 +624,31 @@ All examples below use `kcat`. Replace with `kafkacat` if you are on a pre-1.7 i
 The simplest invocation consumes all messages from the beginning of the topic:
 
 ```bash
-kcat -b dataplatform -t test-topic
+kcat -b dataplatform:9092 -t test-topic
 ```
 
 To start at the end of the topic and only receive new messages, use the `-o end` option:
 
 ```bash
-kcat -b dataplatform -t test-topic -o end
+kcat -b dataplatform:9092 -t test-topic -o end
 ```
 
 To show only the last message per partition, set `-o -1`. `-o -2` would show the last two per partition:
 
 ```bash
-kcat -b dataplatform -t test-topic -o -1
+kcat -b dataplatform:9092 -t test-topic -o -1
 ```
 
 To show only the last message from a single partition, add the `-p` option:
 
 ```bash
-kcat -b dataplatform -t test-topic -p1 -o -1
+kcat -b dataplatform:9092 -t test-topic -p1 -o -1
 ```
 
 Use the `-f` format string to print the partition, key, and value alongside each message:
 
 ```bash
-kcat -b dataplatform -t test-topic -f 'Part-%p => %k:%s\n'
+kcat -b dataplatform:9092 -t test-topic -f 'Part-%p => %k:%s\n'
 ```
 
 > **What you should see:** Each message printed as `Part-3 => :aaa`, showing the source partition. Messages from the same partition appear in offset order; messages from different partitions are interleaved in the order they were fetched.
@@ -663,13 +658,13 @@ kcat -b dataplatform -t test-topic -f 'Part-%p => %k:%s\n'
 To display `null` keys explicitly, add the `-Z` flag:
 
 ```bash
-kcat -b dataplatform -t test-topic -f 'Part-%p => %k:%s\n' -Z
+kcat -b dataplatform:9092 -t test-topic -f 'Part-%p => %k:%s\n' -Z
 ```
 
 To emit each message as a JSON envelope, use `-J`:
 
 ```bash
-kcat -b dataplatform -t test-topic -J
+kcat -b dataplatform:9092 -t test-topic -J
 ```
 
 ### Producing messages using `kcat`
@@ -677,13 +672,13 @@ kcat -b dataplatform -t test-topic -J
 Switch to producer mode with the `-P` flag:
 
 ```bash
-kcat -b dataplatform -t test-topic -P
+kcat -b dataplatform:9092 -t test-topic -P
 ```
 
 To produce messages with a key, use `-K` to specify the key/value delimiter:
 
 ```bash
-kcat -b dataplatform -t test-topic -P -K , -X topic.partitioner=murmur2_random
+kcat -b dataplatform:9092 -t test-topic -P -K , -X topic.partitioner=murmur2_random
 ```
 
 Find more examples on the [kcat GitHub project](https://github.com/edenhill/kcat) or in the [Confluent Documentation](https://docs.confluent.io/current/app-development/kafkacat-usage.html).
@@ -695,7 +690,7 @@ In his [blog article](https://rmoff.net/2018/05/10/quick-n-easy-population-of-re
 The following example sends 20 simulated orders to `test-topic`. This requires a locally installed `kcat`; the containerised version will not work here because it cannot reach the Mockaroo API from inside Docker.
 
 ```bash
-curl -s "https://api.mockaroo.com/api/d5a195e0?count=20&key=ff7856d0" | kcat -b dataplatform -t test-topic -P
+curl -s "https://api.mockaroo.com/api/d5a195e0?count=20&key=ff7856d0" | kcat -b dataplatform:9092 -t test-topic -P
 ```
 
 ## Publishing a "real" data stream to Kafka
@@ -759,7 +754,7 @@ docker run -ti --rm \
 Use `kcat` to watch data streaming into the `demo.purchases` topic:
 
 ```bash
-kcat -b dataplatform -t demo.purchases -q -f 'Part-%p => %k:%s\n'
+kcat -b dataplatform:9092 -t demo.purchases -q -f 'Part-%p => %k:%s\n'
 ```
 
 You can also use the **Live Tail** option of **AKHQ** (see the [Using AKHQ](#using-akhq) section below).
