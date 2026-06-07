@@ -661,7 +661,7 @@ Restart the consumers and they will replay all messages from the start of each p
 Finally, let's revert the log level:
 
 ```bash
-docker cp tools-log4j2.yaml.backup kafka-1:/etc/kafka
+docker cp tools-log4j2.yaml.backup kafka-1:/etc/kafka/tools-log4j2.yaml
 ```
 
 ## Retention and Log Compaction
@@ -669,7 +669,7 @@ docker cp tools-log4j2.yaml.backup kafka-1:/etc/kafka
 Kafka provides two strategies for controlling how long data is kept in a topic:
 
 - **Time-based / size-based retention** (default) — messages are deleted after a configurable time period (default: 7 days) or when the total log size exceeds a limit. This is the right model for event streams where you only need a recent window.
-- **Log compaction** — Kafka keeps only the **latest message per key**, discarding older records with the same key. The compacted topic always contains a full snapshot of the current state for every key. This is the right model for change-log or lookup data (e.g., a product catalogue).
+- **Log compaction** — Kafka keeps only the **latest message per key**, discarding older records with the same key. The compacted topic always contains a full snapshot of the current state for every key. This is the right model for change-log or lookup data (e.g., a product catalogue). Note that the log cleaner only operates on **closed (inactive) segments** — the segment currently being written to is never touched. A segment is closed once it rolls over, which is controlled by `segment.ms` or `segment.bytes`.
 
 ### Viewing and changing retention on a topic
 
@@ -696,7 +696,23 @@ kafka-configs --bootstrap-server kafka-1:19092 \
               --add-config retention.ms=3600000
 ```
 
-> **What just happened?** Kafka wrote the `retention.ms=3600000` override into its internal configuration store. The change takes effect immediately — the log cleaner enforces the new limit on the next cleanup cycle. No broker restart is required.
+> **What just happened?** Kafka wrote the `retention.ms=3600000` override into its internal configuration store. The change takes effect immediately — the log cleaner enforces the new limit on the next cleanup cycle. No broker restart is required.k
+
+Check that the new setting was applied:
+
+```bash
+kafka-configs --bootstrap-server kafka-1:19092 \
+              --entity-type topics \
+              --entity-name test-topic \
+              --describe
+```
+
+You should no longer get an empty list, but this instead:
+
+```bash
+Dynamic configs for topic test-topic are:
+  retention.ms=3600000 sensitive=false synonyms={DYNAMIC_TOPIC_CONFIG:retention.ms=3600000}
+```
 
 To remove the override and fall back to the broker default:
 
@@ -725,6 +741,16 @@ kafka-topics --create \
              --config min.cleanable.dirty.ratio=0.001
 ```
 
+These three config values together force compaction to run almost immediately:
+
+| Config | Value used | Production default | Why it matters |
+|---|---|---|---|
+| `segment.ms` | `100` ms | `604800000` (7 days) | A segment is closed after this time. The cleaner can only compact **closed** segments, so a very short roll time means the active segment is closed almost immediately after writing. |
+| `min.cleanable.dirty.ratio` | `0.001` (0.1 %) | `0.5` (50 %) | The cleaner waits until the ratio of dirty (uncompacted) data to total log size exceeds this threshold before it runs. Setting it near zero means the cleaner triggers after even a single new message. |
+| `delete.retention.ms` | `100` ms | `86400000` (24 hours) | After a key is tombstoned (deleted by producing a `null` value), Kafka retains the tombstone for this duration so downstream consumers can observe the deletion before it is purged. `100` ms makes tombstones disappear almost instantly in the demo. |
+
+In production you would keep these at their defaults to balance compaction overhead against write throughput.
+
 Start the producer with key parsing enabled:
 
 ```bash
@@ -733,6 +759,8 @@ kafka-console-producer --bootstrap-server kafka-1:19092 \
                        --property parse.key=true \
                        --property key.separator=:
 ```
+
+> **Important:** Log compaction operates on a per-key basis — it keeps only the latest message for each unique key and discards all earlier messages with the same key. This means **every message you produce to a compacted topic must have a key**. Messages without a key (`null` key) are never compacted and will accumulate indefinitely, defeating the purpose of the policy.
 
 Enter the following messages one by one, pressing **Enter** after each line. Notice that `user-1` is updated three times and `user-2` is updated twice:
 
@@ -777,9 +805,9 @@ kafka-console-consumer --bootstrap-server kafka-1:19092 \
 
 > **What just happened?** Kafka's **log cleaner** thread scanned the log segments and built an offset map of the highest offset seen for each key. It then rewrote the segments, keeping only the message at the highest offset per key and discarding all earlier duplicates. The aggressive settings (`segment.ms=100`, `min.cleanable.dirty.ratio=0.001`) forced this to happen within a few seconds rather than the hours it would take with production defaults.
 
-This is exactly the behaviour used by the `demo.products` topic created in the previous section — it stores the current state of every product, and compaction ensures the topic never grows unboundedly even though products are updated continuously.
+## Standalone Tools for working with Kafka
 
-## Using `kcat`
+### `kcat`
 
 [kcat](https://github.com/edenhill/kcat) is a command line utility for testing and debugging Apache Kafka. Described as "netcat for Kafka", it is a lightweight, native alternative to `kafka-console-producer` and `kafka-console-consumer` for producing, consuming, and inspecting messages.
 
@@ -787,13 +815,13 @@ This is exactly the behaviour used by the `demo.products` topic created in the p
 
 `kcat` is available as a container in the Data Platform (enabled via `KCAT_enable: true`). You can also install it locally on any **Linux** or **Mac** computer to connect to a remote Kafka cluster.
 
-### Installing `kcat` locally
+#### Installing `kcat` locally
 
 In all workshops we assume that `kcat` is installed locally on the Docker host and that the `dataplatform` alias has been added to `/etc/hosts`.
 
 > **Note:** `kcat` used to be `kafkacat` before version 1.7. If you have an older installation, replace `kcat` with `kafkacat` in the commands below, or define an alias: `alias kcat=kafkacat`.
 
-#### Ubuntu > 23.04
+**_Ubuntu > 23.04_**
 
 ```bash
 sudo apt-get install kcat
@@ -809,7 +837,7 @@ Copyright (c) 2014-2021, Magnus Edenhill
 Version 1.7.1 (JSON, Transactions, IncrementalAssign, librdkafka 2.0.2 builtin.features=gzip,snappy,ssl,sasl,regex,lz4,sasl_gssapi,sasl_plain,sasl_scram,plugins,zstd,sasl_oauthbearer)
 ```
 
-#### macOS
+**_macOS_**
 
 ```bash
 brew install kcat
@@ -825,7 +853,7 @@ Copyright (c) 2014-2021, Magnus Edenhill
 Version 1.7.0 (JSON, Avro, Transactions, IncrementalAssign, librdkafka 2.0.2 builtin.features=gzip,snappy,ssl,sasl,regex,lz4,sasl_gssapi,sasl_plain,sasl_scram,plugins,zstd,sasl_oauthbearer,http,oidc)
 ```
 
-#### Docker Container
+**_Docker_**
 
 You can also run `kcat` as a Docker container:
 
@@ -841,11 +869,11 @@ alias kcat='docker exec -ti kcat kcat'
 
 See [Running in Docker](https://github.com/edenhill/kcat#running-in-docker) for more options.
 
-#### Windows
+**_Windows_**
 
 There is no official Windows build. You can try the unofficial build at <https://ci.appveyor.com/project/edenhill/kafkacat/builds/23675338/artifacts>, or run `kcat` as a Docker container as shown above.
 
-### Display `kcat` options
+#### Display `kcat` options
 
 Running `kcat` without arguments prints the full option list:
 
@@ -1025,7 +1053,7 @@ Query offset by timestamp:
   kcat -Q -b broker -t <topic>:<partition>:<timestamp>
 ```
 
-### Consuming messages using `kcat`
+#### Consuming messages using `kcat`
 
 All examples below use `kcat`. Replace with `kafkacat` if you are on a pre-1.7 installation.
 
@@ -1075,7 +1103,7 @@ To emit each message as a JSON envelope, use `-J`:
 kcat -b dataplatform:9092 -t test-topic -J
 ```
 
-### Producing messages using `kcat`
+#### Producing messages using `kcat`
 
 Switch to producer mode with the `-P` flag:
 
@@ -1089,7 +1117,7 @@ To produce messages with a key, use `-K` to specify the key/value delimiter:
 kcat -b dataplatform:9092 -t test-topic -P -K , -X topic.partitioner=murmur2_random
 ```
 
-### Listing cluster metadata using `kcat`
+#### Listing cluster metadata using `kcat`
 
 Use the `-L` flag to list all topics and their partition details without connecting to a broker container:
 
@@ -1105,7 +1133,7 @@ kcat -b dataplatform:9092 -L -t test-topic
 
 > **What you should see:** For each topic, a block showing the partition count, the leader broker for each partition, and the replica and ISR sets — equivalent to `kafka-topics --describe` but runnable directly from the Docker host without `docker exec`.
 
-### Querying offsets by timestamp
+#### Querying offsets by timestamp
 
 Use the `-Q` flag to find the offset at a specific point in time. The timestamp is in milliseconds since epoch UTC:
 
@@ -1121,7 +1149,7 @@ kcat -b dataplatform:9092 -Q -t test-topic:0:1700000000000 -t test-topic:1:17000
 
 > **What you should see:** The offset of the first message in each partition whose timestamp is greater than or equal to the given value. Take the returned offset and pass it to a consumer with `-o <offset>` to replay events from a known point in time.
 
-### Consuming as a consumer group
+#### Consuming as a consumer group
 
 Use the `-G` flag to consume as a named high-level consumer group. `kcat` will join the group and be assigned partitions just like any other consumer:
 
@@ -1133,7 +1161,7 @@ kcat -b dataplatform:9092 -G my-kcat-group test-topic
 
 > **Note:** Offsets committed by `kcat -G` are visible in `kafka-consumer-groups --describe` just like any other consumer group.
 
-### Producing from a file or pipe
+#### Producing from a file or pipe
 
 Produce the contents of a file, sending each line as a separate message:
 
@@ -1155,7 +1183,7 @@ kcat -b dataplatform:9092 -t test-topic -P data.txt
 
 > **What just happened?** Without `-l`, `kcat` reads the whole file and sends it as one message payload. With `-l`, `kcat` splits on the delimiter (default: newline) and sends each line as an individual message — useful for bulk-loading test data.
 
-### Producing messages with headers
+#### Producing messages with headers
 
 Use `-H` to attach one or more headers to every produced message:
 
@@ -1175,7 +1203,7 @@ kcat -b dataplatform:9092 -t test-topic -o end -f 'Headers: %h | Value: %s\n'
 
 Find more examples on the [kcat GitHub project](https://github.com/edenhill/kcat) or in the [Confluent Documentation](https://docs.confluent.io/platform/current/tools/kafkacat-usage.html).
 
-## Using AKHQ
+### Using AKHQ
 
 [AKHQ](https://akhq.io/) is an open-source web UI for managing Kafka topics, consumer groups, the schema registry, connectors, and more. It runs as part of the **Data Platform** and is accessible at <http://dataplatform:28107/>.
 
@@ -1217,7 +1245,7 @@ To empty a topic, click its **magnifying glass** icon on the Topics page and the
 
 AKHQ also supports copying data between topics (**Copy Topic**) and producing individual test messages (**Produce to topic**). The left menu provides access to the **Schema Registry**, Kafka Connect clusters, and ksqlDB clusters.
 
-## Using Kafbat UI
+### Using Kafbat UI
 
 [Kafbat UI](https://github.com/kafbat/kafka-ui) is an open-source web UI for Apache Kafka, originally forked from the Provectus Kafka UI project and now actively maintained by the Kafbat community. It provides a clean, modern interface for browsing topics, inspecting messages, monitoring consumer groups, and managing your cluster. It runs as part of the **Data Platform** and is accessible at <http://dataplatform:28136/>.
 
