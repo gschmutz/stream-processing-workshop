@@ -419,7 +419,7 @@ Type a few messages in `key,value` format, e.g. `key1,value1`, and verify they a
 
 ### Deleting a Kafka topic
 
-Let's first create a topic and add some messages. 
+Let's first create a new topic and add some messages. 
 
 ```bash
 kafka-topics --create \
@@ -448,9 +448,314 @@ kafka-topics  --bootstrap-server kafka-1:19092,kafka-2:19093 --delete --topic te
 
 > **What just happened?** Kafka queued the topic for deletion. With `delete.topic.enable=true` (configured in the platform), the broker asynchronously removes the underlying partition log files. The topic disappears from the metadata immediately, even before the file cleanup completes.
 
+## Working with Consumer Groups
+
+A **consumer group** is a set of consumers that cooperate to consume messages from a set of topics. Kafka automatically assigns each partition to exactly one consumer within the group, so messages within a partition are processed in order, while different partitions can be processed in parallel.
+
+When consumers join or leave a group, Kafka triggers a **rebalance** to redistribute partitions evenly. This is the mechanism that lets you scale consumption horizontally by simply starting additional consumers.
+
+### Setting Log Level to Info for Consumer Coordinator classes
+
+By default, the Kafka CLI tools are configured to use a `WARN`-level root logger, which suppresses the rebalance and partition-assignment log lines emitted by the consumer coordinator classes. Raising those two classes to `INFO` makes it possible to see exactly when a rebalance is triggered, which consumer joined or left, and which partitions were assigned — directly in the terminal output of `kafka-console-consumer`.
+
+The log configuration for CLI tools lives in `tools-log4j2.yaml` inside the broker container. The steps below copy it out, add the two extra loggers, and copy the modified file back so it is picked up the next time you run a consumer.
+
+First, copy the file out of the container onto the Docker host:
+
+```bash
+docker cp kafka-1:/etc/kafka/tools-log4j2.yaml tools-log4j2.yaml
+```
+
+Keep the original as a backup:
+
+```bash
+cp tools-log4j2.yaml tools-log4j2.yaml.backup
+```
+
+Open the file for editing:
+
+```bash
+nano tools-log4j2.yaml
+```
+
+Add the following two loggers to the `Loggers` block:
+
+```bash
+Configuration:
+  name: "Log4j2"
+
+  Appenders:
+    Console:
+      name: STDERR
+      target: SYSTEM_ERR
+      PatternLayout:
+        Pattern: "[%d] %p %m (%c)%n"
+
+  Loggers:
+    Logger:
+      - name: "org.apache.kafka.clients.consumer.internals.ConsumerCoordinator"
+        level: "INFO"
+        additivity: false
+        AppenderRef:
+          - ref: STDERR
+      - name: "org.apache.kafka.clients.consumer.internals.AbstractCoordinator"
+        level: "INFO"
+        additivity: false
+        AppenderRef:
+          - ref: STDERR
+
+    Root:
+      level: "WARN"
+      AppenderRef:
+        - ref: STDERR
+```
+
+Copy the modified file back into the container:
+
+```bash
+docker cp ./tools-log4j2.yaml.cg kafka-1:/etc/kafka
+```
+
+> **What just happened?** `ConsumerCoordinator` logs the partition assignment each consumer receives after a rebalance, and `AbstractCoordinator` logs the join-group and sync-group protocol steps. With both at `INFO`, you will see lines like `Setting newly assigned partitions` and `Successfully joined group` in the consumer terminal — making rebalances visible rather than silent.
+
+### Create a topic for the consumer group demo
+
+Create a fresh topic with 6 partitions for this section:
+
+```bash
+docker exec -ti kafka-1 kafka-topics --create \
+             --if-not-exists \
+             --bootstrap-server kafka-1:19092 \
+             --topic cg-test-topic \
+             --partitions 6 \
+             --replication-factor 3
+```
+
+### Start consumers in the same group
+
+Open **three separate terminal windows** and connect to `kafka-1` in each one:
+
+```bash
+docker exec -ti kafka-1 bash
+```
+
+In each terminal, start a consumer on the `cg-test-topic` that joins the **same consumer group** `my-consumer-group`:
+
+```bash
+kafka-console-consumer --bootstrap-server kafka-1:19092 \
+                       --topic cg-test-topic \
+                       --group my-consumer-group
+```
+
+> **What you should see:** Each consumer starts and waits for messages. With 6 partitions and 3 consumers, each consumer is assigned 2 partitions. Each terminal prints a log line showing its assigned partitions, such as `Assigned partitions: [cg-test-topic-0, cg-test-topic-1]`.
+
+> **What just happened?** When the first consumer joined the group, it was assigned all 6 partitions. When the second joined, Kafka triggered a **rebalance** and redistributed the partitions — 3 to each consumer. When the third joined, another rebalance gave each consumer exactly 2 partitions. The **group coordinator** broker manages this process using the consumers' heartbeats to track who is alive in the group.
+
+### Produce messages and observe distribution
+
+Open a **fourth terminal**, connect to `kafka-1`, and produce 30 messages in a loop:
+
+```bash
+docker exec -ti kafka-1 bash
+```
+
+```bash
+for i in $(seq 1 30)
+do
+   echo "message-$i" | kafka-console-producer \
+          --bootstrap-server kafka-1:19092 \
+          --topic cg-test-topic \
+          --batch-size 1
+done
+```
+
+> **What you should see:** The 30 messages are spread across the three consumer terminals. Each consumer only receives messages from the partitions it owns — the same message will never appear in two consumers.
+
+> **What just happened?** Kafka used the default round-robin partitioner (no key was set) to distribute messages across the 6 partitions. Since each consumer owns 2 partitions, each received roughly 10 of the 30 messages. The fundamental guarantee is **exclusive partition ownership**: within a consumer group, each partition is consumed by exactly one consumer at a time.
+
+### Observe a rebalance
+
+Stop one of the three consumers with **Ctrl-C**. After a few seconds the two surviving consumers will each take on 3 partitions instead of 2.
+
+Restart the stopped consumer. A second rebalance fires and all three consumers return to 2 partitions each.
+
+> **What you should see:** When you stop a consumer, the other two each print a new partition assignment showing they now own 3 partitions. When you restart, a third rebalance returns all three consumers to 2 partitions each.
+
+> **What just happened?** Each consumer sends periodic **heartbeats** to the group coordinator. When a consumer stops, its heartbeats cease. After `session.timeout.ms` (default 45 seconds for the console consumer), the coordinator declares it dead and triggers a rebalance. The surviving consumers re-join the group and the coordinator uses the configured assignment strategy (range or round-robin) to redistribute all partitions evenly.
+
+### List and describe consumer groups
+
+The `kafka-consumer-groups` utility lets you inspect all active consumer groups and see how far behind each consumer is.
+
+List all consumer groups:
+
+```bash
+kafka-consumer-groups --bootstrap-server kafka-1:19092 --list
+```
+
+Describe the group to see partition assignments and **lag** (the number of messages produced but not yet consumed):
+
+```bash
+kafka-consumer-groups --bootstrap-server kafka-1:19092 \
+                      --describe \
+                      --group my-consumer-group
+```
+
+```
+GROUP              TOPIC          PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG  CONSUMER-ID                          HOST
+my-consumer-group  cg-test-topic  0          5               5               0    consumer-1-...                       /172.x.x.x
+my-consumer-group  cg-test-topic  1          5               5               0    consumer-1-...                       /172.x.x.x
+my-consumer-group  cg-test-topic  2          5               5               0    consumer-2-...                       /172.x.x.x
+my-consumer-group  cg-test-topic  3          5               5               0    consumer-2-...                       /172.x.x.x
+my-consumer-group  cg-test-topic  4          5               5               0    consumer-3-...                       /172.x.x.x
+my-consumer-group  cg-test-topic  5          5               5               0    consumer-3-...                       /172.x.x.x
+```
+
+Stop all three consumers and produce a few more messages — then re-run `--describe` to see the lag grow.
+
+> **What you should see:** Six rows, one per partition. Each row shows the consumer's ID, its `CURRENT-OFFSET` (the last committed offset), the `LOG-END-OFFSET` (the highest offset written to that partition), and the `LAG` (the difference). When all consumers are running and caught up, lag is 0. After stopping all consumers and producing more messages, the lag will grow to match the number of new unread messages.
+
+> **What just happened?** Consumers periodically **commit** their current offset back to Kafka (stored in the internal `__consumer_offsets` topic). `CURRENT-OFFSET` is the last committed position — the offset the consumer will resume from on restart. `LOG-END-OFFSET` is the next offset the broker will assign to an incoming message. The difference between the two is the **consumer lag**, which is the primary operational metric for knowing whether your consumers are keeping up with producers.
+
+### Reset consumer group offsets
+
+To re-process messages from the beginning, reset the group's offsets. All consumers in the group must be stopped first:
+
+```bash
+kafka-consumer-groups --bootstrap-server kafka-1:19092 \
+                      --group my-consumer-group \
+                      --topic cg-test-topic \
+                      --reset-offsets \
+                      --to-earliest \
+                      --execute
+```
+
+Restart the consumers and they will replay all messages from the start of each partition.
+
+> **What you should see:** Each partition's `CURRENT-OFFSET` is reset to 0. When you restart the consumers, the lag briefly spikes to the total message count before dropping back to 0 as they catch up.
+
+> **What just happened?** `--reset-offsets --to-earliest` overwrote the committed offsets in `__consumer_offsets` for every partition in the group. The next time a consumer starts, it reads this stored offset and resumes from that position — in this case, offset 0 (the beginning of each partition).
+
+## Retention and Log Compaction
+
+Kafka provides two strategies for controlling how long data is kept in a topic:
+
+- **Time-based / size-based retention** (default) — messages are deleted after a configurable time period (default: 7 days) or when the total log size exceeds a limit. This is the right model for event streams where you only need a recent window.
+- **Log compaction** — Kafka keeps only the **latest message per key**, discarding older records with the same key. The compacted topic always contains a full snapshot of the current state for every key. This is the right model for change-log or lookup data (e.g., a product catalogue).
+
+### Viewing and changing retention on a topic
+
+Use `kafka-configs` to inspect the current configuration of a topic:
+
+```bash
+kafka-configs --bootstrap-server kafka-1:19092 \
+              --entity-type topics \
+              --entity-name test-topic \
+              --describe
+```
+
+> **What you should see:** All topic-level configuration overrides. On a freshly created topic with no overrides, the output will read `Default configs for topic test-topic are:` followed by an empty list, meaning all values inherit the broker defaults.
+
+> **What just happened?** `kafka-configs --describe` reads the dynamic configuration entries stored in Kafka's internal metadata for the given topic. These overrides take precedence over the broker-wide defaults in `server.properties`, letting you tune individual topics without restarting or touching the broker configuration.
+
+To change the retention time to 1 hour (3,600,000 ms) on an existing topic:
+
+```bash
+kafka-configs --bootstrap-server kafka-1:19092 \
+              --entity-type topics \
+              --entity-name test-topic \
+              --alter \
+              --add-config retention.ms=3600000
+```
+
+> **What just happened?** Kafka wrote the `retention.ms=3600000` override into its internal configuration store. The change takes effect immediately — the log cleaner enforces the new limit on the next cleanup cycle. No broker restart is required.
+
+To remove the override and fall back to the broker default:
+
+```bash
+kafka-configs --bootstrap-server kafka-1:19092 \
+              --entity-type topics \
+              --entity-name test-topic \
+              --alter \
+              --delete-config retention.ms
+```
+
+### Demonstrating log compaction
+
+Create a dedicated topic with log compaction enabled and aggressive settings so the effect is visible within seconds:
+
+```bash
+kafka-topics --create \
+             --if-not-exists \
+             --bootstrap-server kafka-1:19092 \
+             --topic compaction-test \
+             --partitions 1 \
+             --replication-factor 1 \
+             --config cleanup.policy=compact \
+             --config segment.ms=100 \
+             --config delete.retention.ms=100 \
+             --config min.cleanable.dirty.ratio=0.001
+```
+
+Start the producer with key parsing enabled:
+
+```bash
+kafka-console-producer --bootstrap-server kafka-1:19092 \
+                       --topic compaction-test \
+                       --property parse.key=true \
+                       --property key.separator=:
+```
+
+Enter the following messages one by one, pressing **Enter** after each line. Notice that `user-1` is updated three times and `user-2` is updated twice:
+
+```
+user-1:{"name":"Alice","city":"Zurich"}
+user-2:{"name":"Bob","city":"London"}
+user-1:{"name":"Alice","city":"Bern"}
+user-3:{"name":"Charlie","city":"Paris"}
+user-2:{"name":"Bob","city":"Amsterdam"}
+user-1:{"name":"Alice","city":"Basel"}
+```
+
+Stop the producer with **Ctrl-C**.
+
+Consume all messages immediately — compaction has not run yet, so all 6 records are visible:
+
+```bash
+kafka-console-consumer --bootstrap-server kafka-1:19092 \
+                       --topic compaction-test \
+                       --property print.key=true \
+                       --property key.separator=: \
+                       --from-beginning \
+                       --timeout-ms 5000
+```
+
+> **What you should see:** All 6 messages in the order they were written, including the intermediate values for `user-1` (Zurich, Bern) and `user-2` (London).
+
+> **What just happened?** Compaction has not run yet. The log still contains all original segments, so consuming `--from-beginning` returns every offset in order.
+
+Wait a few seconds, then consume again:
+
+```bash
+kafka-console-consumer --bootstrap-server kafka-1:19092 \
+                       --topic compaction-test \
+                       --property print.key=true \
+                       --property key.separator=: \
+                       --from-beginning \
+                       --timeout-ms 5000
+```
+
+> **What you should see:** Only the latest value for each key — one record each for `user-1` (Basel), `user-2` (Amsterdam), and `user-3` (Paris). The earlier values for `user-1` and `user-2` have been removed by the compactor.
+
+> **What just happened?** Kafka's **log cleaner** thread scanned the log segments and built an offset map of the highest offset seen for each key. It then rewrote the segments, keeping only the message at the highest offset per key and discarding all earlier duplicates. The aggressive settings (`segment.ms=100`, `min.cleanable.dirty.ratio=0.001`) forced this to happen within a few seconds rather than the hours it would take with production defaults.
+
+This is exactly the behaviour used by the `demo.products` topic created in the previous section — it stores the current state of every product, and compaction ensures the topic never grows unboundedly even though products are updated continuously.
+
 ## Using `kcat`
 
-[kcat](https://github.com/edenhill/kcat) is a command line utility for testing and debugging Apache Kafka. Described as "netcat for Kafka", it is a swiss-army knife for inspecting and creating data in Kafka, and a powerful alternative to `kafka-console-producer` and `kafka-console-consumer`.
+[kcat](https://github.com/edenhill/kcat) is a command line utility for testing and debugging Apache Kafka. Described as "netcat for Kafka", it is a lightweight, native alternative to `kafka-console-producer` and `kafka-console-consumer` for producing, consuming, and inspecting messages.
+
+> **Note:** `kcat` is a producer/consumer tool only — it cannot create, delete, or configure topics. Use `kafka-topics` and `kafka-configs` (the built-in CLI utilities covered earlier) for all topic management tasks.
 
 `kcat` is available as a container in the Data Platform (enabled via `KCAT_enable: true`). You can also install it locally on any **Linux** or **Mac** computer to connect to a remote Kafka cluster.
 
@@ -756,6 +1061,90 @@ To produce messages with a key, use `-K` to specify the key/value delimiter:
 kcat -b dataplatform:9092 -t test-topic -P -K , -X topic.partitioner=murmur2_random
 ```
 
+### Listing cluster metadata using `kcat`
+
+Use the `-L` flag to list all topics and their partition details without connecting to a broker container:
+
+```bash
+kcat -b dataplatform:9092 -L
+```
+
+To limit the output to a single topic:
+
+```bash
+kcat -b dataplatform:9092 -L -t test-topic
+```
+
+> **What you should see:** For each topic, a block showing the partition count, the leader broker for each partition, and the replica and ISR sets — equivalent to `kafka-topics --describe` but runnable directly from the Docker host without `docker exec`.
+
+### Querying offsets by timestamp
+
+Use the `-Q` flag to find the offset at a specific point in time. The timestamp is in milliseconds since epoch UTC:
+
+```bash
+kcat -b dataplatform:9092 -Q -t test-topic:0:1700000000000
+```
+
+You can query multiple partitions in one command:
+
+```bash
+kcat -b dataplatform:9092 -Q -t test-topic:0:1700000000000 -t test-topic:1:1700000000000
+```
+
+> **What you should see:** The offset of the first message in each partition whose timestamp is greater than or equal to the given value. Take the returned offset and pass it to a consumer with `-o <offset>` to replay events from a known point in time.
+
+### Consuming as a consumer group
+
+Use the `-G` flag to consume as a named high-level consumer group. `kcat` will join the group and be assigned partitions just like any other consumer:
+
+```bash
+kcat -b dataplatform:9092 -G my-kcat-group test-topic
+```
+
+> **What you should see:** Messages from the partitions assigned to this consumer. If you run a second `kcat -G` command with the same group ID in another terminal, Kafka will rebalance and split the partitions between the two instances.
+
+> **Note:** Offsets committed by `kcat -G` are visible in `kafka-consumer-groups --describe` just like any other consumer group.
+
+### Producing from a file or pipe
+
+Produce the contents of a file, sending each line as a separate message:
+
+```bash
+kcat -b dataplatform:9092 -t test-topic -P -l data.txt
+```
+
+Or pipe the output of another command directly into `kcat`:
+
+```bash
+echo "hello from pipe" | kcat -b dataplatform:9092 -t test-topic -P
+```
+
+To send an entire file as a single message (not line-by-line), omit the `-l` flag:
+
+```bash
+kcat -b dataplatform:9092 -t test-topic -P data.txt
+```
+
+> **What just happened?** Without `-l`, `kcat` reads the whole file and sends it as one message payload. With `-l`, `kcat` splits on the delimiter (default: newline) and sends each line as an individual message — useful for bulk-loading test data.
+
+### Producing messages with headers
+
+Use `-H` to attach one or more headers to every produced message:
+
+```bash
+kcat -b dataplatform:9092 -t test-topic -P \
+  -H source=workshop \
+  -H environment=dev
+```
+
+Consume with `-f '%h'` to verify the headers were attached:
+
+```bash
+kcat -b dataplatform:9092 -t test-topic -o end -f 'Headers: %h | Value: %s\n'
+```
+
+> **What you should see:** Each message printed with its headers in `name=value` CSV format alongside the payload. Message headers are useful for routing metadata, tracing IDs, or schema hints without embedding that information in the message value itself.
+
 Find more examples on the [kcat GitHub project](https://github.com/edenhill/kcat) or in the [Confluent Documentation](https://docs.confluent.io/platform/current/tools/kafkacat-usage.html).
 
 ## Using AKHQ
@@ -900,242 +1289,3 @@ kcat -b dataplatform:9092 -t demo.purchases -q -f 'Part-%p => %k:%s\n'
 
 You can also use the **Live Tail** option of **AKHQ** (see the [Using AKHQ](#using-akhq) section below).
 
-## Working with Consumer Groups
-
-A **consumer group** is a set of consumers that cooperate to consume messages from a set of topics. Kafka automatically assigns each partition to exactly one consumer within the group, so messages within a partition are processed in order, while different partitions can be processed in parallel.
-
-When consumers join or leave a group, Kafka triggers a **rebalance** to redistribute partitions evenly. This is the mechanism that lets you scale consumption horizontally by simply starting additional consumers.
-
-### Create a topic for the consumer group demo
-
-Create a fresh topic with 6 partitions for this section:
-
-```bash
-kafka-topics --create \
-             --if-not-exists \
-             --bootstrap-server kafka-1:19092 \
-             --topic cg-test-topic \
-             --partitions 6 \
-             --replication-factor 3
-```
-
-### Start consumers in the same group
-
-Open **three separate terminal windows** and connect to `kafka-1` in each one:
-
-```bash
-docker exec -ti kafka-1 bash
-```
-
-In each terminal, start a consumer that joins the **same consumer group** `my-consumer-group`:
-
-```bash
-kafka-console-consumer --bootstrap-server kafka-1:19092 \
-                       --topic cg-test-topic \
-                       --group my-consumer-group
-```
-
-> **What you should see:** Each consumer starts and waits for messages. With 6 partitions and 3 consumers, each consumer is assigned 2 partitions. Each terminal prints a log line showing its assigned partitions, such as `Assigned partitions: [cg-test-topic-0, cg-test-topic-1]`.
-
-> **What just happened?** When the first consumer joined the group, it was assigned all 6 partitions. When the second joined, Kafka triggered a **rebalance** and redistributed the partitions — 3 to each consumer. When the third joined, another rebalance gave each consumer exactly 2 partitions. The **group coordinator** broker manages this process using the consumers' heartbeats to track who is alive in the group.
-
-### Produce messages and observe distribution
-
-Open a **fourth terminal**, connect to `kafka-1`, and produce 30 messages in a loop:
-
-```bash
-docker exec -ti kafka-1 bash
-```
-
-```bash
-for i in $(seq 1 30)
-do
-   echo "message-$i" | kafka-console-producer \
-          --bootstrap-server kafka-1:19092 \
-          --topic cg-test-topic \
-          --batch-size 1
-done
-```
-
-> **What you should see:** The 30 messages are spread across the three consumer terminals. Each consumer only receives messages from the partitions it owns — the same message will never appear in two consumers.
-
-> **What just happened?** Kafka used the default round-robin partitioner (no key was set) to distribute messages across the 6 partitions. Since each consumer owns 2 partitions, each received roughly 10 of the 30 messages. The fundamental guarantee is **exclusive partition ownership**: within a consumer group, each partition is consumed by exactly one consumer at a time.
-
-### Observe a rebalance
-
-Stop one of the three consumers with **Ctrl-C**. After a few seconds the two surviving consumers will each take on 3 partitions instead of 2.
-
-Restart the stopped consumer. A second rebalance fires and all three consumers return to 2 partitions each.
-
-> **What you should see:** When you stop a consumer, the other two each print a new partition assignment showing they now own 3 partitions. When you restart, a third rebalance returns all three consumers to 2 partitions each.
-
-> **What just happened?** Each consumer sends periodic **heartbeats** to the group coordinator. When a consumer stops, its heartbeats cease. After `session.timeout.ms` (default 45 seconds for the console consumer), the coordinator declares it dead and triggers a rebalance. The surviving consumers re-join the group and the coordinator uses the configured assignment strategy (range or round-robin) to redistribute all partitions evenly.
-
-### List and describe consumer groups
-
-The `kafka-consumer-groups` utility lets you inspect all active consumer groups and see how far behind each consumer is.
-
-List all consumer groups:
-
-```bash
-kafka-consumer-groups --bootstrap-server kafka-1:19092 --list
-```
-
-Describe the group to see partition assignments and **lag** (the number of messages produced but not yet consumed):
-
-```bash
-kafka-consumer-groups --bootstrap-server kafka-1:19092 \
-                      --describe \
-                      --group my-consumer-group
-```
-
-```
-GROUP              TOPIC          PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG  CONSUMER-ID                          HOST
-my-consumer-group  cg-test-topic  0          5               5               0    consumer-1-...                       /172.x.x.x
-my-consumer-group  cg-test-topic  1          5               5               0    consumer-1-...                       /172.x.x.x
-my-consumer-group  cg-test-topic  2          5               5               0    consumer-2-...                       /172.x.x.x
-my-consumer-group  cg-test-topic  3          5               5               0    consumer-2-...                       /172.x.x.x
-my-consumer-group  cg-test-topic  4          5               5               0    consumer-3-...                       /172.x.x.x
-my-consumer-group  cg-test-topic  5          5               5               0    consumer-3-...                       /172.x.x.x
-```
-
-Stop all three consumers and produce a few more messages — then re-run `--describe` to see the lag grow.
-
-> **What you should see:** Six rows, one per partition. Each row shows the consumer's ID, its `CURRENT-OFFSET` (the last committed offset), the `LOG-END-OFFSET` (the highest offset written to that partition), and the `LAG` (the difference). When all consumers are running and caught up, lag is 0. After stopping all consumers and producing more messages, the lag will grow to match the number of new unread messages.
-
-> **What just happened?** Consumers periodically **commit** their current offset back to Kafka (stored in the internal `__consumer_offsets` topic). `CURRENT-OFFSET` is the last committed position — the offset the consumer will resume from on restart. `LOG-END-OFFSET` is the next offset the broker will assign to an incoming message. The difference between the two is the **consumer lag**, which is the primary operational metric for knowing whether your consumers are keeping up with producers.
-
-### Reset consumer group offsets
-
-To re-process messages from the beginning, reset the group's offsets. All consumers in the group must be stopped first:
-
-```bash
-kafka-consumer-groups --bootstrap-server kafka-1:19092 \
-                      --group my-consumer-group \
-                      --topic cg-test-topic \
-                      --reset-offsets \
-                      --to-earliest \
-                      --execute
-```
-
-Restart the consumers and they will replay all messages from the start of each partition.
-
-> **What you should see:** Each partition's `CURRENT-OFFSET` is reset to 0. When you restart the consumers, the lag briefly spikes to the total message count before dropping back to 0 as they catch up.
-
-> **What just happened?** `--reset-offsets --to-earliest` overwrote the committed offsets in `__consumer_offsets` for every partition in the group. The next time a consumer starts, it reads this stored offset and resumes from that position — in this case, offset 0 (the beginning of each partition).
-
-
-## Retention and Log Compaction
-
-Kafka provides two strategies for controlling how long data is kept in a topic:
-
-- **Time-based / size-based retention** (default) — messages are deleted after a configurable time period (default: 7 days) or when the total log size exceeds a limit. This is the right model for event streams where you only need a recent window.
-- **Log compaction** — Kafka keeps only the **latest message per key**, discarding older records with the same key. The compacted topic always contains a full snapshot of the current state for every key. This is the right model for change-log or lookup data (e.g., a product catalogue).
-
-### Viewing and changing retention on a topic
-
-Use `kafka-configs` to inspect the current configuration of a topic:
-
-```bash
-kafka-configs --bootstrap-server kafka-1:19092 \
-              --entity-type topics \
-              --entity-name test-topic \
-              --describe
-```
-
-> **What you should see:** All topic-level configuration overrides. On a freshly created topic with no overrides, the output will read `Default configs for topic test-topic are:` followed by an empty list, meaning all values inherit the broker defaults.
-
-> **What just happened?** `kafka-configs --describe` reads the dynamic configuration entries stored in Kafka's internal metadata for the given topic. These overrides take precedence over the broker-wide defaults in `server.properties`, letting you tune individual topics without restarting or touching the broker configuration.
-
-To change the retention time to 1 hour (3,600,000 ms) on an existing topic:
-
-```bash
-kafka-configs --bootstrap-server kafka-1:19092 \
-              --entity-type topics \
-              --entity-name test-topic \
-              --alter \
-              --add-config retention.ms=3600000
-```
-
-> **What just happened?** Kafka wrote the `retention.ms=3600000` override into its internal configuration store. The change takes effect immediately — the log cleaner enforces the new limit on the next cleanup cycle. No broker restart is required.
-
-To remove the override and fall back to the broker default:
-
-```bash
-kafka-configs --bootstrap-server kafka-1:19092 \
-              --entity-type topics \
-              --entity-name test-topic \
-              --alter \
-              --delete-config retention.ms
-```
-
-### Demonstrating log compaction
-
-Create a dedicated topic with log compaction enabled and aggressive settings so the effect is visible within seconds:
-
-```bash
-kafka-topics --create \
-             --if-not-exists \
-             --bootstrap-server kafka-1:19092 \
-             --topic compaction-test \
-             --partitions 1 \
-             --replication-factor 1 \
-             --config cleanup.policy=compact \
-             --config segment.ms=100 \
-             --config delete.retention.ms=100 \
-             --config min.cleanable.dirty.ratio=0.001
-```
-
-Start the producer with key parsing enabled:
-
-```bash
-kafka-console-producer --bootstrap-server kafka-1:19092 \
-                       --topic compaction-test \
-                       --property parse.key=true \
-                       --property key.separator=:
-```
-
-Enter the following messages one by one, pressing **Enter** after each line. Notice that `user-1` is updated three times and `user-2` is updated twice:
-
-```
-user-1:{"name":"Alice","city":"Zurich"}
-user-2:{"name":"Bob","city":"London"}
-user-1:{"name":"Alice","city":"Bern"}
-user-3:{"name":"Charlie","city":"Paris"}
-user-2:{"name":"Bob","city":"Amsterdam"}
-user-1:{"name":"Alice","city":"Basel"}
-```
-
-Stop the producer with **Ctrl-C**.
-
-Consume all messages immediately — compaction has not run yet, so all 6 records are visible:
-
-```bash
-kafka-console-consumer --bootstrap-server kafka-1:19092 \
-                       --topic compaction-test \
-                       --property print.key=true \
-                       --property key.separator=: \
-                       --from-beginning \
-                       --timeout-ms 5000
-```
-
-> **What you should see:** All 6 messages in the order they were written, including the intermediate values for `user-1` (Zurich, Bern) and `user-2` (London).
-
-> **What just happened?** Compaction has not run yet. The log still contains all original segments, so consuming `--from-beginning` returns every offset in order.
-
-Wait a few seconds, then consume again:
-
-```bash
-kafka-console-consumer --bootstrap-server kafka-1:19092 \
-                       --topic compaction-test \
-                       --property print.key=true \
-                       --property key.separator=: \
-                       --from-beginning \
-                       --timeout-ms 5000
-```
-
-> **What you should see:** Only the latest value for each key — one record each for `user-1` (Basel), `user-2` (Amsterdam), and `user-3` (Paris). The earlier values for `user-1` and `user-2` have been removed by the compactor.
-
-> **What just happened?** Kafka's **log cleaner** thread scanned the log segments and built an offset map of the highest offset seen for each key. It then rewrote the segments, keeping only the message at the highest offset per key and discarding all earlier duplicates. The aggressive settings (`segment.ms=100`, `min.cleanable.dirty.ratio=0.001`) forced this to happen within a few seconds rather than the hours it would take with production defaults.
-
-This is exactly the behaviour used by the `demo.products` topic created in the previous section — it stores the current state of every product, and compaction ensures the topic never grows unboundedly even though products are updated continuously.
