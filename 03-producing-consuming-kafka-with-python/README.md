@@ -10,7 +10,8 @@ In this workshop you will write Python scripts that produce and consume messages
 - [Prerequisites](#prerequisites)
 - [Installing the Confluent Python Client](#installing-the-confluent-python-client)
 - [Working with Text Messages](#working-with-text-messages)
-- [Working with Avro Messages](#working-with-avro-messages)
+- [Working with Avro Messages and the Schema Registry](#working-with-avro-messages-and-the-schema-registry)
+- [Browsing the Schema Registry](#browsing-the-schema-registry)
 
 ## What you will learn
 
@@ -334,7 +335,9 @@ In the next section we will see a better approach using a **schema-based seriali
 
 When using a **schema-based serialization format** paired with the **Schema Registry**, the producer registers a schema once; every message carries only a compact schema ID (4 bytes) rather than the full field names. The consumer fetches the schema by ID and deserializes the payload. The registry enforces compatibility rules so that schema changes are always backward- or forward-compatible with existing consumers.
 
-[Apache Avro](https://avro.apache.org/) is the most widely used format in the Kafka ecosystem for exactly this reason. The Confluent Python client supports Avro-serialized messages via the [Confluent Schema Registry](https://docs.confluent.io/current/schema-registry/docs/index.html). The Schema Registry manages Avro schemas centrally and enforces schema compatibility rules so producers and consumers stay in sync.
+[Apache Avro](https://avro.apache.org/) is the most widely used format in the Kafka ecosystem for exactly this reason. The Confluent Python client supports Avro-serialized messages via the [Confluent Schema Registry](https://docs.confluent.io/current/schema-registry/docs/index.html). 
+
+The Schema Registry manages Avro schemas centrally and enforces schema compatibility rules so producers and consumers stay in sync. It exposes a REST API documented in the [Confluent documentation](https://docs.confluent.io/current/schema-registry/develop/api.html) and available at <http://dataplatform:8081>.
 
 Install the Avro extras:
 
@@ -366,6 +369,7 @@ kcat -b dataplatform:9092 -t test-python-avro-topic -f "P-%p: %k=%s\n" -Z -q
 The following script defines a `Person` Avro schema, registers it with the Schema Registry, and produces one message:
 
 ```python
+import datetime
 from confluent_kafka import Producer
 from confluent_kafka.serialization import StringSerializer, SerializationContext, MessageField
 from confluent_kafka.schema_registry import SchemaRegistryClient
@@ -379,10 +383,10 @@ value_schema_str = """
   "name": "Person",
   "type": "record",
   "fields": [
-    {"name": "id",          "type": "string"},
+    {"name": "id",          "type": "long"},
     {"name": "firstName",   "type": "string"},
     {"name": "lastName",    "type": "string"},
-    {"name": "dateOfBirth", "type": "string"},
+    {"name": "dateOfBirth", "type": {"type": "int", "logicalType": "date"}},
     {"name": "email",       "type": ["null", "string"], "default": null},
     {"name": "address", "type": {
       "type": "record",
@@ -442,10 +446,10 @@ avro_serializer = AvroSerializer(schema_registry_client, value_schema_str, perso
 string_serializer = StringSerializer('utf_8')
 
 person = Person(
-    id='1001',
+    id=1001,
     firstName='Peter',
     lastName='Muster',
-    dateOfBirth='1985-03-15',
+    dateOfBirth=datetime.date(1985, 3, 15),
     email='peter.muster@example.com',
     address=Address(street='Bahnhofstrasse 1', city='Zurich', zipCode='8001', country='CH')
 )
@@ -470,9 +474,78 @@ Record b'1001' successfully produced to test-python-avro-topic [1] at offset 0
 
 ### Producing Avro messages using a schema looked up from the Schema Registry
 
-Embedding the schema string in the producer works, but couples the code to the schema definition. A better approach is to fetch the schema directly from the Schema Registry at startup — the producer then always uses whatever schema version is registered there, without any code change when the schema evolves.
+Embedding the schema string in the producer works, but couples the code to the schema definition. A better approach is to pre-register the schema in the Schema Registry via its REST API before running any producer code, and then have the producer fetch it at startup. This way the schema is owned by the registry, not the application — any producer can pick it up without embedding or duplicating the definition, and if the schema evolves the code requires no changes.
+
+#### Register the schema via the API first
+
+Pre-register the schema by POSTing it to the Schema Registry. Save the Avro schema to a file:
+
+```bash
+cat > person.avsc << 'EOF'
+{
+  "namespace": "my.test",
+  "name": "Person",
+  "type": "record",
+  "fields": [
+    {"name": "id",          "type": "long"},
+    {"name": "firstName",   "type": "string"},
+    {"name": "lastName",    "type": "string"},
+    {"name": "dateOfBirth", "type": {"type": "int", "logicalType": "date"}},
+    {"name": "email",       "type": ["null", "string"], "default": null},
+    {"name": "address", "type": {
+      "type": "record",
+      "name": "Address",
+      "fields": [
+        {"name": "street",  "type": "string"},
+        {"name": "city",    "type": "string"},
+        {"name": "zipCode", "type": "string"},
+        {"name": "country", "type": "string"}
+      ]
+    }}
+  ]
+}
+EOF
+```
+
+Before registering the schema, set the compatibility level for the subject. The default is `BACKWARD` (new schema can read data written with the previous schema), but you can choose the level that fits your evolution strategy:
+
+```bash
+curl -s -X PUT http://dataplatform:8081/config/test-python-avro-topic-value \
+    -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+    -d '{"compatibility": "BACKWARD"}'
+```
+
+> **What you should see:** The registry echoing back the configured level:
+
+```json
+{"compatibility":"BACKWARD"}
+```
+
+> Available levels are `BACKWARD`, `BACKWARD_TRANSITIVE`, `FORWARD`, `FORWARD_TRANSITIVE`, `FULL`, `FULL_TRANSITIVE`, and `NONE`. Transitive variants check compatibility against all previous versions, not just the latest one.
+
+Then register the schema using `jq` to produce the correctly escaped request body:
+
+```bash
+jq -n --arg schema "$(cat person.avsc)" '{"schema": $schema}' | \
+  curl -s -X POST http://dataplatform:8081/subjects/test-python-avro-topic-value/versions \
+    -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+    -d @-
+```
+
+> **What you should see:** The schema ID assigned by the registry:
+
+```json
+{"id":1}
+```
+
+> **What just happened?** The Schema Registry validated the schema against the configured compatibility level, stored it under the subject `test-python-avro-topic-value`, and assigned it a globally unique schema ID. Any producer or consumer that references this ID in the Confluent wire format header can use this exact definition to serialize or deserialize messages — even before the first message has been produced to the topic.
+
+#### Fetch the schema and produce messages
+
+With the schema registered, the producer fetches it at startup by subject name and uses it to serialize messages:
 
 ```python
+import datetime
 from confluent_kafka import Producer
 from confluent_kafka.serialization import StringSerializer, SerializationContext, MessageField
 from confluent_kafka.schema_registry import SchemaRegistryClient
@@ -529,10 +602,10 @@ avro_serializer = AvroSerializer(schema_registry_client, schema_str, person_to_d
 string_serializer = StringSerializer('utf_8')
 
 person = Person(
-    id='1002',
+    id=1002,
     firstName='Anna',
     lastName='Muster',
-    dateOfBirth='1990-07-22',
+    dateOfBirth=datetime.date(1990, 7, 22),
     email='anna.muster@example.com',
     address=Address(street='Seestrasse 42', city='Zurich', zipCode='8002', country='CH')
 )
@@ -555,129 +628,32 @@ Record b'1002' successfully produced to test-python-avro-topic [1] at offset 1
 
 > **What just happened?** `SchemaRegistryClient.get_latest_version(subject_name)` retrieves the most recently registered schema version for the subject `test-python-avro-topic-value`. The schema string is then passed to `AvroSerializer` exactly as before. If the schema has been updated in the registry (e.g., a new optional field was added), the producer picks it up automatically on the next restart — no code change required. The subject name follows the default Confluent naming convention: `<topic>-value` for value schemas and `<topic>-key` for key schemas.
 
-### Viewing schemas via the REST API
-
-The Schema Registry exposes a REST API documented in the [Confluent documentation](https://docs.confluent.io/current/schema-registry/develop/api.html).
-
-#### Register a schema manually
-
-You can register a schema directly via the REST API without running a producer. This is useful when you want the schema to exist in the registry before any producer runs — for example, so that the "lookup from registry" pattern shown above works from the very first run.
-
-POST the schema JSON to the `/subjects/<subject>/versions` endpoint. The Schema Registry expects the body to be a JSON object with a `schema` key whose value is the Avro schema serialized as a string. Rather than escaping the schema inline, save it to two separate files and combine them with `jq`:
-
-First, save the Avro schema to a file:
-
-```bash
-cat > person.avsc << 'EOF'
-{
-  "namespace": "my.test",
-  "name": "Person",
-  "type": "record",
-  "fields": [
-    {"name": "id",          "type": "string"},
-    {"name": "firstName",   "type": "string"},
-    {"name": "lastName",    "type": "string"},
-    {"name": "dateOfBirth", "type": "string"},
-    {"name": "email",       "type": ["null", "string"], "default": null},
-    {"name": "address", "type": {
-      "type": "record",
-      "name": "Address",
-      "fields": [
-        {"name": "street",  "type": "string"},
-        {"name": "city",    "type": "string"},
-        {"name": "zipCode", "type": "string"},
-        {"name": "country", "type": "string"}
-      ]
-    }}
-  ]
-}
-EOF
-```
-
-Then register it using `jq` to produce the correctly escaped request body:
-
-```bash
-jq -n --arg schema "$(cat person.avsc)" '{"schema": $schema}' | \
-  curl -s -X POST http://dataplatform:8081/subjects/test-python-avro-topic-value/versions \
-    -H "Content-Type: application/vnd.schemaregistry.v1+json" \
-    -d @-
-```
-
-> **What you should see:** The schema ID assigned by the registry:
-
-```json
-{"id":1}
-```
-
-> **What just happened?** The Schema Registry accepted the schema, stored it under the subject `test-python-avro-topic-value`, and assigned it a globally unique schema ID. Any producer or consumer that references this ID in the Confluent wire format header can use this exact definition to serialize or deserialize messages — even before the first message has been produced to the topic.
-
-#### List all registered subjects
-
-List all registered subjects:
-
-```bash
-curl http://dataplatform:8081/subjects
-```
-
-> **What you should see:** The subject created by the Avro producer:
-
-```json
-["test-python-avro-topic-value"]
-```
-
-List the available versions for the subject:
-
-```bash
-curl http://dataplatform:8081/subjects/test-python-avro-topic-value/versions
-```
-
-> **What you should see:** A single version, since we have only registered the schema once:
-
-```json
-[1]
-```
-
-Retrieve the full schema definition:
-
-```bash
-curl http://dataplatform:8081/subjects/test-python-avro-topic-value/versions/1
-```
-
-> **What you should see:** The schema object containing the subject name, version number, schema ID, and the Avro schema JSON:
-
-```json
-{"subject":"test-python-avro-topic-value","version":1,"id":1,"schema":"{\"type\":\"record\",\"name\":\"Person\",\"namespace\":\"my.test\",\"fields\":[{\"name\":\"id\",\"type\":\"string\"},{\"name\":\"firstName\",\"type\":\"string\"},{\"name\":\"lastName\",\"type\":\"string\"},{\"name\":\"dateOfBirth\",\"type\":\"string\"},{\"name\":\"email\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"address\",\"type\":{\"type\":\"record\",\"name\":\"Address\",\"fields\":[{\"name\":\"street\",\"type\":\"string\"},{\"name\":\"city\",\"type\":\"string\"},{\"name\":\"zipCode\",\"type\":\"string\"},{\"name\":\"country\",\"type\":\"string\"}]}}]}"}
-```
-
-> **What just happened?** The Schema Registry stored the schema under the subject name `<topic>-value` (the default naming strategy). The REST API lets you inspect, compare, and manage versions without any Kafka tooling — useful for auditing schema evolution in a pipeline.
-
-### Viewing schemas in the Schema Registry UI
-
-Navigate to the Schema Registry UI at <http://dataplatform:28102>.
-
-> **What you should see:** The `test-python-avro-topic-value` subject listed. Clicking on it displays the full Avro schema on the right side.
-
-![Alt Image Text](./images/schema-registry-ui-1.png "Schema Registry UI")
-
 ### Consuming Avro messages with `kcat`
 
 Consuming Avro messages with `kcat` without extra flags shows the raw binary payload, which is not human-readable:
 
 ```bash
-docker exec -ti kcat kcat -b kafka-1:19092 -t test-python-avro-topic -f "P-%p: %k=%s\n" -Z
+docker exec -ti kcat kcat -b kafka-1:19092 -t test-python-avro-topic -f "P-%p: %k=%s\n" -Z -q
 ```
 
 ```
 P-5: 10011001
 Peter
      Muster
+P-5: 1001=�
+Peter
+     Muster�V0peter.muster@example.com Bahnhofstrasse 1
+                                                       Zuric8001CH
+P-3: 1002=Anna
+              Muster�u.anna.muster@example.comSeestrasse 42
+                                                           Zuric8002CH
 ```
 
 To have `kcat` decode the Avro payload using the Schema Registry, add the `-s value=avro` and `-r` flags:
 
 ```bash
 docker exec -ti kcat kcat -b kafka-1:19092 -t test-python-avro-topic \
-    -f "P-%p: %k=%s\n" -Z \
+    -f "P-%p: %k=%s\n" -Z -q \
     -s value=avro \
     -r http://schema-registry-1:8081
 ```
@@ -685,7 +661,7 @@ docker exec -ti kcat kcat -b kafka-1:19092 -t test-python-avro-topic \
 > **What you should see:** The Avro payload decoded and displayed as a JSON string:
 
 ```
-P-1: 1001={"id": "1001", "firstName": "Peter", "lastName": "Muster", "dateOfBirth": "1985-03-15", "email": "peter.muster@example.com", "address": {"street": "Bahnhofstrasse 1", "city": "Zurich", "zipCode": "8001", "country": "CH"}}
+P-1: 1001={"id": 1001, "firstName": "Peter", "lastName": "Muster", "dateOfBirth": "1985-03-15", "email": "peter.muster@example.com", "address": {"street": "Bahnhofstrasse 1", "city": "Zurich", "zipCode": "8001", "country": "CH"}}
 ```
 
 > **What just happened?** `kcat` read the 5-byte Confluent wire format prefix from each message, extracted the schema ID, fetched the corresponding Avro schema from the Schema Registry at `-r`, and used it to deserialise the binary payload into a human-readable JSON representation.
@@ -711,14 +687,14 @@ kafka-avro-console-consumer \
 > **What you should see:** Each Avro message printed as a readable JSON document:
 
 ```json
-{"id":"1001","firstName":"Peter","lastName":"Muster","dateOfBirth":"1985-03-15","email":"peter.muster@example.com","address":{"street":"Bahnhofstrasse 1","city":"Zurich","zipCode":"8001","country":"CH"}}
+{"id":1001,"firstName":"Peter","lastName":"Muster","dateOfBirth":"1985-03-15","email":"peter.muster@example.com","address":{"street":"Bahnhofstrasse 1","city":"Zurich","zipCode":"8001","country":"CH"}}
 ```
 
 > **What just happened?** `kafka-avro-console-consumer` automatically fetches the schema from the Schema Registry and deserialises the Avro binary payload to JSON before printing it, in the same way `kcat` does with the `-s avro` flag — but it is pre-configured to talk to the Schema Registry running alongside it in the container.
 
 ### Consuming Avro messages from Python
 
-The following script consumes Avro messages and deserialises each one into a `Person` object:
+The following script consumes Avro messages and deserialises each one into a `Person` object. Rather than embedding the schema string, it fetches the reader schema from the Schema Registry by a pinned schema ID at startup. Using a fixed ID keeps the consumer stable — it always deserialises against the exact schema version it was built for, regardless of what gets registered later.
 
 ```python
 from confluent_kafka import Consumer
@@ -727,31 +703,7 @@ from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroDeserializer
 
 topic_name = "test-python-avro-topic"
-
-value_schema_str = """
-{
-  "namespace": "my.test",
-  "name": "Person",
-  "type": "record",
-  "fields": [
-    {"name": "id",          "type": "string"},
-    {"name": "firstName",   "type": "string"},
-    {"name": "lastName",    "type": "string"},
-    {"name": "dateOfBirth", "type": "string"},
-    {"name": "email",       "type": ["null", "string"], "default": null},
-    {"name": "address", "type": {
-      "type": "record",
-      "name": "Address",
-      "fields": [
-        {"name": "street",  "type": "string"},
-        {"name": "city",    "type": "string"},
-        {"name": "zipCode", "type": "string"},
-        {"name": "country", "type": "string"}
-      ]
-    }}
-  ]
-}
-"""
+schema_id = 1  # pin to a specific registered schema version
 
 class Address(object):
     def __init__(self, street, city, zipCode, country):
@@ -788,7 +740,10 @@ def dict_to_person(obj, ctx):
     )
 
 schema_registry_client = SchemaRegistryClient({'url': 'http://schema-registry-1:8081'})
-avro_deserializer = AvroDeserializer(schema_registry_client, value_schema_str, dict_to_person)
+
+# Fetch the reader schema by ID so the consumer is pinned to a known version
+registered_schema = schema_registry_client.get_schema(schema_id)
+avro_deserializer = AvroDeserializer(schema_registry_client, registered_schema.schema_str, dict_to_person)
 
 consumer = Consumer({
     'bootstrap.servers': 'kafka-1:19092',
@@ -799,9 +754,9 @@ consumer.subscribe([topic_name])
 
 try:
     while True:
-        msg = consumer.poll(1.0)
+        msg = consumer.poll(20.0)
         if msg is None:
-            continue
+            break
 
         person = avro_deserializer(msg.value(), SerializationContext(msg.topic(), MessageField.VALUE))
         if person is not None:
@@ -833,4 +788,262 @@ Person record b'1001': id: 1001
 	address:     Bahnhofstrasse 1, 8001 Zurich, CH
 ```
 
-> **What just happened?** The `AvroDeserializer` reads the 5-byte schema ID prefix from each message, fetches the schema from the Registry, and deserialises the Avro bytes into a Python dict. The `dict_to_person` callback then converts that dict into a `Person` instance. The consumer loop runs until interrupted with **Ctrl-C**, at which point the `finally` block calls `consumer.close()` to commit offsets and cleanly leave the consumer group.
+> **What just happened?** `SchemaRegistryClient.get_schema(schema_id)` fetches the exact schema version registered under that ID and uses it as the reader schema for `AvroDeserializer`. For each message, the deserializer reads the 5-byte Confluent wire format header to get the writer's schema ID, resolves any differences between writer and reader schemas using Avro's schema resolution rules, and deserialises the payload into a Python dict. The `dict_to_person` callback then converts that dict into a `Person` instance. The consumer loop runs until interrupted with **Ctrl-C**, at which point the `finally` block calls `consumer.close()` to commit offsets and cleanly leave the consumer group.
+
+## Schema Evolution with Forward Compatibility
+
+Schemas rarely stay static. As requirements change, new fields are added — and you need a strategy that lets producers and consumers evolve independently without coordinated downtime. This section demonstrates a **FULL-compatible** schema change: a new optional field is added to the schema and the producer is updated to write it, while the existing consumer continues to work unchanged.
+
+**FULL** compatibility means both BACKWARD and FORWARD at the same time. The new schema can read old data (the missing field falls back to its default), and the old schema can read new data (the unknown field is silently skipped). Adding a nullable field with `default: null` is the most common way to achieve this.
+
+### Update the compatibility level
+
+The subject was previously configured as `BACKWARD`. Change it to `FULL` before registering the new schema version:
+
+```bash
+curl -s -X PUT http://dataplatform:8081/config/test-python-avro-topic-value \
+    -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+    -d '{"compatibility": "FULL"}'
+```
+
+> **What you should see:**
+
+```json
+{"compatibility":"FULL"}
+```
+
+### Register the evolved schema
+
+The new schema adds an optional `phoneNumber` field as a nullable union with `default: null`. The default satisfies the BACKWARD requirement (new consumers reading old messages that lack the field receive `null`), and the fact that old consumers simply skip unknown fields satisfies the FORWARD requirement. Save the updated schema:
+
+```bash
+cat > person-v2.avsc << 'EOF'
+{
+  "namespace": "my.test",
+  "name": "Person",
+  "type": "record",
+  "fields": [
+    {"name": "id",          "type": "long"},
+    {"name": "firstName",   "type": "string"},
+    {"name": "lastName",    "type": "string"},
+    {"name": "dateOfBirth", "type": {"type": "int", "logicalType": "date"}},
+    {"name": "email",       "type": ["null", "string"], "default": null},
+    {"name": "phoneNumber", "type": ["null", "string"], "default": null},
+    {"name": "address", "type": {
+      "type": "record",
+      "name": "Address",
+      "fields": [
+        {"name": "street",  "type": "string"},
+        {"name": "city",    "type": "string"},
+        {"name": "zipCode", "type": "string"},
+        {"name": "country", "type": "string"}
+      ]
+    }}
+  ]
+}
+EOF
+```
+
+Register it as version 2 of the same subject:
+
+```bash
+jq -n --arg schema "$(cat person-v2.avsc)" '{"schema": $schema}' | \
+  curl -s -X POST http://dataplatform:8081/subjects/test-python-avro-topic-value/versions \
+    -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+    -d @-
+```
+
+> **What you should see:** A new schema ID (2) assigned by the registry:
+
+```json
+{"id":2}
+```
+
+### Produce messages with the new schema
+
+The updated producer fetches the latest schema version (v2) from the registry and includes `phoneNumber` in each message:
+
+```python
+import datetime
+from confluent_kafka import Producer
+from confluent_kafka.serialization import StringSerializer, SerializationContext, MessageField
+from confluent_kafka.schema_registry import SchemaRegistryClient
+from confluent_kafka.schema_registry.avro import AvroSerializer
+
+topic_name = "test-python-avro-topic"
+subject_name = f"{topic_name}-value"
+
+class Address(object):
+    def __init__(self, street, city, zipCode, country):
+        self.street = street
+        self.city = city
+        self.zipCode = zipCode
+        self.country = country
+
+class Person(object):
+    def __init__(self, id, firstName, lastName, dateOfBirth, email, phoneNumber, address):
+        self.id = id
+        self.firstName = firstName
+        self.lastName = lastName
+        self.dateOfBirth = dateOfBirth
+        self.email = email
+        self.phoneNumber = phoneNumber
+        self.address = address
+
+def person_to_dict(person, ctx):
+    return dict(
+        id=person.id,
+        firstName=person.firstName,
+        lastName=person.lastName,
+        dateOfBirth=person.dateOfBirth,
+        email=person.email,
+        phoneNumber=person.phoneNumber,
+        address=dict(
+            street=person.address.street,
+            city=person.address.city,
+            zipCode=person.address.zipCode,
+            country=person.address.country
+        )
+    )
+
+def delivery_report(err, msg):
+    if err is not None:
+        print("Delivery failed for record {}: {}".format(msg.key(), err))
+        return
+    print('Record {} successfully produced to {} [{}] at offset {}'.format(
+        msg.key(), msg.topic(), msg.partition(), msg.offset()))
+
+schema_registry_client = SchemaRegistryClient({'url': 'http://schema-registry-1:8081'})
+
+registered_schema = schema_registry_client.get_latest_version(subject_name)
+schema_str = registered_schema.schema.schema_str
+
+avro_serializer = AvroSerializer(schema_registry_client, schema_str, person_to_dict)
+string_serializer = StringSerializer('utf_8')
+
+person = Person(
+    id=1003,
+    firstName='Hans',
+    lastName='Muster',
+    dateOfBirth=datetime.date(1978, 11, 3),
+    email='hans.muster@example.com',
+    phoneNumber='+41 44 123 45 67',
+    address=Address(street='Rathausstrasse 10', city='Zurich', zipCode='8001', country='CH')
+)
+
+producer = Producer({'bootstrap.servers': 'kafka-1:19092'})
+producer.produce(
+    topic=topic_name,
+    key=string_serializer(str(person.id)),
+    value=avro_serializer(person, SerializationContext(topic_name, MessageField.VALUE)),
+    on_delivery=delivery_report
+)
+producer.flush()
+```
+
+> **What you should see:**
+
+```
+Record b'1003' successfully produced to test-python-avro-topic [1] at offset 2
+```
+
+> **What just happened?** `get_latest_version` now returns schema v2, which includes `phoneNumber` as a nullable field with `default: null`. The `AvroSerializer` embeds schema ID 2 in the Confluent wire format header of the message, so any consumer that reads the header knows it was written with the new schema.
+
+### Consume with the unchanged consumer
+
+Run the original consumer script — the one pinned to `schema_id = 1` — against the topic that now contains the new v2 message:
+
+> **What you should see:** All three messages consumed correctly, including the new one produced with schema v2. The `phoneNumber` field is absent from the output because the reader schema (v1) does not include it:
+
+```
+Person record b'1001': id: 1001
+	firstName:   Peter
+	lastName:    Muster
+	dateOfBirth: 1985-03-15
+	email:       peter.muster@example.com
+	address:     Bahnhofstrasse 1, 8001 Zurich, CH
+
+Person record b'1002': id: 1002
+	firstName:   Anna
+	lastName:    Muster
+	dateOfBirth: 1990-07-22
+	email:       anna.muster@example.com
+	address:     Seestrasse 42, 8002 Zurich, CH
+
+Person record b'1003': id: 1003
+	firstName:   Hans
+	lastName:    Muster
+	dateOfBirth: 1978-11-03
+	email:       hans.muster@example.com
+	address:     Rathausstrasse 10, 8001 Zurich, CH
+```
+
+> **What just happened?** The consumer fetched schema v1 (its pinned reader schema) at startup. When it received the message for `1003`, the `AvroDeserializer` detected that the writer schema (ID 2, from the wire header) differs from the reader schema (ID 1). Avro's schema resolution rules kicked in: `phoneNumber` exists in the writer schema but not in the reader schema, so it was silently skipped. This is the FULL-compatibility guarantee in action — the `default: null` on the new field means a new consumer could also read old messages safely, while the old consumer reads new messages by simply ignoring the unknown field. Neither side required a code change or restart.
+
+## Browsing the Schema Registry
+
+Once schemas are registered, the Schema Registry gives you two ways to inspect them: a REST API for scripting and automation, and a web UI for interactive exploration. Both show the same data — subjects, version history, schema definitions, and compatibility settings — so you can use whichever fits your workflow.
+
+### Viewing schemas via the REST API
+
+The Schema Registry exposes a REST API documented in the [Confluent documentation](https://docs.confluent.io/current/schema-registry/develop/api.html).
+
+#### List all registered subjects
+
+List all registered subjects:
+
+```bash
+curl http://dataplatform:8081/subjects
+```
+
+> **What you should see:** The subject created by the Avro producer:
+
+```json
+["test-python-avro-topic-value"]
+```
+
+List the available versions for the subject:
+
+```bash
+curl http://dataplatform:8081/subjects/test-python-avro-topic-value/versions
+```
+
+> **What you should see:** A single version, since we have only registered the schema once:
+
+```json
+[1]
+```
+
+Retrieve the full schema definition:
+
+```bash
+curl http://dataplatform:8081/subjects/test-python-avro-topic-value/versions/1
+```
+
+> **What you should see:** The schema object containing the subject name, version number, schema ID, and the Avro schema JSON:
+
+```json
+{"subject":"test-python-avro-topic-value","version":1,"id":1,"schema":"{\"type\":\"record\",\"name\":\"Person\",\"namespace\":\"my.test\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"firstName\",\"type\":\"string\"},{\"name\":\"lastName\",\"type\":\"string\"},{\"name\":\"dateOfBirth\",\"type\":{\"type\":\"int\",\"logicalType\":\"date\"}},{\"name\":\"email\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"address\",\"type\":{\"type\":\"record\",\"name\":\"Address\",\"fields\":[{\"name\":\"street\",\"type\":\"string\"},{\"name\":\"city\",\"type\":\"string\"},{\"name\":\"zipCode\",\"type\":\"string\"},{\"name\":\"country\",\"type\":\"string\"}]}}]}"}
+```
+
+> **What just happened?** The Schema Registry stored the schema under the subject name `<topic>-value` (the default naming strategy). The REST API lets you inspect, compare, and manage versions without any Kafka tooling — useful for auditing schema evolution in a pipeline.
+
+### Viewing schemas in the Schema Registry UI
+
+Navigate to the Schema Registry UI at <http://dataplatform:28102>.
+
+> **What you should see:** The `test-python-avro-topic-value` subject listed. Clicking on it displays the full Avro schema on the right side.
+
+![Alt Image Text](./images/schema-registry-ui-1.png "Schema Registry UI")
+
+### Viewing schemas using AKHQ
+
+[AKHQ](https://akhq.io) is a full-featured Kafka management UI that also surfaces Schema Registry data. Navigate to <http://dataplatform:28107> and select the **Schema Registry** section in the left sidebar.
+
+> **What you should see:** A list of all registered subjects. Clicking on `test-python-avro-topic-value` shows the schema definition, its version history, and the configured compatibility level. You can compare versions side by side and delete individual versions or entire subjects from the same view.
+
+### Viewing schemas using kafbat UI
+
+[kafbat UI](https://github.com/kafbat/kafka-ui) is a lightweight, open-source Kafka management console. Navigate to <http://dataplatform:28107> and open the **Schema Registry** tab in the top navigation.
+
+> **What you should see:** All registered subjects listed by name. Selecting `test-python-avro-topic-value` displays the full Avro schema, the assigned schema ID, the version number, and the compatibility level. The UI also lets you register new schemas and update compatibility settings directly from the browser.
