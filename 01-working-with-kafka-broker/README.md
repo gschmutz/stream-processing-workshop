@@ -876,7 +876,7 @@ To browse the messages stored in a topic, click the **magnifying glass** icon on
 
 ![Alt Image Text](./images/akhq-topics-details1.png "AKHQ Topic Messages")
 
-To watch live data arriving in a topic, navigate to **Live Tail** in the left menu. If the sales simulator is no longer running, restart it first.
+To watch live data arriving in a topic, navigate to **Live Tail** in the left menu. You need an active producer to see messages flow — either run the sales simulator from the [Publishing a more realistic data stream to Kafka](#publishing-a-more-realistic-data-stream-to-kafka) section, or keep a `kcat` producer running in another terminal.
 
 Select one or more topics to tail:
 
