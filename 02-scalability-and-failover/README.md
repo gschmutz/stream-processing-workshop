@@ -53,7 +53,7 @@ Note that the replication factor is set to `3` for all three topics, which gives
 
 ## Kafka Scalability
 
-Kafka achieves consumer-side scalability through **consumer groups**. When multiple consumers share the same group ID, Kafka assigns each partition to exactly one consumer in the group — so the work is divided, not duplicated. Adding more consumers increases throughput linearly, up to the number of partitions.
+Kafka achieves consumer-side scalability through **consumer groups**. If you worked through [Workshop 1](../01-working-with-kafka-broker/README.md) you already created a consumer group, observed rebalances, and inspected lag with `kafka-consumer-groups`. Here we build on that foundation and see the same mechanics at a larger scale: multiple consumers competing for partitions, real message throughput, and live rebalancing as members join and leave. When multiple consumers share the same group ID, Kafka assigns each partition to exactly one consumer in the group — so the work is divided, not duplicated. Adding more consumers increases throughput linearly, up to the number of partitions.
 
 We will first observe the default behavior without a group (every consumer receives every message), then switch to a shared group to see the load distributed. Finally, we will scale the producer side by running multiple simulator instances in parallel.
 

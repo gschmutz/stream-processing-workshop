@@ -1141,6 +1141,8 @@ Finally, let's revert the log level:
 docker cp tools-log4j2.yaml.backup kafka-1:/etc/kafka/tools-log4j2.yaml
 ```
 
+> **Next steps:** Consumer groups are also the foundation of Kafka's horizontal scalability. In [Workshop 2 — Understanding Kafka Scalability and Failover](../02-scalability-and-failover/README.md) you will see how adding consumers to a group scales throughput linearly across partitions, how consumer failover works when a member crashes, and how the cluster recovers automatically when a broker goes down.
+
 ## Retention and Log Compaction
 
 Kafka provides two strategies for controlling how long data is kept in a topic:
