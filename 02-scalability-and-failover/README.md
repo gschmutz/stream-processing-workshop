@@ -51,7 +51,11 @@ docker exec -ti kafka-1 kafka-topics --create --bootstrap-server kafka-1:19092 -
 
 Note that the replication factor is set to `3` for all three topics, which gives us the headroom needed to demonstrate broker failover later.
 
-## Showing Kafka Scalability
+## Kafka Scalability
+
+Kafka achieves consumer-side scalability through **consumer groups**. When multiple consumers share the same group ID, Kafka assigns each partition to exactly one consumer in the group — so the work is divided, not duplicated. Adding more consumers increases throughput linearly, up to the number of partitions.
+
+We will first observe the default behavior without a group (every consumer receives every message), then switch to a shared group to see the load distributed. Finally, we will scale the producer side by running multiple simulator instances in parallel.
 
 ### Start a Kafka Consumer on the `demo.purchases` Topic
 
@@ -166,7 +170,7 @@ Navigate to the **Members** tab to confirm the partition-to-consumer assignments
 
 ![](./images/akhq-show-consumer-group-2.png)
 
-Partitions `0` and `1` are assigned to the first member, `2` and `3` to the second, and `4` and `5` to the third.
+Partitions `2` and `3` are assigned to the first member, `0` and `1` to the second, and `4` and `5` to the third.
 
 ### Scale the Producer Side — Start Two More Simulator Instances
 
@@ -186,7 +190,7 @@ You should now have **6 terminals** in total: 3 running the simulator and 3 runn
 
 > **What just happened?** Three independent simulator instances are publishing to the same topic in parallel. Because the topic has 6 partitions, all three producers can write simultaneously without interfering with each other. The three consumers continue to share the load — each still owns 2 partitions, but those partitions now receive a higher volume of messages.
 
-## Showing Kafka Consumer Failover
+## Kafka Consumer Failover
 
 With the 3 simulators and 3 consumers running, let's demonstrate consumer failover by stopping one consumer. Kafka will automatically redistribute its partitions to the surviving consumers.
 
@@ -195,8 +199,10 @@ Kill the **third consumer** by pressing **Ctrl-C** in its terminal.
 After a few seconds (within the session timeout), the two remaining consumers will each print a rebalance message showing they have taken on additional partitions. For example, consumer 1 might show:
 
 ```
-% Group purchases-group rebalanced (memberid rdkafka-5ba45abf-5fa3-49a0-bf9b-ac5b0031d9d3): revoked: demo.purchases [0], demo.purchases [1]
-% Group purchases-group rebalanced (memberid rdkafka-5ba45abf-5fa3-49a0-bf9b-ac5b0031d9d3): assigned: demo.purchases [0], demo.purchases [1], demo.purchases [2]
+% Group purchases-group rebalanced (memberid rdkafka-5ba45abf-5fa3-49a0-bf9b-ac5b0031d9d3):
+    revoked: demo.purchases [0], demo.purchases [1]
+% Group purchases-group rebalanced (memberid rdkafka-5ba45abf-5fa3-49a0-bf9b-ac5b0031d9d3):
+    assigned: demo.purchases [0], demo.purchases [1], demo.purchases [2]
 % Reached end of topic demo.purchases [2] at offset 665
 % Reached end of topic demo.purchases [0] at offset 235
 % Reached end of topic demo.purchases [1] at offset 125
