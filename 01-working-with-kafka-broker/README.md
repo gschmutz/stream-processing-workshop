@@ -12,10 +12,11 @@ In this workshop you will get hands-on experience with a real multi-broker Kafka
 - [Prerequisites](#prerequisites)
 - [Using built-in Command Line Utilities](#using-built-in-command-line-utilities)
 - [Working with Consumer Groups](#working-with-consumer-groups)
-- [Using `kcat`](#using-kcat)
-- [Publishing a "real" data stream to Kafka](#publishing-a-real-data-stream-to-kafka)
 - [Retention and Log Compaction](#retention-and-log-compaction)
+- [Using `kcat`](#using-kcat)
 - [Using AKHQ](#using-akhq)
+- [Using Kafbat UI](#using-kafbat-ui)
+- [Publishing a "real" data stream to Kafka](#publishing-a-real-data-stream-to-kafka)
 
 ## What you will learn
 
