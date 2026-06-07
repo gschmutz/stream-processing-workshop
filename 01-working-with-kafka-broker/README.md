@@ -1,4 +1,4 @@
-# Getting started with Apache Kafka
+# Working with Apache Kafka
 
 Apache Kafka is a distributed event streaming platform built for high-throughput, fault-tolerant, and real-time data pipelines. Unlike traditional message queues, Kafka persists messages on disk and lets multiple consumers read the same data independently — making it the backbone of modern event-driven architectures.
 
