@@ -27,7 +27,7 @@ In this workshop you will get hands-on experience with a real multi-broker Kafka
 - How to use `kcat` as a powerful alternative CLI for producing and consuming messages
 - How to stream realistic test data into Kafka using a sales data simulator
 - How topic retention controls how long data is kept, and how log compaction keeps only the latest value per key
-- How to inspect and manage your Kafka cluster using the AKHQ web UIs
+- How to inspect and manage your Kafka cluster using the AKHQ web UI
 
 ## Prerequisites
 
@@ -419,7 +419,7 @@ Type a few messages in `key,value` format, e.g. `key1,value1`, and verify they a
 
 ### Deleting a Kafka topic
 
-Let's first create a new topic and add some messages. 
+Let's first create a new topic and add some messages.
 
 ```bash
 kafka-topics --create \
@@ -460,13 +460,13 @@ By default, the Kafka CLI tools are configured to use a `WARN`-level root logger
 
 The log configuration for CLI tools lives in `tools-log4j2.yaml` inside the broker container. The steps below copy it out, add the two extra loggers, and copy the modified file back so it is picked up the next time you run a consumer.
 
-First, copy the file out of the container onto the Docker host:
+Copy the original file out of the container onto the Docker host:
 
 ```bash
 docker cp kafka-1:/etc/kafka/tools-log4j2.yaml tools-log4j2.yaml
 ```
 
-Keep the original as a backup:
+Keep the original as a backup you can later revert to:
 
 ```bash
 cp tools-log4j2.yaml tools-log4j2.yaml.backup
@@ -539,7 +539,26 @@ Open **three separate terminal windows** and connect to `kafka-1` in each one:
 docker exec -ti kafka-1 bash
 ```
 
-In each terminal, start a consumer on the `cg-test-topic` that joins the **same consumer group** `my-consumer-group`:
+In the first terminal, start a consumer on the `cg-test-topic` that joins the **consumer group** `my-consumer-group`:
+
+```bash
+kafka-console-consumer --bootstrap-server kafka-1:19092 \
+                       --topic cg-test-topic \
+                       --group my-consumer-group
+```
+
+You should see log output similar to:
+
+```
+[2026-06-07 06:40:51,840] INFO [Consumer clientId=console-consumer, groupId=my-consumer-group] Discovered group coordinator kafka-3:19094 (id: 2147483644 rack: null isFenced: false) (org.apache.kafka.clients.consumer.internals.ConsumerCoordinator)
+[2026-06-07 06:40:51,847] INFO [Consumer clientId=console-consumer, groupId=my-consumer-group] (Re-)joining group (org.apache.kafka.clients.consumer.internals.ConsumerCoordinator)
+[2026-06-07 06:40:51,871] INFO [Consumer clientId=console-consumer, groupId=my-consumer-group] Request joining group due to: need to re-join with the given member-id: console-consumer-a6fea06b-5fbb-44a0-8785-39fa8dec3cb3 (org.apache.kafka.clients.consumer.internals.ConsumerCoordinator)
+[2026-06-07 06:40:51,872] INFO [Consumer clientId=console-consumer, groupId=my-consumer-group] (Re-)joining group (org.apache.kafka.clients.consumer.internals.ConsumerCoordinator)
+[2026-06-07 06:40:51,979] INFO [Consumer clientId=console-consumer, groupId=my-consumer-group] Successfully joined group with generation Generation{generationId=50, memberId='console-consumer-a6fea06b-5fbb-44a0-8785-39fa8dec3cb3', protocol='range'} (org.apache.kafka.clients.consumer.internals.ConsumerCoordinator)
+[2026-06-07 06:40:51,990] INFO [Consumer clientId=console-consumer, groupId=my-consumer-group] Finished assignment for group at generation 50: {console-consumer-a6fea06b-5fbb-44a0-8785-39fa8dec3cb3=Assignment(partitions=[cg-test-topic-0, cg-test-topic-1, cg-test-topic-2, cg-test-topic-3, cg-test-topic-4, cg-test-topic-5])} (org.apache.kafka.clients.consumer.internals.ConsumerCoordinator)
+```
+
+Now start two more consumers on the `cg-test-topic` that join the **same consumer group** `my-consumer-group`:
 
 ```bash
 kafka-console-consumer --bootstrap-server kafka-1:19092 \
@@ -635,6 +654,14 @@ Restart the consumers and they will replay all messages from the start of each p
 > **What you should see:** Each partition's `CURRENT-OFFSET` is reset to 0. When you restart the consumers, the lag briefly spikes to the total message count before dropping back to 0 as they catch up.
 
 > **What just happened?** `--reset-offsets --to-earliest` overwrote the committed offsets in `__consumer_offsets` for every partition in the group. The next time a consumer starts, it reads this stored offset and resumes from that position — in this case, offset 0 (the beginning of each partition).
+
+### Revert Log Level
+
+Finally, let's revert the log level:
+
+```bash
+docker cp tools-log4j2.yaml.backup kafka-1:/etc/kafka
+```
 
 ## Retention and Log Compaction
 
@@ -781,7 +808,7 @@ Copyright (c) 2014-2021, Magnus Edenhill
 Version 1.7.1 (JSON, Transactions, IncrementalAssign, librdkafka 2.0.2 builtin.features=gzip,snappy,ssl,sasl,regex,lz4,sasl_gssapi,sasl_plain,sasl_scram,plugins,zstd,sasl_oauthbearer)
 ```
 
-#### Mac OS-X
+#### macOS
 
 ```bash
 brew install kcat
@@ -805,7 +832,7 @@ You can also run `kcat` as a Docker container:
 docker exec -ti kcat kcat
 ```
 
-Set an alias to use the containerised version transparently:
+Set an alias to use the containerized version transparently:
 
 ```bash
 alias kcat='docker exec -ti kcat kcat'
