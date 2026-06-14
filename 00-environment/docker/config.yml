@@ -101,7 +101,7 @@
       #
       # ===== Confluent ksqlDB ========
       #
-      KSQLDB_enable: true
+      KSQLDB_enable: false
       # either 'cp' or 'oss'
       KSQLDB_edition: 'cp'
       KSQLDB_nodes: 1
@@ -126,7 +126,7 @@
       #
       # ===== RisingWave ========
       #
-      RISINGWAVE_enable: true
+      RISINGWAVE_enable: false
       # either 'playground', 'standalone' or 'cluster'
       RISINGWAVE_flavor: 'standalone'
       # either 'sqlite' or 'postgresql' or `mysql`
@@ -149,7 +149,7 @@
       # either 'stdio' or 'sse' or 'streamable-http'
       RISINGWAVE_MCP_output_transport: 'streamable-http'
 
-      RISINGWAVE_EVENTS_API_enable: true         
+      RISINGWAVE_EVENTS_API_enable: false         
 
       #
       # ===== Apache Fluss ========
@@ -442,7 +442,7 @@
       #
       # ===== Apache Flink ========
       #
-      FLINK_enable: true
+      FLINK_enable: false
       FLINK_version: 1.19.2-scala_2.12-java11
       # deployment mode, either 'session' or 'application'
       FLINK_deployment_mode: 'session'
@@ -899,7 +899,7 @@
       #
       # ===== Redis ========
       #
-      REDIS_enable: true
+      REDIS_enable: false
       REDIS_replicasets: 0
       REDIS_volume_map_data: false      
       REDIS_allow_empty_password: false
@@ -1087,7 +1087,7 @@
       #
       # ===== Influx DB 3.x ========
       #
-      INFLUXDB3_enable: true
+      INFLUXDB3_enable: false
       # one of 'file' or 's3' or 'memory'
       INFLUXDB3_object_store_type: file
       INFLUXDB3_s3_bucket_name: influxdb3-bucket
@@ -1097,7 +1097,7 @@
       #
       # ===== Influx DB 3 Explorer (UI) ========
       #
-      INFLUXDB3_EXPLORER_enable: true
+      INFLUXDB3_EXPLORER_enable: false
       INFLUXDB3_EXPLORER_mode: 'admin'   # either 'admin' or 'query'
       # use openssl rand -hex 32 to generate a random secret key
       INFLUXDB3_EXPLORER_session_secret_key: 3fd4e9d0a3f7307fb5e3285414781fc2cfff1486d9306d0ea10dd5f39d6b0ea5
@@ -1105,7 +1105,7 @@
       #
       # ===== Influx Telegraf ========
       #
-      INFLUXDB_TELEGRAF_enable: true
+      INFLUXDB_TELEGRAF_enable: false
       INFLUXDB_TELEGRAF_custom_conf_file: ''
       INFLUXDB_TELEGRAF_influx_token: ''
       INFLUXDB_TELEGRAF_monitor_docker_host_enabled: false

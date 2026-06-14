@@ -1,1 +1,0 @@
-Place Flink applications here and set FLINK_deployment_mode to 'application'

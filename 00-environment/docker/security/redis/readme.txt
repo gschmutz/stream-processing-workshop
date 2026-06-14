@@ -1,1 +1,0 @@
-Place the redis password file here and specify the name in `REDIS_password_file`.
