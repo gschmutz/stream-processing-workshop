@@ -1,1 +1,1 @@
-confluent-kafka[avro]==2.6.1
+confluent-kafka[avro]==2.14.2

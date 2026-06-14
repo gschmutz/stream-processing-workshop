@@ -11,6 +11,7 @@ Usage:
 """
 
 import json
+import os
 
 from confluent_kafka import Consumer, KafkaException, Producer
 from confluent_kafka.schema_registry import SchemaRegistryClient
@@ -21,12 +22,12 @@ from confluent_kafka.serialization import MessageField, SerializationContext
 # Configuration
 # ---------------------------------------------------------------------------
 
-KAFKA_BROKER = "kafka-1:19092"
-SOURCE_TOPIC = "energy-monitoring-raw"
-SINK_TOPIC = "energy-monitoring"
-SCHEMA_REGISTRY_URL = "http://dataplatform:8081"
-SCHEMA_SUBJECT = "energy-monitoring-value"
-CONSUMER_GROUP = "energy-flatten-plain-cg"
+KAFKA_BROKER         = os.environ.get("KAFKA_BROKER",         "kafka-1:19092")
+SOURCE_TOPIC         = os.environ.get("SOURCE_TOPIC",         "energy-monitoring.raw")
+SINK_TOPIC           = os.environ.get("SINK_TOPIC",           "energy-monitoring.avro")
+SCHEMA_REGISTRY_URL  = os.environ.get("SCHEMA_REGISTRY_URL",  "http://schema-registry-1:8081")
+SCHEMA_SUBJECT       = os.environ.get("SCHEMA_SUBJECT",       "energy-monitoring.avro-value")
+CONSUMER_GROUP       = os.environ.get("CONSUMER_GROUP",       "energy-flatten-plain-cg")
 
 # ---------------------------------------------------------------------------
 # Transformation
@@ -82,8 +83,8 @@ def main() -> None:
                 on_delivery=lambda err, m: print(f"  ERROR: {err}") if err else None,
             )
             producer.poll(0)
-            print(f"  factory_id={flat['factory_id']}  ts={flat['timestamp']}  "
-                  f"heating={flat.get('heating_equipment')} kWh")
+            #print(f"  factory_id={flat['factory_id']}  ts={flat['timestamp']}  "
+            #      f"heating={flat.get('heating_equipment')} kWh")
 
     except KeyboardInterrupt:
         print("\nStopping.")

@@ -58,7 +58,7 @@ You can use any of the above scenario names as a parameter to run the scenario.
 ├───────────────┼──────────────────────────────────────────────────────────────────────────────────────────────┤
 │ smart_home    │ Simulation to generate Smart Home data.                                                      │
 ├───────────────┼──────────────────────────────────────────────────────────────────────────────────────────────┤
-│ tesla         │ Simulation to generate Tesla's data, reference form https://github.com/adriankumpf/teslamate │
+│ tesla         │ Simulation to generate Tesla's data, reference from https://github.com/adriankumpf/teslamate │
 ├───────────────┼──────────────────────────────────────────────────────────────────────────────────────────────┤
 │ weather       │ Simulation to generate advanced weather station's data.                                      │
 └───────────────┴──────────────────────────────────────────────────────────────────────────────────────────────┘
@@ -134,7 +134,7 @@ Let's build a bridge to retrieve them from MQTT and send them to Apache Kafka.
 
 ## Bridge MQTT to Kafka with Kafka Connect
 
-For transporting messages from MQTT to Kafka, in this workshop we will be using Kafka Connect. We could also use Apache NiFi to achieve the same result. 
+For transporting messages from MQTT to Kafka, in this workshop we will be using Kafka Connect. 
 
 There are multiple Kafka Source Connectors available for consuming from MQTT. We can either use the one provided by [Confluent Inc.](https://www.confluent.io/connector/kafka-connect-mqtt/) (which is part of Confluent Enterprise and requires an enterprise license) or the one provided as part of the [Landoop Stream-Reactor Project](https://github.com/Landoop/stream-reactor/tree/master/kafka-connect-mqtt) available on GitHub. We will be using the latter.
 
@@ -191,7 +191,7 @@ kafka-connect-1             | [2019-06-08 18:01:11,520] INFO Finished starting c
 
 ```
 
-Now the connector is ready to be used. Before we can configure and use it we have to create the Kafka target topic. 
+Before we configure and use the connector, we first need to create the Kafka target topic.
 
 ### Create the necessary Kafka topic
 
@@ -223,7 +223,7 @@ For creating an instance of the connector over the API, you can either use a RES
 Remove the connector, should it already exist:
 
 ```
-curl -X "DELETE" "http://dataplatform:8083/connectors/mqtt-source"
+curl -X DELETE "http://dataplatform:8083/connectors/mqtt-source"
 ```
 
 Now create it using this curl command:
@@ -474,15 +474,11 @@ Two alternative implementations are provided — pick the one that fits your env
 | **Apache NiFi** | Visual, low-code; easy to monitor throughput and back-pressure; no Python runtime needed |
 | **Python script** | Lightweight; easy to run anywhere Python is available; useful for scripting or CI pipelines |
 
-Both approaches produce identical Avro output to the same `energy-monitoring` topic, so you can switch between them or run them side-by-side (using different consumer groups) without any downstream changes.
+Both approaches produce identical Avro output to the same `energy-monitoring` topic, so you can switch between them.
 
 ## Using Apache NiFi to transform from raw to avro message
 
-### Why Apache NiFi
-
 [Apache NiFi](https://nifi.apache.org) is a visual data flow tool designed for routing, transforming, and mediating data between systems. It is a natural fit here because flattening a nested JSON record — exactly what we need to do — is the kind of stateless per-message transformation NiFi handles without writing any code. NiFi also provides a live monitoring view of throughput and backpressure on every connection, which makes it easy to observe the data flow during the workshop.
-
-### Open NiFi
 
 In a browser navigate to <https://dataplatform:18083/nifi>. NiFi uses a self-signed certificate, so confirm the browser security warning before proceeding.
 
@@ -542,7 +538,24 @@ As we already get records from the **ConsumeKafka** processor, let's use a **Jol
 Configure the following properties:
 
   - **Jolt Transform**: `Chain`
-  - **Jolt Specification**: copy the JOLT spec from above, e.g. `[ { "operation": "shift" ...`
+  - **Jolt Specification**: copy the JOLT spec from above
+
+    ```json
+    [
+      {
+        "operation": "shift",
+        "spec": {
+          "factory_id": "factory_id",
+          "factory": "factory",
+          "timestamp": "timestamp",
+          "values": {
+            "*": "&"
+          }
+        }
+      }
+    ]
+    ```
+
   - **Record Reader**: select the existing `JsonTreeReader` created before
   - **Record Writer**: select the existing `JsonRecordSetWriter` created before
 
@@ -572,7 +585,7 @@ The first two processors should no longer have a warning indicator — only the 
 
 ### Start the first two processors
 
-Select **ConsumeKafka** and **JoltTransformRecord**, right-click and select **Start**. Wait a few seconds before you stop just the **ConsumerKafka** processor to only process a few records.
+Select **ConsumeKafka** and **JoltTransformRecord**, right-click and select **Start**. Wait a few seconds, then stop only the **ConsumeKafka** processor (leave **JoltTransformRecord** running) to limit the number of records processed.
 
 ![Alt Image Text](./images/nifi-run-first-2-processors.png "3 Processors")
 
@@ -638,83 +651,140 @@ Now start the **PublishKafka** processor in Apache Nifi and immediately the mess
 
 ## Using Python to transform from raw to avro message
 
-As an alternative to the NiFi flow, you can run a lightweight Python script that reads raw JSON messages from `energy-monitoring.raw`, flattens them, and produces Avro-serialised records to `energy-monitoring.avro`. Two versions are provided in the `python/` folder — one using plain Python dict manipulation and one that applies the same JOLT shift spec used in NiFi, so both approaches produce identical output.
+As an alternative to the NiFi flow, you can run a lightweight Python script that reads raw JSON messages from `energy-monitoring.raw`, flattens them using plain Python dict manipulation, and produces Avro-serialised records to `energy-monitoring.avro`.
 
-### Prerequisites
+> **Note:** JOLT is a Java library and there is no official Python port. Community packages that attempt to replicate JOLT in Python are incomplete and not production-ready. For the Python implementation we therefore apply the same transformation logic directly in code rather than interpreting a JOLT spec.
 
-Install the dependencies (only `confluent-kafka` with its Avro extras is needed — no external JOLT library is required):
+The script needs to be able to reach the Kafka broker and Schema Registry, which are only accessible inside the Docker Compose network. We could deploy it as a Docker container (a `Dockerfile` is provided in the `python/` folder for that purpose), but for workshop simplicity we will run it directly inside Jupyter, which is already part of the platform.
+
+### Preparation
+
+In a browser window, navigate to <http://dataplatform:28888> and use token `abc123!` to login. 
+
+Create a new notebook and install the only dependency needed:
 
 ```bash
-cd python
-pip install -r requirements.txt
+pip install confluent-kafka[avro]==2.14.2
 ```
 
-### Option 1 — Plain Python
-
-[python/flatten_plain.py](python/flatten_plain.py) flattens the message with a single dict comprehension:
+The script flattens the message with a single dict comprehension (see the `flatten` function in [`python/flatten_plain.py`](python/flatten_plain.py)):
 
 ```python
+"""
+Reads raw JSON energy-monitoring messages from Kafka, flattens the nested
+'values' object using plain Python dict manipulation, and produces
+Avro-serialised records to the energy-monitoring topic via the Confluent
+Schema Registry.
+
+Usage:
+    pip install -r requirements.txt
+    python flatten_plain.py
+"""
+
+import json
+import os
+
+from confluent_kafka import Consumer, KafkaException, Producer
+from confluent_kafka.schema_registry import SchemaRegistryClient
+from confluent_kafka.schema_registry.avro import AvroSerializer
+from confluent_kafka.serialization import MessageField, SerializationContext
+
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+
+KAFKA_BROKER         = os.environ.get("KAFKA_BROKER",         "kafka-1:19092")
+SOURCE_TOPIC         = os.environ.get("SOURCE_TOPIC",         "energy-monitoring.raw")
+SINK_TOPIC           = os.environ.get("SINK_TOPIC",           "energy-monitoring.avro")
+SCHEMA_REGISTRY_URL  = os.environ.get("SCHEMA_REGISTRY_URL",  "http://schema-registry-1:8081")
+SCHEMA_SUBJECT       = os.environ.get("SCHEMA_SUBJECT",       "energy-monitoring.avro-value")
+CONSUMER_GROUP       = os.environ.get("CONSUMER_GROUP",       "energy-flatten-plain-cg")
+
+# ---------------------------------------------------------------------------
+# Transformation
+# ---------------------------------------------------------------------------
+
 def flatten(raw: dict) -> dict:
     """Promote every key inside 'values' to the top level and drop the wrapper."""
     result = {k: v for k, v in raw.items() if k != "values"}
     result.update(raw.get("values", {}))
     return result
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main() -> None:
+    schema_registry = SchemaRegistryClient({"url": SCHEMA_REGISTRY_URL})
+    schema_str = schema_registry.get_latest_version(SCHEMA_SUBJECT).schema.schema_str
+    print(f"Fetched schema '{SCHEMA_SUBJECT}' from registry.")
+    avro_serializer = AvroSerializer(schema_registry, schema_str)
+
+    consumer = Consumer({
+        "bootstrap.servers": KAFKA_BROKER,
+        "group.id": CONSUMER_GROUP,
+        "auto.offset.reset": "earliest",
+    })
+    consumer.subscribe([SOURCE_TOPIC])
+
+    producer = Producer({"bootstrap.servers": KAFKA_BROKER})
+
+    print(f"Consuming '{SOURCE_TOPIC}' → producing Avro to '{SINK_TOPIC}' ...")
+    print("Press Ctrl-C to stop.\n")
+
+    try:
+        while True:
+            msg = consumer.poll(timeout=1.0)
+            if msg is None:
+                continue
+            if msg.error():
+                raise KafkaException(msg.error())
+
+            raw = json.loads(msg.value())
+            flat = flatten(raw)
+
+            avro_bytes = avro_serializer(
+                flat,
+                SerializationContext(SINK_TOPIC, MessageField.VALUE),
+            )
+            producer.produce(
+                SINK_TOPIC,
+                key=str(flat.get("factory_id", "")),
+                value=avro_bytes,
+                on_delivery=lambda err, m: print(f"  ERROR: {err}") if err else None,
+            )
+            producer.poll(0)
+            #print(f"  factory_id={flat['factory_id']}  ts={flat['timestamp']}  "
+            #      f"heating={flat.get('heating_equipment')} kWh")
+
+    except KeyboardInterrupt:
+        print("\nStopping.")
+    finally:
+        consumer.close()
+        producer.flush()
+
+
+if __name__ == "__main__":
+    main()
 ```
 
-Run it with:
+Copy the code into a new cell in Jupyter. Before running it, make sure the output topic exists (create it if you skipped the NiFi path):
 
 ```bash
-python python/flatten_plain.py
+docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --if-not-exists --topic energy-monitoring.avro --replication-factor 3 --partitions 8
 ```
 
-### Option 2 — JOLT spec
-
-[python/flatten_jolt.py](python/flatten_jolt.py) defines the same JOLT shift spec that is used in the NiFi `JoltTransformRecord` processor and applies it through a minimal built-in interpreter — no external JOLT library required:
-
-```python
-JOLT_SPEC = [
-    {
-        "operation": "shift",
-        "spec": {
-            "factory_id": "factory_id",
-            "factory":    "factory",
-            "timestamp":  "timestamp",
-            "values": {
-                "*": "&"   # promote every sensor field to the root level
-            },
-        },
-    }
-]
-```
-
-The interpreter supports direct field mappings (`"field": "output_name"`) and the wildcard-promote pattern (`"*": "&"`), which are the two patterns needed for this transformation. More complex JOLT operations (`default`, `remove`, `sort`) are not implemented since they are not required here.
-
-Run it with:
+Open a terminal and start a `kcat` consumer to verify messages appear as soon as the script runs:
 
 ```bash
-python python/flatten_jolt.py
+docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring.avro -q -s value=avro -r http://schema-registry-1:8081
 ```
 
-### What you should see
+Now execute the cell.
 
-Both scripts print a line per processed message:
+> **What you should see:** flat JSON lines in the `kcat`output — one per factory record — with all sensor fields promoted to the top level alongside `factory_id`, `factory`, and `timestamp`.
 
-```
-Consuming 'energy-monitoring.raw' → producing Avro to 'energy-monitoring.avro' ...
-Press Ctrl-C to stop.
-
-  factory_id=013  ts=1781119405905  heating=43.97 kWh
-  factory_id=078  ts=1781119405912  heating=36.82 kWh
-  ...
-```
-
-Press **Ctrl-C** to stop. You can then verify the output topic with `kcat`:
-
-```bash
-docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring.avro -s value=avro -r http://schema-registry-1:8081 -C -q
-```
-
-> **What you should see:** flat JSON lines — one per factory record — with all sensor fields promoted to the top level alongside `factory_id`, `factory`, and `timestamp`.
+Stop execution of the python script by selecting **Kernel** | **Interrupt Kernel** from the menu bar.
 
 ## Write the Avro formatted messages to TimescaleDB
 
@@ -774,7 +844,7 @@ Type `exit` to exit `psql`.
 The Confluent JDBC Sink connector reads Avro records from the `energy-monitoring` Kafka topic and inserts them into `energy_log`. Because the `timestamp` field arrives as a Unix millisecond integer, a `TimestampConverter` Single Message Transform (SMT) is applied to convert it to a proper SQL `TIMESTAMP` before writing.
 
 ```bash
-curl -X "DELETE" "http://${DOCKER_HOST_IP}:8083/connectors/timescaledb-sink"
+curl -X DELETE "http://${DOCKER_HOST_IP}:8083/connectors/timescaledb-sink"
 ```
 
 
