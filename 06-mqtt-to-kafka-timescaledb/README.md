@@ -416,7 +416,7 @@ jq -n --arg schema "$(cat energy-monitoring.avsc)" '{"schema": $schema}' | \
 
 ### Transforming JSON to JSON using JOLT
 
-[JOLT](https://github.com/bazaarvoice/jolt) (JSON to JSON Transformation Library) is a Java library that transforms a JSON document into a new JSON structure using a declarative specification written in JSON itself. Instead of writing imperative code to map fields, you describe the desired output shape and JOLT figures out how to get there. The specification is made up of one or more transformation steps — the most commonly used are `shift` (picks fields from the input and places them at new paths in the output), `default` (adds fields with a constant value when they are absent), and `remove` (drops unwanted fields). In Apache NiFi the **JoltTransformRecord** (or **JoltTransformJSON**) processor applies a JOLT spec to every record that passes through it, making it straightforward to flatten, rename, or restructure JSON messages inline in the data flow without writing any custom code.
+[JOLT](https://github.com/bazaarvoice/jolt) (JSON to JSON Transformation Library) is a Java library that transforms a JSON document into a new JSON structure using a declarative specification written in JSON itself. Instead of writing imperative code to map fields, you describe the desired output shape and JOLT figures out how to get there. The specification is made up of one or more transformation steps — the most commonly used are `shift` (picks fields from the input and places them at new paths in the output), `default` (adds fields with a constant value when they are absent), and `remove` (drops unwanted fields). 
 
 In our case the raw message coming from the `energy-monitoring.raw` topic has the sensor readings nested inside a `values` object:
 
@@ -486,6 +486,8 @@ Enter `nifi` into the **User** field and `1234567890ACD` into the **Password** f
 
 > **What you should see:** The NiFi canvas — a workspace where you will build the data flow.
 
+> **Shortcut — import the pre-built flow:** Instead of building the pipeline manually step by step, you can import the complete process group directly. On the NiFi canvas, drag the **Process Group** icon from the toolbar, then click **Browse** in the dialog and select the file `nifi/energy-monitoring-pg.json` from this workshop folder. The fully configured pipeline — ConsumeKafka → JoltTransformRecord → PublishKafka — will appear on the canvas ready to start. To start it right-click on the process group and select **Enable All Controller Services** followed by another right-click and selecting **Start**. You can still follow the sections below to understand what each processor does.
+
 ### Add a Process Group first
 
 Drag the **Process Group** icon from the toolbar onto the canvas.
@@ -531,7 +533,9 @@ Click **Apply** to close the dialog.
 
 ### Flatten raw message using JOLT transformation
 
-The JOLT spec is already described in the [Transforming JSON to JSON using JOLT](#transforming-json-to-json-using-jolt) section above. Use the same spec here.
+In Apache NiFi the **JoltTransformRecord** (or **JoltTransformJSON**) processor applies a JOLT spec to every record that passes through it, making it straightforward to flatten, rename, or restructure JSON messages inline in the data flow without writing any custom code.
+
+The JOLT spec is already described in the [Transforming JSON to JSON using JOLT](#transforming-json-to-json-using-jolt) section above. We will use the same spec here.
 
 As we already get records from the **ConsumeKafka** processor, let's use a **JoltTransformRecord** to transform (flatten) the raw message. Drag a new processor to the canvas and search for the **JoltTransformRecord** processor. Double-click on the new processor to navigate to the **Properties** tab. 
 
