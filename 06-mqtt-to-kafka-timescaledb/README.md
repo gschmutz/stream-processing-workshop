@@ -1,8 +1,8 @@
-# IoT Smart Home Data — MQTT → Kafka → TimescaleDB → Grafana
+# IoT Industrial Energy Monitoring — MQTT → Kafka → TimescaleDB → Grafana
 
-In this workshop we will build a complete IoT data pipeline that ingests simulated smart-home sensor data, routes it through Apache Kafka, persists it in InfluxDB 3.x, and visualises it in Grafana.
+In this workshop we will build a complete IoT data pipeline that ingests simulated industrial energy monitoring data, routes it through Apache Kafka, persists it in TimescaleDB, and visualises it in Grafana.
 
-The data originates from the [MQTTX CLI](https://mqttx.app/docs/cli) `IEM` simulator, which publishes one JSON message per factory per interval to an MQTT broker. Kafka Connect bridges MQTT to a Kafka topic, NiFi or Python transforms the data and Kafka Connect writes the data into TimescaleDB.
+The data originates from the [MQTTX CLI](https://mqttx.app/docs/cli) `IEM` simulator, which publishes one JSON message per factory per interval to an MQTT broker. Kafka Connect bridges MQTT to a Kafka topic, NiFi or Python flattens and serialises the data as Avro, and a Kafka Connect JDBC Sink connector writes the records into TimescaleDB.
 
 ![Architecture](./images/architecture.png)
 
@@ -10,7 +10,7 @@ The data originates from the [MQTTX CLI](https://mqttx.app/docs/cli) `IEM` simul
 
 - [What you will learn](#what-you-will-learn)
 - [Prerequisites](#prerequisites)
-- [Running the Simulator and publish to MQTT](#running-the-simulator-and-publish-to-mqtt)
+- [Running the Simulator and Publishing to MQTT](#running-the-simulator-and-publishing-to-mqtt)
 - [Using an MQTT Client to view messages](#using-an-mqtt-client-to-view-messages)
 - [Bridge MQTT to Kafka with Kafka Connect](#bridge-mqtt-to-kafka-with-kafka-connect)
 - [Create Avro Schema for downstream processing](#create-avro-schema-for-downstream-processing)
@@ -22,23 +22,23 @@ The data originates from the [MQTTX CLI](https://mqttx.app/docs/cli) `IEM` simul
 
 ## What you will learn
 
-- How to simulate IoT sensor data using the MQTTX CLI `smart_home` scenario
-- How to view MQTT messages using a dockerized CLI client and the HiveMQ Web UI
-- How to use Kafka Connect (Confluent MQTT source connector) to bridge MQTT topics to a Kafka topic
+- How to simulate industrial energy monitoring data using the MQTTX CLI `IEM` scenario
+- How to view MQTT messages using a dockerized CLI client
+- How to use Kafka Connect (Lenses MQTT source connector) to bridge MQTT topics to a Kafka topic
 - How to verify streaming data in Kafka using `kcat`
-- How to create an operator authentication token for InfluxDB 3.x
-- How to configure Telegraf to consume JSON messages from Kafka and flatten nested arrays
-- How to store time-series data from Kafka into InfluxDB 3.x using Telegraf's `influxdb_v3` output plugin
-- How to query time-series data using the `influxdb3` CLI with SQL
-- How to connect Grafana to InfluxDB 3.x using InfluxQL and build time-series dashboards
+- How to register an Avro schema in the Confluent Schema Registry
+- How to flatten nested JSON messages using Apache NiFi (JOLT transformation) or a Python script
+- How to write Avro records from Kafka into TimescaleDB using the Kafka Connect JDBC Sink connector
+- How to query time-series data in TimescaleDB using SQL
+- How to connect Grafana to TimescaleDB and build a time-series dashboard
 
 ## Prerequisites
 
 - The **Data Platform** described in [00-environment](../00-environment) is running and accessible
 
-## Running the Simulator and publish to MQTT
+## Running the Simulator and Publishing to MQTT
 
-The MQTT CLI is part of the platform we have started using docker compose. We can use it via `docker exec` command. 
+The MQTT CLI is part of the platform started with Docker Compose. We can use it via the `docker exec` command.
 
 The simulator comes with a few built-in scenarios. To list the available scenarios, in a terminal window execute the following:
 
@@ -65,9 +65,9 @@ You can use any of the above scenario names as a parameter to run the scenario.
 ~/w/platys-datahub>
 ```
 
-> **What you should see:** a table of four built-in scenarios including `smart_home`
+> **What you should see:** a table of four built-in scenarios including `IEM`.
 
-we will be using the `IEM` scenario. 
+We will be using the `IEM` scenario.
 
 To run it, use the `simulate` option and specify with `conn` the MQTT broker to connect to. We are running `mosquitto` as part of the platform and this is the one we are connecting to.
 
@@ -81,14 +81,9 @@ docker exec -ti mqttx-cli mqttx simulate -sc IEM -c 100 conn  -h 'mosquitto-1' -
 
 For viewing the messages in MQTT, there are many options available.
 
-In this workshop we will present two alternative options for consuming from MQTT
+In this workshop we will use a dockerized MQTT client in the terminal to view the messages.
 
- * use dockerized MQTT client in the terminal
- * use browser-based HiveMQ Web UI
-
-Using dockerized MQTT Client
-
-To start consuming using through a command line, perform the following docker command from another terminal window:
+To start consuming through a command line, run the following Docker command from another terminal window:
 
 ```bash
 docker run -it --network streaming-data-platform --rm efrecon/mqtt-client mosquitto_sub -h mosquitto-1 -p 1883 -t mqttx/simulate/IEM/#
@@ -98,19 +93,19 @@ The consumed messages will show up on the terminal window as shown below.
 
 ![](./images/mosquitto-sub.png)
 
-> **What you should see:** a continuous stream of single-line JSON messages appearing in the terminal, one per simulated home per interval
+> **What you should see:** a continuous stream of single-line JSON messages appearing in the terminal, one per simulated factory per interval
 
 Alternatively you can also use the [MQTTX Desktop](https://mqttx.app/downloads) version, available for installation on Mac or Windows.
 
-In the subscription pattern of we have used `mqttx/simulate/IEM/#`, where  the `#` symbol is a wildcard used in topic subscriptions to match multiple levels in the topic hierarchy. It's known as the multi-level wildcard. It's important to note that # can only be used as the last character in a topic string, and only one # can be used in a single subscription.
+In the subscription pattern we have used `mqttx/simulate/IEM/#`, where the `#` symbol is a wildcard used in topic subscriptions to match multiple levels in the topic hierarchy. It is known as the multi-level wildcard. It is important to note that `#` can only be used as the last character in a topic string, and only one `#` can be used in a single subscription.
 
-If we check one of the messages, we can see that they are in JSON format, although all one one single line:
+If we check one of the messages, we can see that they are in JSON format, although all on one single line:
 
 ```json
 {"factory_id":"013","factory":"Upton LLC","values":{"air_compressor_1":2.69,"air_compressor_2":5.35,"lighting":1.08,"cooling_equipment":26.85,"heating_equipment":43.97,"conveyor":11.1,"coating_equipment":4.37,"inspection_equipment":2,"welding_equipment":4.47,"packaging_equipment":6.1,"cutting_equipment":19.32},"timestamp":1781119405905}
 ```
 
-if we "pretty-print" it then it is more visible
+If we "pretty-print" it, it is more readable:
 
 ```json
 {
@@ -133,7 +128,7 @@ if we "pretty-print" it then it is more visible
 }
 ```
 
-We can see that one message of the `IEM` simulator contains messages for one factory with various sensor values like `lighting `, `cooling_equipment` and others. 
+We can see that one message of the `IEM` simulator contains data for one factory with various sensor values such as `lighting`, `cooling_equipment`, and others.
 
 Let's build a bridge to retrieve them from MQTT and send them to Apache Kafka.
 
@@ -141,17 +136,15 @@ Let's build a bridge to retrieve them from MQTT and send them to Apache Kafka.
 
 For transporting messages from MQTT to Kafka, in this workshop we will be using Kafka Connect. We could also use Apache NiFi to achieve the same result. 
 
-Luckily, there are multiple Kafka Source Connectors available for consuming from MQTT. We can either use the one provided by [Confluent Inc.](https://www.confluent.io/connector/kafka-connect-mqtt/) (which is part of Confluent Enterprise but needs an enterpise license) or the one provided as part of the [Landoop Stream-Reactor Project](https://github.com/Landoop/stream-reactor/tree/master/kafka-connect-mqtt) available on GitHub. We will be using the later one. 
+There are multiple Kafka Source Connectors available for consuming from MQTT. We can either use the one provided by [Confluent Inc.](https://www.confluent.io/connector/kafka-connect-mqtt/) (which is part of Confluent Enterprise and requires an enterprise license) or the one provided as part of the [Landoop Stream-Reactor Project](https://github.com/Landoop/stream-reactor/tree/master/kafka-connect-mqtt) available on GitHub. We will be using the latter.
 
 ### Adding the MQTT Kafka Connector 
 
-There are instances of the Kafka Connect service instance running as part of the Modern Data Platform, `kafka-connect-1` and optionally `kafka-connect-2`. 
+Kafka Connect runs as `kafka-connect-1` (and optionally `kafka-connect-2`) as part of the platform.
 
-To add the connector implementations, without having to copy them into the docker container (or even create a dedicated docker image holding the jar), both connect services are configured to use additional connector implementations from the local folder `/etc/kafka-connect/custom-plugins` inside the docker container. This folder is mapped as a volume to the `plugins/kafka-connect` folder outside of the container on to the docker host. 
+To add connector plugins without rebuilding the Docker image, both Connect services are configured to load additional plugins from `/etc/kafka-connect/custom-plugins` inside the container. This folder is mapped as a volume to the `plugins/kafka-connect` folder on the Docker host, so it is enough to copy the plugin files there.
 
-So its good enough to copy the necessary artefacts of the Kafka connectors we want to use. 
-
-Navigate into the `plugins/kafka-connect` folder (which is a sub-folder of the `docker` folder which holds the `docker-compose.yml` file.
+Navigate into the `plugins/kafka-connect/connectors` folder (a sub-folder of the `docker` folder that holds the `docker-compose.yml` file):
 
 ```
 cd $DATAPLATFORM_HOME/plugins/kafka-connect/connectors
@@ -163,21 +156,21 @@ and download the `11.7.7/kafka-connect-mqtt-11.7.7.zip` file from the [Landoop S
 wget https://github.com/lensesio/stream-reactor/releases/download/11.7.7/kafka-connect-mqtt-11.7.7.zip
 ```
 
-Once it is successfully downloaded, uncompress it using this `tar` command and remove the file after the uncompress was successful. 
+Once it is successfully downloaded, unzip it and remove the archive:
 
 ```
 unzip kafka-connect-mqtt-11.7.7.zip
 rm kafka-connect-mqtt-11.7.7.zip
 ```
 
-Now let's restart Kafka connect in order to pick up the new connector (Make sure to navigate back to the docker folder first, either using `cd $DATAPLATFORM_HOME` or `cd ../..`)
+Now restart Kafka Connect to pick up the new plugin (make sure to navigate back to the docker folder first, either using `cd $DATAPLATFORM_HOME` or `cd ../..`):
 
 ```
 cd $DATAPLATFORM_HOME
 docker compose restart kafka-connect-1
 ```
 
-The connector should now be added to the Kafka cluster. You can confirm that by watching the log file of the two containers
+The connector plugin should now be available to Kafka Connect. Confirm it by watching the container log:
 
 ```
 docker compose logs -f kafka-connect-1
@@ -258,7 +251,7 @@ curl -X PUT \
 }'
 ```
 
-A soon as the connector starts getting the messages from MQTT, they should start appearing on the console where the Kafka consumer is running, either using `kafkacat` or `kafka-console-consumer`:
+As soon as the connector starts receiving messages from MQTT, they will appear on the console. Use `kcat` to consume from the topic:
 
 ```bash
 docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring.raw -q
@@ -301,9 +294,9 @@ Value: {"factory_id":"077","factory":"Bode - Feeney","values":{"air_compressor_1
 ---
 ```
 
-> **What you should see:** Lines like `Key: mqttx/simulate/smart_home/0` followed by the full JSON payload for each home.
+> **What you should see:** Lines like `Key: "077"` (the factory ID) followed by the full JSON payload for each factory.
 
-> **What just happened?** The MQTT connector wrote each MQTT message as a Kafka record. The MQTT topic path (`mqttx/simulate/smart_home/0`) is stored as the Kafka message key, and the raw JSON is the value. `kcat` connects directly to the broker and prints records as they arrive — no consumer group overhead.
+> **What just happened?** The MQTT connector wrote each MQTT message as a Kafka record. The `factory_id` value is stored as the Kafka message key, and the raw JSON is the value. `kcat` connects directly to the broker and prints records as they arrive — no consumer group overhead.
 
 Press **Ctrl-C** to stop the consumer.
 
@@ -487,7 +480,7 @@ Both approaches produce identical Avro output to the same `energy-monitoring` to
 
 ### Why Apache NiFi
 
-[Apache NiFi](https://nifi.apache.org) is a visual data flow tool designed for routing, transforming, and mediating data between systems. It is a natural fit here because the routing logic — extract a field, match it against a list, publish to a dynamic topic name — is exactly the kind of stateless per-message transformation NiFi handles without writing any code. NiFi also provides a live monitoring view of throughput and backpressure on every connection, which makes it easy to observe the data flow during the workshop.
+[Apache NiFi](https://nifi.apache.org) is a visual data flow tool designed for routing, transforming, and mediating data between systems. It is a natural fit here because flattening a nested JSON record — exactly what we need to do — is the kind of stateless per-message transformation NiFi handles without writing any code. NiFi also provides a live monitoring view of throughput and backpressure on every connection, which makes it easy to observe the data flow during the workshop.
 
 ### Open NiFi
 
@@ -542,42 +535,7 @@ Click **Apply** to close the dialog.
 
 ### Flatten raw message using JOLT transformation
 
-[JOLT](https://github.com/bazaarvoice/jolt) (JSON to JSON Transformation Library) is a Java library that transforms a JSON document into a new JSON structure using a declarative specification written in JSON itself. Instead of writing imperative code to map fields, you describe the desired output shape and JOLT figures out how to get there. The specification is made up of one or more transformation steps — the most commonly used are `shift` (picks fields from the input and places them at new paths in the output), `default` (adds fields with a constant value when they are absent), and `remove` (drops unwanted fields). In Apache NiFi the **JoltTransformRecord** (or **JoltTransformJSON**) processor applies a JOLT spec to every record that passes through it, making it straightforward to flatten, rename, or restructure JSON messages inline in the data flow without writing any custom code.
-
-In our case the raw message coming from the `energy-monitoring.raw` topic has the sensor readings nested inside a `values` object:
-
-```json
-{
-  "factory_id": "013",
-  "factory": "Upton LLC",
-  "values": {
-    "air_compressor_1": 2.69,
-    "lighting": 1.08,
-    "cooling_equipment": 26.85
-  },
-  "timestamp": 1781119405905
-}
-```
-
-The JOLT `shift` spec below promotes every key inside `values` to the top level, producing a flat record that matches the Avro schema registered earlier:
-
-```json
-[
-  {
-    "operation": "shift",
-    "spec": {
-      "factory_id": "factory_id",
-      "factory": "factory",
-      "timestamp": "timestamp",
-      "values": {
-        "*": "&"
-      }
-    }
-  }
-]
-```
-
-> **Tip — test your spec interactively before wiring it into NiFi:** Open the [JOLT Transform Demo](https://jolt-demo.appspot.com/#inception) in a browser, paste the input JSON in the **Input JSON** panel and the spec above in the **Spec** panel, then click **Transform**. You will see the flattened output instantly, without restarting NiFi or any other service.
+The JOLT spec is already described in the [Transforming JSON to JSON using JOLT](#transforming-json-to-json-using-jolt) section above. Use the same spec here.
 
 As we already get records from the **ConsumeKafka** processor, let's use a **JoltTransformRecord** to transform (flatten) the raw message. Drag a new processor to the canvas and search for the **JoltTransformRecord** processor. Double-click on the new processor to navigate to the **Properties** tab. 
 
@@ -600,7 +558,7 @@ Type **PublishK** into the filter box and select **PublishKafka**, then click **
 
 > **What you should see:** A `PublishKafka` processor on the canvas together with the other two processors.
 
-Before we configure the **PublishKafka** processors, let's connect them so we can already run the first two to validate that the flattening worked.
+Before we configure the **PublishKafka** processor, let's connect them so we can already run the first two to validate that the flattening worked.
 
 ### Connecting the processors
 
@@ -610,11 +568,11 @@ Let's wire up the processors **ConsumeKafka → JoltTransformRecord → PublishK
 - **JoltTransformRecord** (both): link `success`, terminate `failure` and `original`
 - **PublishKafka**: terminate `failure` and `success`
 
-The first two processor should no longer have a warning indicator, only the last one. 
+The first two processors should no longer have a warning indicator — only the last one.
 
 ### Start the first two processors
 
-Select **ConsumerKafka** and **JoltTransformRecord** and right-click and select **Start**. Wait a few seconds before you stop just the **ConsumerKafka** processor to only process a few records.
+Select **ConsumeKafka** and **JoltTransformRecord**, right-click and select **Start**. Wait a few seconds before you stop just the **ConsumerKafka** processor to only process a few records.
 
 ![Alt Image Text](./images/nifi-run-first-2-processors.png "3 Processors")
 
@@ -624,7 +582,7 @@ Right-click on the connection with the queued records and select **List Queue**.
 
 ![Alt Image Text](./images/nifi-list-queue.png "List queue")
 
-A window in a new browser tab with the content of the message should appear:$
+A window in a new browser tab showing the content of the message should appear:
 
 ![Alt Image Text](./images/nifi-message-content.png "Message content")
 
@@ -675,12 +633,12 @@ Now start the **PublishKafka** processor in Apache Nifi and immediately the mess
 {"factory_id": "075", "factory": "Metz, Stehr and Hyatt", "timestamp": 1781446705219, "air_compressor_1": 3.6200000000000001, "air_compressor_2": 4.5499999999999998, "lighting": 0.91000000000000003, "cooling_equipment": 24.870000000000001, "heating_equipment": 45.159999999999997, "conveyor": 9.2300000000000004, "coating_equipment": 4.6900000000000004, "inspection_equipment": 2.3900000000000001, "welding_equipment": 4.2300000000000004, "packaging_equipment": 7.1699999999999999, "cutting_equipment": 18.620000000000001}
 ```
 
-> **What you should see:** the message are shown as JSON even thought behind they are sent as compressed Avro. `kcat` formats it in JSON because we specified `-s value=avro -r http://schema-registry-1:8081`. 
+> **What you should see:** the messages are shown as JSON even though they are transmitted as Avro. `kcat` deserialises them to JSON because we specified `-s value=avro -r http://schema-registry-1:8081`.
 
 
 ## Using Python to transform from raw to avro message
 
-As an alternative to the NiFi flow, you can run a lightweight Python script that reads raw JSON messages from `energy-monitoring.raw`, flattens them, and produces Avro-serialised records to `energy-monitoring`. Two versions are provided in the `python/` folder — one using plain Python dict manipulation and one that applies the same JOLT shift spec used in NiFi, so both approaches produce identical output.
+As an alternative to the NiFi flow, you can run a lightweight Python script that reads raw JSON messages from `energy-monitoring.raw`, flattens them, and produces Avro-serialised records to `energy-monitoring.avro`. Two versions are provided in the `python/` folder — one using plain Python dict manipulation and one that applies the same JOLT shift spec used in NiFi, so both approaches produce identical output.
 
 ### Prerequisites
 
@@ -742,7 +700,7 @@ python python/flatten_jolt.py
 Both scripts print a line per processed message:
 
 ```
-Consuming 'energy-monitoring.raw' → producing Avro to 'energy-monitoring' ...
+Consuming 'energy-monitoring.raw' → producing Avro to 'energy-monitoring.avro' ...
 Press Ctrl-C to stop.
 
   factory_id=013  ts=1781119405905  heating=43.97 kWh
@@ -753,7 +711,7 @@ Press Ctrl-C to stop.
 Press **Ctrl-C** to stop. You can then verify the output topic with `kcat`:
 
 ```bash
-docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring.avro -s avro -r http://dataplatform:8081 -C -q
+docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring.avro -s value=avro -r http://schema-registry-1:8081 -C -q
 ```
 
 > **What you should see:** flat JSON lines — one per factory record — with all sensor fields promoted to the top level alongside `factory_id`, `factory`, and `timestamp`.
@@ -817,7 +775,7 @@ The Confluent JDBC Sink connector reads Avro records from the `energy-monitoring
 
 ```bash
 curl -X "DELETE" "http://${DOCKER_HOST_IP}:8083/connectors/timescaledb-sink"
-````
+```
 
 
 ```bash
@@ -869,6 +827,8 @@ LIMIT 10;
 
 ## Visualize the data in Grafana
 
+[Grafana](https://grafana.com) is an open-source observability and dashboarding platform that can connect to a wide range of data sources — including PostgreSQL and TimescaleDB — and render time-series data as interactive charts, gauges, and tables. It runs as a web application and requires no client installation beyond a browser. In this workshop Grafana reads directly from TimescaleDB using standard SQL queries and displays the energy sensor readings as live time-series panels.
+
 ### Open Grafana
 
 In a browser navigate to <http://dataplatform:3000>. Log in with:
@@ -878,19 +838,9 @@ In a browser navigate to <http://dataplatform:3000>. Log in with:
 
 > **What you should see:** the Grafana home screen after a successful login.
 
-### Add TimescaleDB as a data source
+### Check TimescaleDB data source
 
-Before importing the dashboard you need to register TimescaleDB as a PostgreSQL data source in Grafana (this only needs to be done once).
-
-1. In the left sidebar click **Connections** → **Data sources**.
-2. Click **Add new data source** and search for **PostgreSQL**.
-3. Configure the connection:
-   - **Host**: `timescaledb:5432`
-   - **Database**: `timescaledb`
-   - **User**: `timescaledb`
-   - **Password**: `abc123!`
-   - **TLS/SSL Mode**: `disable`
-4. Click **Save & test**.
+TimescaleDB as a PostgreSQL data source is already registered in Grafana as part of the dataplatform. You can check it by clicking **Connections** → **Data sources** in the left side bar and you should see the **timescaledb** data source. Click on the datasource and at the bottom of the page click **Save & test**. 
 
 > **What you should see:** a green **Database Connection OK** banner confirming Grafana can reach TimescaleDB.
 
@@ -898,10 +848,10 @@ Before importing the dashboard you need to register TimescaleDB as a PostgreSQL 
 
 A pre-built dashboard is provided in the `grafana/` folder of this workshop.
 
-1. In the left sidebar click **Dashboards** → **Import**.
+1. In the left sidebar click **Dashboards** → **New** → **Import**.
 2. Click **Upload dashboard JSON file** and select the file `grafana/energy-monitoring.json` from this workshop folder.
-3. On the import screen select the **PostgreSQL** data source you just created from the dropdown.
-4. Click **Import**.
+3. Click **Import**.
 
-> **What you should see:** the **Energy Monitoring** dashboard opens with time-series panels showing sensor readings (heating, lighting, cooling, etc.) per factory, updating as new messages flow through the pipeline.
+![Alt Image Text](./images/grafana-dashboard.png "Grafana Dashboard")
 
+> **What you should see:** the **Energy Monitoring** dashboard opens with time-series panels showing sensor readings (heating, lighting, cooling, etc.) per factory, updating as new messages flow through the pipeline. Use the **Factory** drop-down at the top of the dashboard to filter the panels to a specific factory.
