@@ -280,7 +280,7 @@ eadp@eadp-virtual-machine:~$ docker exec -ti kcat kcat -b kafka-1:19092 -t energ
 To also display the Kafka message key (which contains the original MQTT topic path):
 
 ```bash
-docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring-raw -C -f "Key: %k\nValue: %s\n---\n" -q
+docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring.raw -C -f "Key: %k\nValue: %s\n---\n" -q
 ```
 
 which produces an output like:
@@ -315,7 +315,7 @@ Navigate to the [Kafka Connect UI](http://dataplatform:28103) to see the connect
 
 > **What you should see:** `"state": "RUNNING"` for both the connector and its task.
 
-> **What just happened?** The MQTT source connector subscribes to all topics matching `mqttx/simulate/IEM/+` on the Mosquitto broker. Every incoming MQTT message is forwarded as a Kafka record to the `energy-monitoring-raw` topic, with the MQTT topic path as the key and the raw JSON bytes as the value.
+> **What just happened?** The MQTT source connector subscribes to all topics matching `mqttx/simulate/IEM/+` on the Mosquitto broker. Every incoming MQTT message is forwarded as a Kafka record to the `energy-monitoring.raw` topic, with the MQTT topic path as the key and the raw JSON bytes as the value.
 
 ## Create Avro Schema for downstream processing
 
@@ -425,7 +425,7 @@ jq -n --arg schema "$(cat energy-monitoring.avsc)" '{"schema": $schema}' | \
 
 [JOLT](https://github.com/bazaarvoice/jolt) (JSON to JSON Transformation Library) is a Java library that transforms a JSON document into a new JSON structure using a declarative specification written in JSON itself. Instead of writing imperative code to map fields, you describe the desired output shape and JOLT figures out how to get there. The specification is made up of one or more transformation steps — the most commonly used are `shift` (picks fields from the input and places them at new paths in the output), `default` (adds fields with a constant value when they are absent), and `remove` (drops unwanted fields). In Apache NiFi the **JoltTransformRecord** (or **JoltTransformJSON**) processor applies a JOLT spec to every record that passes through it, making it straightforward to flatten, rename, or restructure JSON messages inline in the data flow without writing any custom code.
 
-In our case the raw message coming from the `energy-monitoring-raw` topic has the sensor readings nested inside a `values` object:
+In our case the raw message coming from the `energy-monitoring.raw` topic has the sensor readings nested inside a `values` object:
 
 ```json
 {
@@ -470,11 +470,9 @@ The JOLT `shift` spec below promotes every key inside `values` to the top level,
 
 ![Alt Image Text](./images/jolt-transform.png "Flow Connected")
 
-
-
 ## Stream Processing Pipeline — NiFi or Python
 
-Now that the raw messages are in Kafka and the JOLT transformation spec is defined, the next step is to wire the flattening into a running stream processing pipeline. The pipeline consumes records from `energy-monitoring-raw`, applies the JOLT shift transformation to promote the nested sensor values to the top level, serialises the result as Avro against the Schema Registry, and writes the flattened records to the `energy-monitoring` topic.
+Now that the raw messages are in Kafka and the JOLT transformation spec is defined, the next step is to wire the flattening into a running stream processing pipeline. The pipeline consumes records from `energy-monitoring.raw`, applies the JOLT shift transformation to promote the nested sensor values to the top level, serialises the result as Avro against the Schema Registry, and writes the flattened records to the `energy-monitoring` topic.
 
 Two alternative implementations are provided — pick the one that fits your environment best:
 
@@ -546,7 +544,7 @@ Click **Apply** to close the dialog.
 
 [JOLT](https://github.com/bazaarvoice/jolt) (JSON to JSON Transformation Library) is a Java library that transforms a JSON document into a new JSON structure using a declarative specification written in JSON itself. Instead of writing imperative code to map fields, you describe the desired output shape and JOLT figures out how to get there. The specification is made up of one or more transformation steps — the most commonly used are `shift` (picks fields from the input and places them at new paths in the output), `default` (adds fields with a constant value when they are absent), and `remove` (drops unwanted fields). In Apache NiFi the **JoltTransformRecord** (or **JoltTransformJSON**) processor applies a JOLT spec to every record that passes through it, making it straightforward to flatten, rename, or restructure JSON messages inline in the data flow without writing any custom code.
 
-In our case the raw message coming from the `energy-monitoring-raw` topic has the sensor readings nested inside a `values` object:
+In our case the raw message coming from the `energy-monitoring.raw` topic has the sensor readings nested inside a `values` object:
 
 ```json
 {
@@ -682,7 +680,7 @@ Now start the **PublishKafka** processor in Apache Nifi and immediately the mess
 
 ## Using Python to transform from raw to avro message
 
-As an alternative to the NiFi flow, you can run a lightweight Python script that reads raw JSON messages from `energy-monitoring-raw`, flattens them, and produces Avro-serialised records to `energy-monitoring`. Two versions are provided in the `python/` folder — one using plain Python dict manipulation and one that applies the same JOLT shift spec used in NiFi, so both approaches produce identical output.
+As an alternative to the NiFi flow, you can run a lightweight Python script that reads raw JSON messages from `energy-monitoring.raw`, flattens them, and produces Avro-serialised records to `energy-monitoring`. Two versions are provided in the `python/` folder — one using plain Python dict manipulation and one that applies the same JOLT shift spec used in NiFi, so both approaches produce identical output.
 
 ### Prerequisites
 
@@ -744,7 +742,7 @@ python python/flatten_jolt.py
 Both scripts print a line per processed message:
 
 ```
-Consuming 'energy-monitoring-raw' → producing Avro to 'energy-monitoring' ...
+Consuming 'energy-monitoring.raw' → producing Avro to 'energy-monitoring' ...
 Press Ctrl-C to stop.
 
   factory_id=013  ts=1781119405905  heating=43.97 kWh
