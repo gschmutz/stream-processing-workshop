@@ -1,8 +1,8 @@
-# IoT Smart Home Data — MQTT → Kafka → InfluxDB → Grafana
+# IoT Smart Home Data — MQTT → Kafka → TimescaleDB → Grafana
 
 In this workshop we will build a complete IoT data pipeline that ingests simulated smart-home sensor data, routes it through Apache Kafka, persists it in InfluxDB 3.x, and visualises it in Grafana.
 
-The data originates from the [MQTTX CLI](https://mqttx.app/docs/cli) `smart_home` simulator, which publishes one JSON message per home per interval to an MQTT broker. Kafka Connect bridges MQTT to a Kafka topic, and Telegraf then consumes that topic and writes the data into InfluxDB 3.x.
+The data originates from the [MQTTX CLI](https://mqttx.app/docs/cli) `IEM` simulator, which publishes one JSON message per factory per interval to an MQTT broker. Kafka Connect bridges MQTT to a Kafka topic, NiFi or Python transforms the data and Kafka Connect writes the data into TimescaleDB.
 
 ![Architecture](./images/architecture.png)
 
@@ -10,15 +10,15 @@ The data originates from the [MQTTX CLI](https://mqttx.app/docs/cli) `smart_home
 
 - [What you will learn](#what-you-will-learn)
 - [Prerequisites](#prerequisites)
-- [Part 1 — Update the Platform Configuration](#part-1--update-the-platform-configuration)
-- [Part 2 — Run the MQTT Simulator](#part-2--run-the-mqtt-simulator)
-- [Part 3 — View MQTT Messages](#part-3--view-mqtt-messages)
-- [Part 4 — Bridge MQTT to Kafka with Kafka Connect](#part-4--bridge-mqtt-to-kafka-with-kafka-connect)
-- [Part 5 — Verify Data in Kafka](#part-5--verify-data-in-kafka)
-- [Part 6 — Create an InfluxDB Authentication Token](#part-6--create-an-influxdb-authentication-token)
-- [Part 7 — Configure Telegraf to Consume from Kafka](#part-7--configure-telegraf-to-consume-from-kafka)
-- [Part 8 — Query Data in InfluxDB](#part-8--query-data-in-influxdb)
-- [Part 9 — Visualise with Grafana](#part-9--visualise-with-grafana)
+- [Running the Simulator and publish to MQTT](#running-the-simulator-and-publish-to-mqtt)
+- [Using an MQTT Client to view messages](#using-an-mqtt-client-to-view-messages)
+- [Bridge MQTT to Kafka with Kafka Connect](#bridge-mqtt-to-kafka-with-kafka-connect)
+- [Create Avro Schema for downstream processing](#create-avro-schema-for-downstream-processing)
+- [Stream Processing Pipeline — NiFi or Python](#stream-processing-pipeline--nifi-or-python)
+- [Using Apache NiFi to transform from raw to avro message](#using-apache-nifi-to-transform-from-raw-to-avro-message)
+- [Using Python to transform from raw to avro message](#using-python-to-transform-from-raw-to-avro-message)
+- [Write the Avro formatted messages to TimescaleDB](#write-the-avro-formatted-messages-to-timescaledb)
+- [Visualize the data in Grafana](#visualize-the-data-in-grafana)
 
 ## What you will learn
 
@@ -779,6 +779,8 @@ When prompted for a password enter `abc123!`.
 Once connected, run the following SQL to create the `energy_log` table and turn it into a TimescaleDB hypertable partitioned by time and factory:
 
 ```sql
+DROP TABLE IF EXISTS energy_log;
+
 CREATE TABLE energy_log (
   factory_id VARCHAR(20),
   factory VARCHAR(255),
@@ -807,21 +809,18 @@ SELECT create_hypertable('energy_log', 'timestamp', 'factory_id', 4);
 
 > **What you should see:** `CREATE TABLE`, two `CREATE INDEX` confirmations, and a `create_hypertable` result row indicating the hypertable was created successfully.
 
-Type `\q` to exit `psql`.
+Type `exit` to exit `psql`.
 
 ### Configure the Kafka Connect JDBC Sink connector
 
 The Confluent JDBC Sink connector reads Avro records from the `energy-monitoring` Kafka topic and inserts them into `energy_log`. Because the `timestamp` field arrives as a Unix millisecond integer, a `TimestampConverter` Single Message Transform (SMT) is applied to convert it to a proper SQL `TIMESTAMP` before writing.
 
-In the `scripts` folder, create a file `start-timescaledb-sink.sh` with the following content:
+```bash
+curl -X "DELETE" "http://${DOCKER_HOST_IP}:8083/connectors/timescaledb-sink"
+````
+
 
 ```bash
-#!/bin/bash
-
-echo "removing TimescaleDB Sink Connector"
-curl -X "DELETE" "http://${DOCKER_HOST_IP}:8083/connectors/timescaledb-sink"
-
-echo "creating TimescaleDB Sink Connector"
 curl -X PUT \
   http://${DOCKER_HOST_IP}:8083/connectors/timescaledb-sink/config \
   -H 'Content-Type: application/json' \
@@ -832,7 +831,7 @@ curl -X PUT \
     "connection.url": "jdbc:postgresql://timescaledb:5432/timescaledb",
     "connection.user": "timescaledb",
     "connection.password": "abc123!",
-    "topics": "energy-monitoring",
+    "topics": "energy-monitoring.avro",
     "table.name.format": "energy_log",
     "insert.mode": "insert",
     "pk.mode": "none",
@@ -847,13 +846,6 @@ curl -X PUT \
     "transforms.tsConvert.target.type": "Timestamp",
     "transforms.tsConvert.unix.precision": "milliseconds"
   }'
-```
-
-Make the script executable and run it:
-
-```bash
-chmod +x scripts/start-timescaledb-sink.sh
-./scripts/start-timescaledb-sink.sh
 ```
 
 > **What you should see:** a JSON response from the Kafka Connect REST API confirming the connector was created with `"name": "timescaledb-sink"`.
@@ -874,3 +866,42 @@ LIMIT 10;
 ```
 
 > **What you should see:** the ten most recent rows with sensor readings, confirming that the Kafka → TimescaleDB pipeline is working end-to-end.
+
+## Visualize the data in Grafana
+
+### Open Grafana
+
+In a browser navigate to <http://dataplatform:3000>. Log in with:
+
+- **User**: `admin`
+- **Password**: `abc123!`
+
+> **What you should see:** the Grafana home screen after a successful login.
+
+### Add TimescaleDB as a data source
+
+Before importing the dashboard you need to register TimescaleDB as a PostgreSQL data source in Grafana (this only needs to be done once).
+
+1. In the left sidebar click **Connections** → **Data sources**.
+2. Click **Add new data source** and search for **PostgreSQL**.
+3. Configure the connection:
+   - **Host**: `timescaledb:5432`
+   - **Database**: `timescaledb`
+   - **User**: `timescaledb`
+   - **Password**: `abc123!`
+   - **TLS/SSL Mode**: `disable`
+4. Click **Save & test**.
+
+> **What you should see:** a green **Database Connection OK** banner confirming Grafana can reach TimescaleDB.
+
+### Import the Energy Monitoring dashboard
+
+A pre-built dashboard is provided in the `grafana/` folder of this workshop.
+
+1. In the left sidebar click **Dashboards** → **Import**.
+2. Click **Upload dashboard JSON file** and select the file `grafana/energy-monitoring.json` from this workshop folder.
+3. On the import screen select the **PostgreSQL** data source you just created from the dropdown.
+4. Click **Import**.
+
+> **What you should see:** the **Energy Monitoring** dashboard opens with time-series panels showing sensor readings (heating, lighting, cooling, etc.) per factory, updating as new messages flow through the pipeline.
+
