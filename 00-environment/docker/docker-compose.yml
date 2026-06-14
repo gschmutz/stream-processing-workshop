@@ -48,7 +48,7 @@ services:
       KAFKA_JMX_OPTS: -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.rmi.port=9992
       KAFKA_JMX_HOSTNAME: ${PUBLIC_IP:-127.0.0.1}
       KAFKA_LOG4J_ROOT_LOGLEVEL: INFO
-      KAFKA_TOOLS_LOG4J_LOGLEVEL: INFO
+      KAFKA_TOOLS_LOG4J_LOGLEVEL: WARN
     volumes:
       - ./data-transfer:/data-transfer
     restart: unless-stopped
@@ -96,7 +96,7 @@ services:
       KAFKA_JMX_OPTS: -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.rmi.port=9993
       KAFKA_JMX_HOSTNAME: ${PUBLIC_IP:-127.0.0.1}
       KAFKA_LOG4J_ROOT_LOGLEVEL: INFO
-      KAFKA_TOOLS_LOG4J_LOGLEVEL: INFO
+      KAFKA_TOOLS_LOG4J_LOGLEVEL: WARN
     volumes:
       - ./data-transfer:/data-transfer
     restart: unless-stopped
@@ -144,7 +144,7 @@ services:
       KAFKA_JMX_OPTS: -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.rmi.port=9994
       KAFKA_JMX_HOSTNAME: ${PUBLIC_IP:-127.0.0.1}
       KAFKA_LOG4J_ROOT_LOGLEVEL: INFO
-      KAFKA_TOOLS_LOG4J_LOGLEVEL: INFO
+      KAFKA_TOOLS_LOG4J_LOGLEVEL: WARN
     volumes:
       - ./data-transfer:/data-transfer
     restart: unless-stopped
@@ -216,7 +216,7 @@ services:
       - |
         echo "Installing Connectors"
         mkdir -p /etc/kafka-connect/cflthub-plugins
-        for i in $$(echo "jcustenborder/kafka-connect-json-schema:0.2.5,redhatinsights/expandjsonsmt:0.0.7,confluentinc/kafka-connect-json-schema-converter:8.0.0,confluentinc/kafka-connect-jdbc:10.8.4,confluentinc/kafka-connect-elasticsearch:15.0.0,confluentinc/kafka-connect-mqtt:1.7.5,debezium/debezium-connector-postgresql:3.1.2,debezium/debezium-connector-mysql:3.1.2,cjmatta/kafka-connect-sse:1.0,confluentinc/kafka-connect-s3:10.6.7,jcustenborder/kafka-connect-spooldir:latest,jcustenborder/kafka-connect-transform-common:latest" | sed "s/,/ /g")
+        for i in $$(echo "jcustenborder/kafka-connect-json-schema:0.2.5,redhatinsights/expandjsonsmt:0.0.7,confluentinc/kafka-connect-json-schema-converter:8.0.0,confluentinc/kafka-connect-jdbc:10.9.4,confluentinc/kafka-connect-elasticsearch:15.1.2,debezium/debezium-connector-postgresql:3.2.6,debezium/debezium-connector-mysql:3.2.6,cjmatta/kafka-connect-sse:1.0,confluentinc/kafka-connect-s3:12.1.5,jcustenborder/kafka-connect-spooldir:latest,jcustenborder/kafka-connect-transform-common:latest" | sed "s/,/ /g")
         do
           confluent-hub install --no-prompt --component-dir /etc/kafka-connect/cflthub-plugins --verbose "$$i"
         done
@@ -227,9 +227,11 @@ services:
         sleep infinity
     restart: unless-stopped
     healthcheck:
+      test: [CMD, curl, -f, http://localhost:8083/connectors]
       interval: 30s
-      retries: 25
-      test: curl --user connectAdmin:connectAdmin --fail --silent --insecure https://kafka-connect-1:8083/ --output /dev/null || exit 1
+      timeout: 10s
+      retries: 10
+      start_period: 60s
   #  ================================== ksqlDB ========================================== #
   ksqldb-server-1:
     image: confluentinc/cp-ksqldb-server:8.1.3
@@ -506,6 +508,9 @@ services:
       com.platys.description: Kafka Connect GUI
       com.platys.webui.title: Kafka Connect UI
       com.platys.webui.url: http://dataplatform:28103
+    depends_on:
+      kafka-connect-1:
+        condition: service_healthy
     ports:
       - 28103:8000
     environment:
@@ -513,8 +518,13 @@ services:
       PROXY: 'true'
     volumes:
       - ./data-transfer:/data-transfer
-      - ./conf/kafka-connect-ui/resolv.conf:/etc/resolv.conf:ro
     restart: unless-stopped
+    healthcheck:
+      test: [CMD, wget, -qO-, http://localhost:8000/]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
   #  ================================== Apache Kafka HQ (AKHQ) ========================================== #
   akhq:
     image: tchiotludo/akhq:latest
@@ -563,6 +573,12 @@ services:
     volumes:
       - ./data-transfer:/data-transfer
     restart: unless-stopped
+    healthcheck:
+      test: [CMD, curl, -f, http://akhq:28081/health]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
   #  ================================== Kafbat UI ========================================== #
   kafbat-ui:
     image: ghcr.io/kafbat/kafka-ui:latest
@@ -582,7 +598,6 @@ services:
     environment:
       SERVER_PORT: 28183
       KAFKA_CLUSTERS_0_NAME: local
-      KAFKA_CLUSTERS_0_JMXPORT: '9992'
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka-1:19092,kafka-2:19093,kafka-3:19094
       KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry-1:8081
       KAFKA_CLUSTERS_0_SCHEMAREGISTRYSHOWNULLVALUES: 'true'
@@ -592,14 +607,30 @@ services:
       KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://kafka-connect-1:8083
       KAFKA_CLUSTERS_0_PROPERTIES_CLIENT_DNS_LOOKUP: use_all_dns_ips
       KAFKA_CLUSTERS_0_DISABLELOGDIRSCOLLECTION: 'true'
+      KAFKA_CLUSTERS_0_METRICS_PORT: 9992
+      KAFKA_CLUSTERS_0_METRICS_TYPE: jmx
       KAFKA_CLUSTERS_0_READONLY: 'false'
+      KAFKA_CLUSTERS_0_AUDIT_TOPICAUDITENABLED: true
+      KAFKA_CLUSTERS_0_AUDIT_CONSOLEAUDITENABLED: false
+      KAFKA_CLUSTERS_0_AUDIT_TOPIC: __kafbat-ui-audit-log
+      KAFKA_CLUSTERS_0_AUDIT_AUDITTOPICPROPERTIES_RETENTION_MS: 43200000
+      KAFKA_CLUSTERS_0_AUDIT_AUDITTOPICSPARTITIONS: 1
+      KAFKA_CLUSTERS_0_AUDIT_LEVEL: all
+      KAFKA_CONFIG_SANITIZER_ENABLED: true
       DYNAMIC_CONFIG_ENABLED: 'true'
       LOGGING_LEVEL_ROOT: info
-      SWAGGER_UI_ENABLED: 'true'
-      MCP_ENABLED: 'true'
+      LOGGING_LEVEL_IO_KAFBAT_UI: info
+      SWAGGER_UI_ENABLED: 'True'
+      MCP_ENABLED: 'True'
     volumes:
       - ./data-transfer:/data-transfer
     restart: unless-stopped
+    healthcheck:
+      test: [CMD, wget, -qO-, http://localhost:28183/actuator/health]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
   #  ================================== Apache Flink ========================================== #
   flink-jobmanager:
     image: flink:1.20.3-java17
@@ -826,6 +857,12 @@ services:
         python -m ipykernel install --user --name py312 --display-name "Python 3.12.8 (ipykernel)"
         start-notebook.sh
     restart: unless-stopped
+    healthcheck:
+      test: [CMD, wget, -qO-, http://localhost:8888/api]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
   #  ================================== Redis ========================================== #
   redis-1:
     image: bitnamilegacy/redis:8.2
@@ -943,6 +980,71 @@ services:
         done
     restart: no
     init: true
+  #  ================================== InfluxData Telegraf ========================================== #
+  telegraf:
+    image: telegraf:1.38
+    container_name: telegraf
+    hostname: telegraf
+    labels:
+      com.platys.name: telegraf
+      com.platys.description: Agent for collecting, processing, aggregating, and writing metrics
+    environment:
+      HOSTNAME: telegraf
+      INFLUXDB_TOKEN: ${PLATYS_INFLUXDB_TOKEN:-}
+      INFLUXDB_DATABASE: demo-db
+    volumes:
+      - ./data-transfer:/data-transfer
+      - ./conf/telegraf/telegraf-influxdb3.conf:/etc/telegraf/telegraf.conf
+      # Mount for Docker API access
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+  #  ================================== InfluxDB 3 ========================================== #
+  influxdb3:
+    image: influxdb:3-core
+    hostname: influxdb3
+    container_name: influxdb3
+    labels:
+      com.platys.name: influxdb3
+      com.platys.description: Timeseries Database
+      com.platys.restapi.title: InfluxDB 3.0 Rest API
+      com.platys.restapi.url: http://dataplatform:28263/api/v3
+    ports:
+      - 28263:8181
+    volumes:
+      - ./data-transfer:/data-transfer
+    restart: unless-stopped
+    command:
+      - influxdb3
+      - serve
+      - --node-id=node0
+      - --object-store=file
+      - --data-dir=/var/lib/influxdb3/data
+      - --plugin-dir=/var/lib/influxdb3/plugins   # Optional: only needed for processing engine plugins      
+    healthcheck:
+      test: [CMD, curl, -f, -H, 'Authorization: Bearer apiv3_test', http://localhost:8181/ping]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+  #  ================================== InfluxDB 3 Explorer ========================================== #
+  influxdb3-explorer:
+    image: influxdata/influxdb3-ui:latest
+    hostname: influxdb3-explorer
+    container_name: influxdb3-explorer
+    labels:
+      com.platys.name: influxdb3-explorer
+      com.platys.description: Timeseries Database UI
+      com.platys.webui.title: InfluxDB 3.0 Explorer
+      com.platys.webui.url: http://dataplatform:28264
+    ports:
+      - 28264:8080
+    environment:
+      SESSION_SECRET_KEY: 3fd4e9d0a3f7307fb5e3285414781fc2cfff1486d9306d0ea10dd5f39d6b0ea5
+      DATABASE_URL: /db/sqlite.db
+    volumes:
+      - ./data-transfer:/data-transfer
+      - ./conf/influxdb3-explorer:/app-root/config:ro
+    restart: unless-stopped
   #  ================================== PostgreSQL ========================================== #
   postgresql:
     image: postgres:18
@@ -982,6 +1084,24 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+  #  ================================== Timescale DB ========================================== #
+  timescaledb:
+    image: timescale/timescaledb:2.24.0-pg17
+    container_name: timescaledb
+    hostname: timescaledb
+    labels:
+      com.platys.name: timescaledb
+      com.platys.description: Timeseries Database on PostgreSQL
+      com.platys.password.envvars: PLATYS_TIMESCALEDB_PASSWORD
+    ports:
+      - 5433:5432
+    environment:
+      POSTGRES_PASSWORD: ${PLATYS_TIMESCALEDB_PASSWORD:-abc123!}
+      POSTGRES_USER: timescaledb
+      POSTGRES_DB: timescaledb
+    volumes:
+      - ./data-transfer:/data-transfer
+    restart: always
   #  ================================== Adminer ========================================== #
   adminer:
     image: adminer:latest
@@ -998,6 +1118,12 @@ services:
       - ./data-transfer:/data-transfer
     command: php -S 0.0.0.0:8080 -t /var/www/html
     restart: unless-stopped
+    healthcheck:
+      test: [CMD, wget, -qO-, http://adminer:8080/]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
   #  ================================== RustFS (S3 Storage) ========================================== #
   rustfs-1:
     image: rustfs/rustfs:latest
@@ -1081,6 +1207,28 @@ services:
       - ./data-transfer:/data-transfer
       - ./conf/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
     restart: unless-stopped
+    healthcheck:
+      test: [CMD, mosquitto_sub, -t, $$SYS/#, -C, '1', -i, healthcheck, -W, '3']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+  #  ================================== MQTTX Web ========================================== #
+  mqttx-cli:
+    image: emqx/mqttx-cli:latest
+    container_name: mqttx-cli
+    hostname: mqttx-cli
+    labels:
+      com.platys.name: mqttx
+      com.platys.description: a CLI for MQTT
+    volumes:
+      - ./data-transfer:/data-transfer
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        while [ 1 -eq 1 ];do sleep 60;done
+    restart: unless-stopped
   #  ================================== MQTT UI ========================================== #
   mqtt-ui:
     image: vergissberlin/hivemq-mqtt-web-client:latest
@@ -1096,6 +1244,50 @@ services:
     volumes:
       - ./data-transfer:/data-transfer
     restart: unless-stopped
+  #  ================================== Grafana ========================================== #
+  grafana:
+    image: grafana/grafana:12.4.0-20977568970-ubuntu
+    hostname: grafana
+    container_name: grafana
+    labels:
+      com.platys.name: grafana
+      com.platys.description: Data visualization and dashboarding
+      com.platys.webui.title: Grafana UI
+      com.platys.webui.url: http://dataplatform:3000
+      com.platys.restapi.title: Grafana API
+      com.platys.restapi.url: http://dataplatform:3000/api/org
+    expose:
+      - 3000
+    ports:
+      - 3000:3000
+    environment:
+      - GF_SERVER_HTTP_ADDR=0.0.0.0
+      - GF_SERVER_HTTP_PORT=3000
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+      - GF_AUTH_ANONYMOUS_ENABLED=False
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=abc123!
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - TIMESCALEDB_USER=timescaledb
+      - TIMESCALEDB_PASSWORD=${PLATYS_TIMESCALEDB_PASSWORD:-abc123!}
+      - TIMESCALEDB_DB=timescaledb
+    volumes:
+      - ./data-transfer:/data-transfer
+      - ./scripts/grafana/dashboards/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml
+      - ./scripts/grafana/dashboards/docker/monitor_services.json:/etc/grafana/provisioning/dashboards/docker/monitor_services.json
+      - ./scripts/grafana/datasources/timescaledb.yml:/etc/grafana/provisioning/datasources/timescaledb.yml
+      - ./plugins/grafana/plugins:/var/lib/grafana/plugins
+      - ./scripts/grafana/dashboards/app:/etc/grafana/provisioning/dashboards/app
+
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - bash -c 'printf \"GET / HTTP/1.1\n\n\" > /dev/tcp/127.0.0.1/3000; exit $$?;'
+      interval: 1s
+      timeout: 5s
+      retries: 5
   #  ================================== Wetty ========================================== #
   wetty:
     image: wettyoss/wetty:2

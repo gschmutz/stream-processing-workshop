@@ -17,6 +17,11 @@
       uid: '1000'
       data_centers: 'dc1,dc2'
       data_center_to_use: 0
+
+      # either 'minio' or 'rustfs'
+      s3_service_to_use: rustfs
+      table_formats_to_use: iceberg
+
       copy_cookbook_data_folder: true
 
       # ========================================================================
@@ -83,13 +88,13 @@
       KAFKA_confluent_tier_metadata_replication_factor: 1
       KAFKA_log4j_root_level: 'INFO'
       KAFKA_log4j_loggers: ''
-      KAFKA_tools_log4j_level: 'INFO'
+      KAFKA_tools_log4j_level: 'WARN'
       #
       # ===== Kafka Connect ========
       #
       KAFKA_CONNECT_enable: true
       KAFKA_CONNECT_nodes: 1
-      KAFKA_CONNECT_connectors: 'jcustenborder/kafka-connect-json-schema:0.2.5,redhatinsights/expandjsonsmt:0.0.7,confluentinc/kafka-connect-json-schema-converter:8.0.0,confluentinc/kafka-connect-jdbc:10.8.4,confluentinc/kafka-connect-elasticsearch:15.0.0,confluentinc/kafka-connect-mqtt:1.7.5,debezium/debezium-connector-postgresql:3.1.2,debezium/debezium-connector-mysql:3.1.2,cjmatta/kafka-connect-sse:1.0,confluentinc/kafka-connect-s3:10.6.7,jcustenborder/kafka-connect-spooldir:latest,jcustenborder/kafka-connect-transform-common:latest'
+      KAFKA_CONNECT_connectors: 'jcustenborder/kafka-connect-json-schema:0.2.5,redhatinsights/expandjsonsmt:0.0.7,confluentinc/kafka-connect-json-schema-converter:8.0.0,confluentinc/kafka-connect-jdbc:10.9.4,confluentinc/kafka-connect-elasticsearch:15.1.2,debezium/debezium-connector-postgresql:3.2.6,debezium/debezium-connector-mysql:3.2.6,cjmatta/kafka-connect-sse:1.0,confluentinc/kafka-connect-s3:12.1.5,jcustenborder/kafka-connect-spooldir:latest,jcustenborder/kafka-connect-transform-common:latest'
       KAFKA_CONNECT_config_providers: 'file'
       KAFKA_CONNECT_config_providers_classes: 'org.apache.kafka.common.config.provider.FileConfigProvider'
       KAFKA_CONNECT_map_settings_file: false
@@ -118,6 +123,42 @@
       #
       MATERIALIZE_enable: false
       MATERIALIZE_CLI_enable: false
+      #
+      # ===== RisingWave ========
+      #
+      RISINGWAVE_enable: true
+      # either 'playground', 'standalone' or 'cluster'
+      RISINGWAVE_flavor: 'standalone'
+      # either 'sqlite' or 'postgresql' or `mysql`
+      RISINGWAVE_meta_store_type: 'sqlite'
+      RISINGWAVE_meta_store_database: 'postgres'
+      RISINGWAVE_meta_store_username: 'postgres'
+      RISINGWAVE_meta_store_password: 'abc123!'
+      # currently only 's3' is supported (azure, gcp not yet supported)
+      RISINGWAVE_state_store_type: 's3'
+      RISINGWAVE_s3_bucket_name: 'risingwave-bucket'
+      RISINGWAVE_data_directory: 'risingwave-state'
+      RISINGWAVE_telemetry_enabled: false
+      RISINGWAVE_compactor_nodes: 1
+      RISINGWAVE_compute_nodes: 1
+      RISINGWAVE_compute_memory: 4G
+
+      RISINGWAVE_console_enabled: false
+
+      RISINGWAVE_MCP_enable: false
+      # either 'stdio' or 'sse' or 'streamable-http'
+      RISINGWAVE_MCP_output_transport: 'streamable-http'
+
+      RISINGWAVE_EVENTS_API_enable: true         
+
+      #
+      # ===== Apache Fluss ========
+      #
+      FLUSS_enable: false
+      FLUSS_tablet_servers: 1
+      FLUSS_datalake_enabled: false
+      # either 'paimon' or 'iceberg' or 'lance'
+      FLUSS_datalake_format: 'iceberg'      
       #
       # ===== Azkarra Streams ========
       #
@@ -224,7 +265,7 @@
       KAFKA_TOPICS_UI_map_resolv_conf: true
       KAFKA_CONNECT_UI_enable: true
       # KAFKA_CONNECT_UI_use_public_ip: true
-      KAFKA_CONNECT_UI_map_resolv_conf: true
+      KAFKA_CONNECT_UI_map_resolv_conf: false
       #
       # ===== Cluster Manager for Apache Kafka ========
       #
@@ -267,7 +308,14 @@
       #
       # ===== Kafbat UI ========
       #
-      KAFBAT_UI_enable: true      
+      KAFBAT_UI_enable: true
+      KAFBAT_UI_read_only_mode: false
+      KAFBAT_UI_mcp_enabled: true
+      KAFBAT_UI_swagger_enabled: true
+      KAFBAT_UI_audit_log_enabled: true
+      KAFBAT_UI_audit_log_to_console_enabled: false
+      KAFBAT_UI_audit_log_to_topic_enabled: true
+      KAFBAT_UI_audit_log_topic: "__kafbat-ui-audit-log"            
       #
       # ===== EFAK (previously Kafka Eagle) ========
       #
@@ -784,7 +832,7 @@
       #
       # ===== Grafana ========
       #
-      GRAFANA_enable: false
+      GRAFANA_enable: true
       # list of preview features to enable (tempoSearch, tempoServiceGraph, ... see https://grafana.com/docs/grafana/latest/packages_api/data/featuretoggles/#featuretoggles-interface)
       GRAFANA_feature_toggles: ''
       # list of plugins to install (see here: https://grafana.com/grafana/plugins/) 
@@ -1013,9 +1061,15 @@
       #
       INFLUXDB_enable: false
       INFLUXDB_volume_map_data: false
-      INFLUXDB_TELEGRAF_enable: false
+
+      #
+      # ===== InfluxDB Chronograf 1.x ========
+      #
       INFLUXDB_CHRONOGRAF_enable: false
       INFLUXDB_CHRONOGRAF_volume_map_data: false
+      #
+      # ===== InfluxDB Kapacitor 1.x ========
+      #      
       INFLUXDB_KAPACITOR_enable: false
       INFLUXDB_KAPACITOR_volume_map_data: false
       #
@@ -1029,6 +1083,32 @@
       INFLUXDB2_admin_token:
       INFLUXDB2_org: demo
       INFLUXDB2_bucket: demo-bucket
+
+      #
+      # ===== Influx DB 3.x ========
+      #
+      INFLUXDB3_enable: true
+      # one of 'file' or 's3' or 'memory'
+      INFLUXDB3_object_store_type: file
+      INFLUXDB3_s3_bucket_name: influxdb3-bucket
+      INFLUXDB3_database: demo-db
+      INFLUXDB3_volume_map_data: false
+      INFLUXDB3_volume_map_plugins: false      
+      #
+      # ===== Influx DB 3 Explorer (UI) ========
+      #
+      INFLUXDB3_EXPLORER_enable: true
+      INFLUXDB3_EXPLORER_mode: 'admin'   # either 'admin' or 'query'
+      # use openssl rand -hex 32 to generate a random secret key
+      INFLUXDB3_EXPLORER_session_secret_key: 3fd4e9d0a3f7307fb5e3285414781fc2cfff1486d9306d0ea10dd5f39d6b0ea5
+      INFLUXDB3_EXPLORER_volume_map_data: false
+      #
+      # ===== Influx Telegraf ========
+      #
+      INFLUXDB_TELEGRAF_enable: true
+      INFLUXDB_TELEGRAF_custom_conf_file: ''
+      INFLUXDB_TELEGRAF_influx_token: ''
+      INFLUXDB_TELEGRAF_monitor_docker_host_enabled: false
       #
       # ===== QuestDB ========
       #
@@ -1138,7 +1218,7 @@
       #
       # ===== TimeScale DB ========
       #
-      TIMESCALEDB_enable: false
+      TIMESCALEDB_enable: true
       TIMESCALEDB_volume_map_data: false
       #
       # ===== Adminer DB UI ========
@@ -1317,6 +1397,11 @@
       # either "oss" or "enterpirse"
       EMQX_edition: oss
       #
+      # ===== MQTTX (CLI + WEB) ========
+      #
+      MQTTX_CLI_enable: true
+      MQTTX_WEB_enable: false
+      #
       # ===== MQTT UIs ========
       #
       MQTT_UI_enable: true
@@ -1343,14 +1428,14 @@
       #
       #=====  MinIO Object Storage ========
       #
-      MINIO_enable: true
+      MINIO_enable: false
       MINIO_volume_map_data: false
       MINIO_datacenters: 1
       # "single" or "cluster"
       MINIO_install: 'single'
       MINIO_nodes: 1
-      MINIO_access_key: V42FCGRVMK24JJ8DHUYG
-      MINIO_secret_key: bKhWxVF3kQoLY9kFmt91l+tDrEoZjqnWXzY9Eza
+      MINIO_access_key: admin
+      MINIO_secret_key: abc123abc123!
       # add additional buckets, comma separated, admin-bucket will be created by default
       MINIO_default_buckets: ''
       MINIO_browser_enable: true
@@ -1359,6 +1444,23 @@
       #
       MINIO_CONSOLE_enable: false
       ADMINIO_UI_enable: false
+
+      #
+      #=====  RustFS ========
+      #
+      RUSTFS_enable: true
+      RUSTFS_volume_map_data: false
+      RUSTFS_volume_map_logs: false
+      RUSTFS_access_key: admin
+      RUSTFS_secret_key: abc123abc123!
+      RUSTFS_admin_bucket_name: admin-bucket
+      # add additional buckets, comma separated, admin-bucket will be created by default
+      RUSTFS_buckets: 'risingwave-bucket'
+      RUSTFS_console_enabled: true
+      RUSTFS_upload_data_transfer_to_bucket_enabled: false
+      RUSTFS_upload_data_transfer_bucket_name: 'data-transfer-bucket'
+      RUSTFS_upload_data_transfer_subfolders: ''
+
       FILESTASH_enable: false
       S3MANAGER_enable: false
       AWSCLI_enable: false
