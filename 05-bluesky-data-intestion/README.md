@@ -1,46 +1,114 @@
-# Bluesky Workshop
+# Bluesky Data Ingestion
 
-In this workshop we will implement a streaming pipeline which gets live data from **Bluesky** and sends it through a Kafka topic to an Elasticsearch database for later retrieval. The solution architecture is shown in the diagram below.
+In this workshop we will implement a streaming pipeline that ingests live data from **Bluesky** and routes it through Apache Kafka into Elasticsearch for search and visualisation. The solution architecture is shown in the diagram below.
 
-![Alt Image Text](./images/bluesky-data-integration-workshop.png "Lightsail Homepage")
+[Bluesky](https://bsky.app) is a decentralised social network built on the [AT Protocol](https://atproto.com/) — an open standard for federated social applications. Unlike traditional social platforms, AT Protocol is fully open: every post, like, repost, and follow is publicly readable through a real-time event stream called the **firehose**. The firehose delivers a continuous, unfiltered stream of all activity across the network — typically thousands of events per second — making it an excellent real-world source for streaming data workshops.
+
+The pipeline we build follows a classic **ingest → route → index → visualise** pattern:
+
+1. **BlueBird** connects to the Bluesky firehose and publishes every event to a single raw Kafka topic
+2. **Apache NiFi** reads from that topic and routes each message to a type-specific topic based on the Bluesky collection type
+3. **Kafka Connect** reads from the posts topic and sinks the data into an Elasticsearch index
+4. **Kibana** queries Elasticsearch and renders the results as a searchable, auto-refreshing dashboard
+
+![Alt Image Text](./images/bluesky-data-integration-workshop.png "Solution Architecture")
+
+## Table of Contents
+
+- [What you will learn](#what-you-will-learn)
+- [Prerequisites](#prerequisites)
+- [Run the Bluesky sensor](#run-the-bluesky-sensor)
+- [Use NiFi to route messages by type to dedicated Kafka topics](#use-nifi-to-route-messages-by-type-to-dedicated-kafka-topics)
+- [Using Kafka Connect to send data to Elasticsearch](#using-kafka-connect-to-send-data-to-elasticsearch)
+- [Visualize Posts using Kibana](#visualize-posts-using-kibana)
+
+## What you will learn
+
+- How to consume the Bluesky firehose and publish it to a Kafka topic using BlueBird
+- How to inspect live Kafka messages using `kcat` and `jq`
+- How to filter and extract specific fields from nested JSON messages on the command line
+- How to build a NiFi data flow to route messages by Bluesky collection type to dedicated Kafka topics
+- How to create an Elasticsearch index mapping for deeply nested JSON documents
+- How to configure a Kafka Connect Elasticsearch Sink connector
+- How to visualise a live Bluesky data stream in Kibana Discover
+
+## Prerequisites
+
+- The **Data Platform** described [here](../00-environment/README.md) is running and accessible
+- Workshop 1 ([Getting started with Apache Kafka](../01-working-with-kafka-broker/README.md)) completed
+- Basic familiarity with the Linux command line and JSON
 
 ## Run the Bluesky sensor
 
-To consume from Bluesky, we are using [BlueBird](https://github.com/sdairs/bluebird), a CLI that consumes the Bluesky firehose and sends it to a downstream destination. A docker version is currently available here: <https://github.com/gschmutz/bluebird>. 
+To consume from Bluesky, we use [BlueBird](https://github.com/sdairs/bluebird), a CLI that consumes the Bluesky firehose and forwards it to a downstream destination. A Docker version is available at <https://github.com/gschmutz/bluebird>.
 
-First let's create a Kafka topic, where the messages are stored
+### About the Bluesky firehose
+
+The firehose is a WebSocket stream that delivers every event on the network in real time. Each event is called a **commit** and belongs to a **collection** — the AT Protocol's name for a record type. The five collections we work with in this workshop are:
+
+| Collection | Description |
+|---|---|
+| `app.bsky.feed.post` | A new post (text, optional images, links, or quoted posts) |
+| `app.bsky.feed.repost` | A user reposting someone else's content |
+| `app.bsky.feed.like` | A like on a post |
+| `app.bsky.graph.follow` | A user following another account |
+| `app.bsky.actor.profile` | A profile creation or update |
+
+There are additional collection types in the firehose (e.g. block, mute, list operations), but we ignore them in this workshop. Each event carries the raw record payload plus metadata such as the author's DID (Decentralised Identifier), a microsecond timestamp (`time_us`), a revision hash, and the operation type (`create`, `update`, or `delete`).
+
+### Create the raw topic
+
+Create the Kafka topic where all raw Bluesky messages will be stored:
 
 ```bash
-docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic bluesky.raw --replication-factor 3 --partitions 8
+docker exec -ti kafka-1 kafka-topics \
+    --bootstrap-server kafka-1:19092 \
+    --create \
+    --if-not-exists \
+    --topic bluesky.raw \
+    --replication-factor 3 \
+    --partitions 8
 ```
 
-Now start it an use the Kafka connector to send the data to the the `bluesky.raw` topic. 
+### Start the BlueBird sensor
+
+Start the BlueBird container and point it at the `bluesky.raw` topic. The container must join the same Docker network as the Kafka cluster:
 
 ```bash
-docker run --rm -d --name bsky-sensor --network streaming-data-platform -e DESTINATION=kafka -e KAFKA_BROKERS=kafka-1:19092 -e KAFKA_TOPIC=bluesky.raw ghcr.io/gschmutz/bluebird:latest
+docker run --rm -d \
+    --name bsky-sensor \
+    --network streaming-data-platform \
+    -e DESTINATION=kafka \
+    -e KAFKA_BROKERS=kafka-1:19092 \
+    -e KAFKA_TOPIC=bluesky.raw \
+    ghcr.io/gschmutz/bluebird:latest
 ```
 
-If you use `kcat` to consume the message, you will see all the messages, posts, re-post as well as likes.
+> **What just happened?** BlueBird connected to the Bluesky AT Protocol firehose and began forwarding every event — posts, reposts, likes, follows, and more — as a JSON message to the `bluesky.raw` Kafka topic. The container runs detached (`-d`) and will continue streaming until stopped.
+
+### Inspect messages with `kcat`
+
+Use `kcat` to watch incoming messages:
 
 ```bash
 kcat -q -b dataplatform:9092 -t bluesky.raw
 ```
 
-and you will see each message is returned in JSON format on one line
+> **What you should see:** A continuous stream of single-line JSON objects, one per message:
 
 ```json
-{"capture_time":"2025-06-21T13:22:46.129Z","collection":"commit","record":{"did":"did:plc:zcst3onihjpnxpyf4rjsh3qt","time_us":1750512166085866,"kind":"commit","commit":{"rev":"3ls4njxa3fe2h","operation":"create","collection":"app.bsky.feed.like","rkey":"3ls4njx7tle2h","record":{"$type":"app.bsky.feed.like","createdAt":"2025-06-21T13:22:43.960Z","subject":{"cid":"bafyreift5xmqtosgvuxguido5ewxpwhzityu6fuxp7trqmpx3zkhbqs7ta","uri":"at://did:plc:zlpy5nyw4b5zegs5pwjnnugo/app.bsky.feed.post/3ls4foifkck26"}},"cid":"bafyreiaqzqvwca3oecjcsbwejtmz5ekmzjqnf4wdb5xrjsffpv427qlzyi"}}}
-{"capture_time":"2025-06-21T13:22:46.136Z","collection":"commit","record":{"did":"did:plc:5ocmuyqukecauelp3hq36vms","time_us":1750512166093217,"kind":"commit","commit":{"rev":"3ls4njx4tej2d","operation":"create","collection":"app.bsky.feed.like","rkey":"3ls4njx4hnj2d","record":{"$type":"app.bsky.feed.like","createdAt":"2025-06-21T13:22:45.753Z","subject":{"cid":"bafyreid7ld2afzkphbe75teeft73dcegcc7dhumdkyfvz4qptzbik5lx6i","uri":"at://did:plc:j5hrotody26iqi24hcusufxu/app.bsky.feed.post/3ls2z63to4k2f"}},"cid":"bafyreidtvt3vxlbo6ssfspw4em64x3uacvkomycgc3ahmvlpniwycv6okq"}}}
-{"capture_time":"2025-06-21T13:22:46.142Z","collection":"commit","record":{"did":"did:plc:mluqrioua7nhafdiywhagfad","time_us":1750512166099415,"kind":"commit","commit":{"rev":"3ls4njxbz3e2w","operation":"create","collection":"app.bsky.feed.l^Cf24bw6sbnlbpnbjjmje2vdfsdjcdylbmtzubufdganq"}}}
+{"capture_time":"2025-06-21T13:22:46.129Z","collection":"commit","record":{"did":"did:plc:zcst3...","time_us":1750512166085866,"kind":"commit","commit":{"rev":"3ls4njxa3fe2h","operation":"create","collection":"app.bsky.feed.like","rkey":"3ls4njx7tle2h","record":{"$type":"app.bsky.feed.like","createdAt":"2025-06-21T13:22:43.960Z","subject":{"cid":"bafyreift5...","uri":"at://did:plc:..."}}}}}
 ```
 
-We can pipe the result into `jq` to format the JSON
+> **What just happened?** `kcat` subscribed to `bluesky.raw` from the latest offset and is printing each Avro-free JSON payload to stdout as it arrives. The firehose volume is high — you will typically see hundreds of messages per second.
+
+Pipe through `jq` to pretty-print the JSON:
 
 ```bash
 kcat -q -b dataplatform:9092 -t bluesky.raw | jq
 ```
 
-and you should see a result similar to the one shown below
+> **What you should see:** Each message formatted across multiple lines, making the nested structure visible:
 
 ```json
 {
@@ -67,132 +135,19 @@ and you should see a result similar to the one shown below
     }
   }
 }
-{
-  "capture_time": "2025-06-21T13:22:39.858Z",
-  "collection": "commit",
-  "record": {
-    "did": "did:plc:6la2xxelm7jkxnd7zxrpjoj6",
-    "time_us": 1750512159813319,
-    "kind": "commit",
-    "commit": {
-      "rev": "3ls4njqdrxf2j",
-      "operation": "create",
-      "collection": "app.bsky.feed.post",
-      "rkey": "3ls4nkl5gws2f",
-      "record": {
-        "$type": "app.bsky.feed.post",
-        "createdAt": "2025-06-21T13:23:06.785Z",
-        "embed": {
-          "$type": "app.bsky.embed.images",
-          "images": [
-            {
-              "alt": "",
-              "aspectRatio": {
-                "height": 720,
-                "width": 1280
-              },
-              "image": {
-                "$type": "blob",
-                "ref": {
-                  "$link": "bafkreiasfrbccsofoh4lofwqkegvknav24fft2zej5lk4ss64av7acsevu"
-                },
-                "mimeType": "image/jpeg",
-                "size": 577634
-              }
-            },
-            {
-              "alt": "",
-              "aspectRatio": {
-                "height": 720,
-                "width": 1280
-              },
-              "image": {
-                "$type": "blob",
-                "ref": {
-                  "$link": "bafkreib2qwm2luzn4ch67wf4r6gfiukmknng6nkiso2yjevaxx3tmb6ghy"
-                },
-                "mimeType": "image/jpeg",
-                "size": 769885
-              }
-            },
-            {
-              "alt": "",
-              "aspectRatio": {
-                "height": 720,
-                "width": 1280
-              },
-              "image": {
-                "$type": "blob",
-                "ref": {
-                  "$link": "bafkreie4oeae5abfx7duv2ri4ytbgsqfmk4u2tq6buv6xz6bhvsamqywlm"
-                },
-                "mimeType": "image/jpeg",
-                "size": 305488
-              }
-            },
-            {
-              "alt": "",
-              "aspectRatio": {
-                "height": 720,
-                "width": 1280
-              },
-              "image": {
-                "$type": "blob",
-                "ref": {
-                  "$link": "bafkreiexsycpngm5uvbgh3ybygv3bupqdzob4eutvf3xjsen74vtuisvpm"
-                },
-                "mimeType": "image/jpeg",
-                "size": 306416
-              }
-            }
-          ]
-        },
-        "facets": [
-          {
-            "features": [
-              {
-                "$type": "app.bsky.richtext.facet#tag",
-                "tag": "ポケモンSV"
-              }
-            ],
-            "index": {
-              "byteEnd": 38,
-              "byteStart": 21
-            }
-          },
-          {
-            "features": [
-              {
-                "$type": "app.bsky.richtext.facet#tag",
-                "tag": "テラレイドバトル"
-              }
-            ],
-            "index": {
-              "byteEnd": 69,
-              "byteStart": 42
-            }
-          }
-        ],
-        "langs": [
-          "ja"
-        ],
-        "text": "やっつけた。　＃ポケモンSV 　＃テラレイドバトル"
-      },
-      "cid": "bafyreiechola24vc7wcaznhmr6mymz2gxazorrylodwz6hc5aygvn2dhi4"
-    }
-  }
-}
 ```
 
-Each message contains not only the text but also some meta data.
+Each message contains an event payload plus metadata. The field `/record/commit/collection` identifies the event type.
 
-The field `/record/commit/collection` contains the type of the message. Let's only select the value of this field
+### Filter messages by collection type
+
+Extract just the collection type from each message:
 
 ```bash
 kcat -q -b dataplatform:9092 -t bluesky.raw | jq .record.commit.collection
 ```
 
-And we can see that we have seen `post`, `repost`, `like` and `follow` messages:
+> **What you should see:** A stream of collection type strings:
 
 ```
 "app.bsky.feed.post"
@@ -204,337 +159,285 @@ And we can see that we have seen `post`, `repost`, `like` and `follow` messages:
 "app.bsky.feed.like"
 ```
 
-These are not all the types, there a few more. 
+> **What just happened?** `jq` extracted the `.record.commit.collection` field from each JSON object on stdin. The firehose contains at least five distinct collection types — posts, reposts, likes, follows, and profile updates — as well as less common ones.
 
-Let's use `jq` to `select` only the `app.bsky.feed.post` messages and now display only the `record/commit/record/text` field.
+Use `jq`'s `select` filter to show only post text:
 
 ```bash
-kcat -q -b dataplatform:9092 -t bluesky.raw | jq 'select(.record.commit.collection == "app.bsky.feed.post") | .record.commit.record.text'
+kcat -q -b dataplatform:9092 -t bluesky.raw \
+    | jq 'select(.record.commit.collection == "app.bsky.feed.post") | .record.commit.record.text'
 ```
 
-and we can see the post made in real-time
+> **What you should see:** A live stream of post text from around the world:
 
 ```
 "DOGE + PALANTIR"
-"I've been doing this ridiculous thing that I do where I read out of several books at the same time and it takes longer to finish them than if I just read one or two at a time. Although I'm making good progress on two of them."
-"I cook them in Hong Kong regularly regardless of the temperature outside. Some things are just more important than climate, diet or life itself."
+"I've been doing this ridiculous thing that I do where I read out of several books at the same time..."
 "365 days of movie via Tubi\nDay168: Big Trouble in Little China (1986)"
-"Good morning it’s going into the 90’s here. New Jersey."
-"And we're about to get another whole project of talks like this with Banjo-Tooie starting *today.*"
-"Bin 100 pro bei euch."
-"ADS will face significant budget cuts under the proposed NASA budget scixplorer.org/scixblog/ads..."
-"6 years late but I have 2 flights today and I'm looking forward to my first read!\n@dan.nerdcubed.co.uk #fuckyeahvideogames"
-"Iirc it didn't get much traction as the toys of it didn't sell well"
+"Good morning it's going into the 90's here. New Jersey."
 ```
 
-With the bluesky messages in Kafka, let's create the connector to store them in Elasticsearch. 
+> **What just happened?** `jq select()` acts as a filter gate — only messages whose `collection` field equals `app.bsky.feed.post` pass through, and for those the inner text field is extracted. Everything else is silently discarded.
 
-## Use NiFi to route message by type (collection) to dedicated Kafka topic
+## Use NiFi to route messages by type to dedicated Kafka topics
 
-For the routing of the bluesky messages by type (collection) to a dedicated kafka topic we will be using [Apache NiFi](http://nifi.apache.org).
+With raw Bluesky messages flowing into the `bluesky.raw` topic, we now use [Apache NiFi](http://nifi.apache.org) to fan them out into five type-specific topics based on the `collection` field.
 
-In a browser navigate to <https://dataplatform:18083/nifi> (make sure to replace `dataplatform` by the IP address of the machine where docker runs on). The dataplatform enabled authentication for NiFi, therefore you have to use https to access it. Due to the use of a self-signed certificate, you have to initially confirm that the page is safe and you want to access the page.
+### Why route by collection type?
 
-![Alt Image Text](./images/nifi-login.png "Nifi Login")
+Keeping all event types in a single topic works for exploration (we did it with `kcat` and `jq` earlier), but it creates problems for downstream consumers:
+
+- A consumer that only cares about posts must deserialise every message — likes, follows, reposts — just to discard it
+- Different event types have different schemas, so an Elasticsearch index or a database table that expects a post schema will reject or mangle a like record
+- Topic partitioning is most effective when all messages in a topic have the same key domain (e.g. all keyed by post ID); mixing types makes that impossible
+
+By routing each collection type to its own topic, each consumer subscribes only to what it needs, schemas stay homogeneous per topic, and the pipeline remains easy to extend — adding a new consumer for `app.bsky.feed.like` does not require touching any existing flow.
+
+### Why Apache NiFi?
+
+[Apache NiFi](https://nifi.apache.org) is a visual data flow tool designed for routing, transforming, and mediating data between systems. It is a natural fit here because the routing logic — extract a field, match it against a list, publish to a dynamic topic name — is exactly the kind of stateless per-message transformation NiFi handles without writing any code. NiFi also provides a live monitoring view of throughput and backpressure on every connection, which makes it easy to observe the data flow during the workshop.
+
+### Open NiFi
+
+In a browser navigate to <https://dataplatform:18083/nifi>. NiFi uses a self-signed certificate, so confirm the browser security warning before proceeding.
+
+![Alt Image Text](./images/nifi-login.png "NiFi Login")
 
 Enter `nifi` into the **User** field and `1234567890ACD` into the **Password** field and click **LOG IN**.
 
-This should bring up the NiFi User Interface, which at this point is a blank canvas for orchestrating a data flow.
+> **What you should see:** The NiFi canvas — an empty white workspace where you will build the data flow.
 
-![Alt Image Text](./images/nifi-empty-canvas.png "Nifi Login")
+![Alt Image Text](./images/nifi-empty-canvas.png "NiFi Empty Canvas")
 
-Now you can add **Processor**s to create the pipeline. 
+### Adding a `ConsumeKafka` processor
 
-Let's start with the Kafka consumer. 
+Drag the **Processor** icon from the top-left toolbar onto the canvas.
 
-### Adding a `ConsumeKafka` Processor
+![Alt Image Text](./images/nifi-drag-processor-into-canvas.png "Add Processor")
 
-We can now begin creating our data flow by adding a Processor to our canvas. To do this, drag the Processor icon from the top-left of the screen into the middle of the canvas and drop it there. 
+The processor chooser dialog opens. Type **ConsumeK** into the filter box and select **ConsumeKafka**, then click **Add**.
 
-![Alt Image Text](./images/nifi-drag-processor-into-canvas.png "Schema Registry UI")
+![Alt Image Text](./images/nifi-add-processor.png "Select ConsumeKafka")
 
-This will give us a dialog that allows us to choose which **Processor** we want to add. We can see that there are a total of 290 processors currently available. We can browse through the list or use **filter types** box to filter-down to one or more processors.
+> **What you should see:** A `ConsumeKafka` processor on the canvas with a yellow warning marker, indicating it is not yet configured.
 
-![Alt Image Text](./images/nifi-add-processor.png "Schema Registry UI")
+Double-click the processor and click the **Properties** tab. Configure the following properties:
 
-Enter **ConsumeK** into the search field and the list will be reduced to 3 processors, the **ConsumeKafka** the **ConsumeKinesisStream** and the **PublishKafka** processor. As the name implies, the first one can be used to consume messages from a Kafka cluster. Navigate to the **ConsumeKafka** and click **Add**.
+- **Kafka Connection Service**: click the three dots, select **+ Create new service**, choose **Kafka3ConnectionService**, and click **Add**. Click the three dots again and select **Go To Service**. In the service list click the three dots and select **Edit**, navigate to **Properties**, and set:
+  - **Bootstrap Servers**: `kafka-1:19092`
 
-You should now see the canvas with the **ConsumeKafka** processor. A yellow marker is shown on the processor, telling that the processor is not yet configured properly. 
+  Click **Apply**, then enable the service by clicking the three dots and selecting **Enable**. Click **Close** and **Back to Processor**.
+- **Group ID**: `bluesky.raw-cg`
+- **Topics**: `bluesky.raw`
+- **Processing Strategy**: `RECORD`
+- **Record Reader**: click the three dots, select **+ Create new service**, choose **JsonTreeReader**, and click **Add**. Click the three dots again and select **Go To Service**. Enable the service via its three-dot menu. Click **Close** and **Back to Processor**.
+- **Record Writer**: click the three dots, select **+ Create new service**, choose **JsonRecordSetWriter**, and click **Add**. Click the three dots again and select **Go To Service**. In the service list click the three dots and select **Edit**, navigate to **Properties** and set:
+  - **Output Grouping**: `One Line per Object`
 
-Double-click on the **ConsumeKafka** processor and the **Settings** page of the processor appears. Here you can change the name of the processor among other general properties.
+  Click **Apply** and enable the service. Click **Close** and **Back to Processor**.
 
-Click on **Properties** tab to switch to the properties page.
+The configured processor should look as shown below:
 
-On the properties page, we configure the properties for consuming messages from Kafka.  
+![Alt Image Text](./images/nifi-consume-kafka-processor-properties-1.png "ConsumeKafka Properties")
 
-Set the properties as follows:
+Click **Apply** to close the dialog.
 
-  * **Kafka Connection Service**: click on the 3 points, select **+ Create new service** and select **Kafka3ConnectionService** and click **Add**. Click again on the 3 points and select **Go To Service**. On the newly created service in the list, click on the 3 points and select **Edit**, navigate to **Properties** tab and fill out the details of the connection service
-  	* **Bootstrap Servers**: `kafka-1:19092`
+### Adding two `ReplaceText` processors
 
-  Click **Apply** and click on the 3 points right to the service and select **Enable** to enable the new service. Click on **Close** and **Back to Service**.
-  * **Group ID**: `bluesky.raw-cg`
-  * **Topics**: `bluesky.raw`
-  * **Processing Strategy**: `RECORD`
-  * **Record Reader**: click on the 3 points, select **+ Create new service** and select **JsonTreeReader** and click **Add**. Click again on the 3 points and select **Go To Service**. On the newly created service in the list, click on the 3 points and select **Enable**. Click on **Close** and **Back to Service**.
-  * **Record Writer**: click on the 3 points, select **+ Create new service** and select **JsonRecordSetWriter** and click **Add**. Click again on the 3 points and select **Go To Service**. On the newly created service in the list, click on the 3 points and select **Edit** and fill out the details of the record writer service
-  	* **Output Grouping**: `One Line per Object`
-  Click **Apply** and click on the 3 points right to the service and select **Enable** to enable the new service. Click on **Close** and **Back to Service**.
-  
-The **Configure Processor** should look as shown below
+The Bluesky JSON contains fields named `$type` and `$link`. The leading `$` character causes problems in three places downstream:
 
-![Alt Image Text](./images/nifi-consume-kafka-processor-properties-1.png "Schema Registry UI")
+- **NiFi Expression Language** — `$` is the delimiter that opens an expression (`${...}`), so a field name containing `$` is misinterpreted as an incomplete expression and causes a parse error
+- **Elasticsearch dynamic mapping** — field names beginning with `$` are not valid in Elasticsearch's dot-notation and trigger a mapping exception when the connector tries to index the document
+- **jq** — while jq can handle `$`-prefixed keys with quoted syntax (`.["$type"]`), it makes ad-hoc queries awkward and easy to get wrong
 
-Click **Apply** to close the window.
+We strip the `$` prefix from both field names before any downstream processing sees the data. This is a purely cosmetic rename — the field values and structure are unchanged.
 
-The `ConsumeKafka` processor still shows the yellow marker, this is because the out-going relationship is neither used nor terminated. Of course we want to use it, but for that we first need another Processor to publish the messages to the Kafka topics. 
+Drag a **ReplaceText** processor onto the canvas. Double-click it and navigate to **Properties**. Set:
 
-### Add 2 `ReplaceText` processors to replace the `$text` and `$link` fields
+- **Search Value**: `\$type`
+- **Replacement Value**: `type`
+- **Evaluation Mode**: `Entire Text`
 
-Drag a `ReplaceText` processor onto the Canvas, after the **ConsumeKafka** processor. 
+Click **Apply**.
 
-Double click on the processor and navigate to the **Properties** tab. 
+Drag a second **ReplaceText** processor onto the canvas (or alternatively copy/paste the first one). 
 
-Set the properties as follows:
+Configure it with:
 
-  * **Search Value**: `\$type`
-  * **Replacement Value**: `type`
-  * **Evaluation Mode**: `Entire Text`
+- **Search Value**: `\$link`
+- **Replacement Value**: `link`
+- **Evaluation Mode**: `Entire Text`
 
-Click **Apply** to close the window.
+Click **Apply**.
 
-Drag a second `ReplaceText` processor onto the Canvas, after the first ** ReplaceText** processor. 
+### Adding an `EvaluateJsonPath` processor
 
-Double click on the processor and navigate to the **Properties** tab. 
+Drag an **EvaluateJsonPath** processor onto the canvas. Double-click it and navigate to **Properties**. Set **Destination** to `flowfile-attribute`. Click **+** in the upper right, enter `topicName` as the property name, and set its value to `$.record.commit.collection`. Click **OK** and then **Apply**.
 
-Set the properties as follows:
+> **What just happened?** This processor reads the `collection` field from each JSON message and stores its value in the NiFi FlowFile attribute `topicName`. Downstream processors can then reference `${topicName}` as a variable.
 
-  * **Search Value**: `\$link`
-  * **Replacement Value**: `link`
-  * **Evaluation Mode**: `Entire Text`
+### Adding a `RouteOnAttribute` processor
 
-Click **Apply** to close the window.
+Drag a **RouteOnAttribute** processor onto the canvas. Double-click it and navigate to **Properties**. Click **+**, enter `passOn` as the property name, and set its value to:
 
-### Connecting the first three Processors
-
-Drag a connection from the **ConsumeKafka** processor to the **EvaluateJsonPath** and drop it. 
-
-![Alt Image Text](./images/nifi-drag-connection.png "Schema Registry UI")
-
-Make sure that the `success` **Relationship** is enabled and click **Add**. The **ConsumeKafka** still has an warning marker, because the **parse failure** relationship is not used. Double click on the **ConsumeKafka** processor, navigate to **Relationships** and click **terminate** on the **parse failure** relationship. Click **Apply** and now the marker is replaced by a red stopped icon. 
-
-We can not directly connnect to the **PublishKafka**, as we only want to route the messages for this 5 collections: `app.bsky.feed.post`, `app.bsky.feed.repost`, `app.bsky.feed.like`, `app.bsky.graph.follow` and `app.bsky.actor.profile`. All the others should be ignored. 
-
-We can use a `RouteOnAttribute` processor for that. 
-
-### Set Variable using `EvaluateJsonPath` processor
-
-Drag a `EvaluateJsonPath` processor onto the Canvas, in between the **ConsumeKafka** and **PublishKafka** processor. 
-
-Double click on the processor and navigate to the **Properties** tab. 
-
-Select **flowfile-attribute** for the **Destination**. 
-Click on the **+** in the upper right corner of the properties. In the pop-up dialog window, enter `topicName` into the **Property Name** field and click **Ok**. Enter `$.record.commit.collection` into the edit field and click **Ok**. Click **Apply** to close the processor. 
-
-### Adding a `RouteOnAttribute` Processor
-
-Drag a new Processor onto the Canvas, just below the **EvaluateJsonPath** processor. 
-
-Enter **RouteOn** into the **Filter types** field on top left and select the **RouteOnAttribute** processor. Click **Add** to place it on the canvas.
-
-Double-click and naviagate to the **Properties** tab. Again we don't have to update existing properties. Rather we will create a new property by clicking on the **+** in the upper right corner of the properties. In the pop-up dialog window, enter `passOn` into the **Property Name** field and click **Ok**. Enter `${topicName:in("app.bsky.feed.post","app.bsky.feed.repost","app.bsky.feed.like", "app.bsky.graph.follow", "app.bsky.actor.profile")}` into the edit field and click **Ok**. Click **Apply** to close the processor. 
-
-Now we have all the processors in place, all which is left to do is connect them together. 
-
-Drag a connection from **EvaluateJsonPath** to **RouteOnAttribute** and select the **matched** relationship and click **Add**. The other 2 relationship we have to terminate on that processor. Double click on the **EvaluateJsonPath** processor, navigate to **Relationships** and click on **terminate** for the **failure** and **unmatche** relationship. Click **Apply** and now the marker on the processor is replaced by a red stopped icon. 
-
-Last but not least, Drag a connection from **RouteOnAttribute** to **PublishKafka** and select the **passOn** relationship and click **Add**. This relationship exists because we added it when we defined the **RouteOnAttribute** processor above. Double click on the **RouteOnAttribute** processor, navigate to **Relationships** and click on **terminate** for the **unmatche** relationship. Click **Apply** and now the marker on the processor is replaced by a red stopped icon. Let's also terminate all the relationship of the **PublishKafka** processor, by double clicking on the **PublishKafka** processor, navigate to **Relationships** and click on **terminate** for the **failure** and **success** relationship. Click **Apply**. 
-
-### Adding a `PublishKafka` Processor
-
-Drag a new Processor onto the Canvas, just below the **ConsumeKafka** processor. 
-
-Enter **PublishK** into the **Filter types** field on top left. The `PublishKafka` will be shown as ell as the **ConsumeKafka**.
-
-Select the **PublishKafka** processor and click on **Add** to add it to the canvas as well. The canvas should now look like shown below. You can drag around the processor to organize them in the right order. It is recommended to organize the in main flow direction, either top-to-bottom or left-to-right. 
-
-![Alt Image Text](./images/nifi-canvas-with-two-processor.png "Schema Registry UI")
-
-Let's configure the new processor. Double-click on the `PublishKafka` and navigate to **Properties**. Enter the following values:
-
-  * **Kafka Connection Service**: click on the value and from the drop-down listbox select `Kafka3ConnectionService` and click **Ok**
-  * **Topic Name**: `${topicName}` (this is an expression and refers to the variable `topicName`, which we will set with another processor)
-  * **Record Reader**: click on the value and from the drop-down listbox select `JsonTreeReader` and click **Ok**
-  * **Record Writer**: click on the value and from the drop-down listbox select `JsonRecordSetWriter` and click **Ok**
-
-Click **Apply** to leave the configuration settings.
-
-We will use the value of the `/record/commit/collection` as the target topic name. Let's use an `EvaluateJsonPath` processor to get this value and store it in the `topicName` variable.
-
-### Create a Process Group with all the 4 processors
-
-Select all 4 processors (click ctrl-A) and right click on one of the selected processors and select **Group** from the context menu. 
-
-Enter `bluesky` into the **Name** field and click **Add**. 
-
-![Alt Image Text](./images/nifi-grouped.png "Schema Registry UI")
-
-The data flow is now part of the process group `bluesky`, which allows to have visibily and control as a group and also makes the canvas easier to understand, should you once have multiple data flows. 
-
-Right-click on the process group and you can see in the context menu what functionality you can perform on the process group. 
-
-![Alt Image Text](./images/nifi-grouped-contextmenu.png "Schema Registry UI")
-
-You can use it to start/stop the flow, enable and disable all controller services as well as exporting your data flow (menu **Download Flow Definition**). 
-
-Double click on the Process Group to navigate into the group.
-
-Now our data flow is ready, so let's run it. 
-
-### Create the necessary target Kafka topics
-
-But before we can do that, we have to create the 5 target Kafka topics
-
-```bash
-docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic app.bsky.feed.post --replication-factor 3 --partitions 8
- 
-docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic app.bsky.feed.repost --replication-factor 3 --partitions 8
- 
-docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic app.bsky.feed.like --replication-factor 3 --partitions 8 
- 
-docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic app.bsky.graph.follow --replication-factor 3 --partitions 8 
- 
-docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic app.bsky.actor.profile --replication-factor 3 --partitions 8   
+```
+${topicName:in("app.bsky.feed.post","app.bsky.feed.repost","app.bsky.feed.like","app.bsky.graph.follow","app.bsky.actor.profile")}
 ```
 
-### Starting the Data Flow 
+Click **Apply**.
 
-Select all 4 processors (click ctrl-A) and navigate to the start arrow and click on it
+> **What just happened?** `RouteOnAttribute` evaluates the NiFi Expression Language expression against each FlowFile. Messages whose `topicName` attribute matches one of the five known collection types are routed through the `passOn` relationship; all others exit through `unmatched` and will be terminated.
 
-![Alt Image Text](./images/nifi-start-dataflow.png "Schema Registry UI")
+### Adding a `PublishKafka` processor
 
-Let's check if the messages arrive in one of the topics. Let's try the one with the **Posts**:
+Drag a **PublishKafka** processor onto the canvas. Double-click it and navigate to **Properties**. Set:
 
-we can either pretty print the whole json using `jq`
+- **Kafka Connection Service**: select `Kafka3ConnectionService` from the drop-down
+- **Topic Name**: `${topicName}`
+- **Record Reader**: select `JsonTreeReader`
+- **Record Writer**: select `JsonRecordSetWriter`
+
+Click **Apply**.
+
+> **What just happened?** The `${topicName}` expression makes the destination topic dynamic — each FlowFile is published to the Kafka topic whose name matches the Bluesky collection type extracted earlier.
+
+### Connecting the processors
+
+Wire up the processors in order: **ConsumeKafka → ReplaceText ($type) → ReplaceText ($link) → EvaluateJsonPath → RouteOnAttribute → PublishKafka**.
+
+For each connection, drag from the source processor's edge to the destination and select the appropriate relationship in the dialog and terminate unused relationships on each processor:
+
+- **ConsumeKafka**: link `success`, terminate `parse.failure`
+- **ReplaceText** (both): link `success`, terminate `failure`
+- **EvaluateJsonPath**: link `matched`, terminate `failure` and `unmatched`
+- **RouteOnAttribute**: link `passOn`, terminate `unmatched`
+- **PublishKafka**: terminate `failure` and `success`
+
+After that the data flow should look as follows:
+
+![Alt Image Text](./images/nifi-flow-connected.png "Flow Connected")
+
+### Create the target Kafka topics
+
+Before starting the flow, create the five destination topics:
 
 ```bash
-kcat -q -b dataplatform:9092 -t app.bsky.feed.post | jq
+docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --if-not-exists --topic app.bsky.feed.post     --replication-factor 3 --partitions 8
+docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --if-not-exists --topic app.bsky.feed.repost   --replication-factor 3 --partitions 8
+docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --if-not-exists --topic app.bsky.feed.like     --replication-factor 3 --partitions 8
+docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --if-not-exists --topic app.bsky.graph.follow  --replication-factor 3 --partitions 8
+docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --if-not-exists --topic app.bsky.actor.profile --replication-factor 3 --partitions 8
 ```
 
-or only display the `text` field with
+### Group and start the data flow
+
+Select all processors with **Ctrl-A**, right-click one of them, and choose **Group**. Enter `bluesky` as the name and click **Add**.
+
+![Alt Image Text](./images/nifi-grouped.png "Process Group")
+
+> **What just happened?** NiFi grouped all five processors into a single process group. This gives you unified start/stop control and keeps the canvas clean when you add more flows later.
+
+Double-click the process group to enter it, select all processors with **Ctrl-A**, and click the **Start** button.
+
+![Alt Image Text](./images/nifi-start-dataflow.png "Start Data Flow")
+
+Verify that messages are arriving in the `app.bsky.feed.post` topic:
 
 ```bash
 kcat -q -b dataplatform:9092 -t app.bsky.feed.post | jq '.record.commit.record.text'
 ```
 
-In both cases you should see the new posts being published.
-
-Now let's use Kafka Connect to store the bluesky posts in Elasticsearch so that they can be visualized using Kibana.
+> **What you should see:** A live stream of post text from the type-specific topic — identical to the filtered output you saw earlier, but now sourced from its own dedicated topic.
 
 ## Using Kafka Connect to send data to Elasticsearch
 
-The messages in Kafka topic `app.bsky.feed.post` for the bluesky posts look similar to the example shown below
+[Elasticsearch](https://www.elastic.co/elasticsearch) is a distributed search and analytics engine built on Apache Lucene. It stores documents as JSON, indexes every field by default, and answers full-text and structured queries in milliseconds even over billions of documents. Paired with Kibana it provides the search, filtering, and visualisation layer of the pipeline.
+
+### Why Elasticsearch needs an explicit mapping
+
+By default Elasticsearch uses **dynamic mapping**: when the first document arrives it inspects each field value and infers a type (`text`, `long`, `date`, etc.). This works well for simple, uniform schemas but breaks for the Bluesky post schema for two reasons:
+
+- **Mixed-type fields** — several fields in the Bluesky schema can appear as either a simple string or a nested object depending on the post content. Elasticsearch detects the type from the first document it sees; when a subsequent document sends the same field with a different shape, indexing fails with a `mapper_parsing_exception`.
+- **The `embed` subtree** — the `embed` field has radically different structures depending on whether the post embeds an image, an external link, a quoted post, or a video. Dynamic mapping cannot handle a field being sometimes an object with `images` and sometimes an object with `external`.
+
+We therefore create an explicit mapping before starting the connector. The mapping we use takes a permissive approach: all string fields are mapped as `text` with a `keyword` sub-field (enabling both full-text search and exact aggregations), numeric fields are `long`, date fields are `date`, and the most variable sub-trees are mapped as `object` with `"enabled": false` to store them without indexing.
+
+The messages in `app.bsky.feed.post` look like the following example:
 
 ```json
 {
-  "capture_time": "2025-06-21T13:23:10.874Z",
+  "capture_time": "2026-06-05T19:48:45.564Z",
   "collection": "commit",
   "record": {
-    "did": "did:plc:yz42tmpgmr67472ropqltass",
-    "time_us": 1750512190830536,
+    "did": "did:plc:4muclvmhoko3nqttzc25ftbd",
+    "time_us": 1780688925780291,
     "kind": "commit",
     "commit": {
-      "rev": "3ls4nko6eqp2f",
+      "rev": "3mnkvthdrsa2c",
       "operation": "create",
       "collection": "app.bsky.feed.post",
-      "rkey": "3ls4nkn2h3k2k",
+      "rkey": "3mnkvtgimnk2z",
       "record": {
-        "$type": "app.bsky.feed.post",
-        "createdAt": "2025-06-21T13:23:08.798Z",
+        "type": "app.bsky.feed.post",
+        "createdAt": "2026-06-05T19:48:44.135Z",
         "embed": {
-          "$type": "app.bsky.embed.external",
+          "type": "app.bsky.embed.external",
           "external": {
-            "description": "The president has repeatedly touted actions and decisions that are coming \"in two weeks\" since his first term in office. Some never materialized.",
+            "description": "Department of Justice lawyers made the bizarre argument while defending Donald Trump’s ballroom.",
             "thumb": {
-              "$type": "blob",
+              "type": "blob",
               "ref": {
-                "$link": "bafkreihmrhcgbzng3naakbequladvr6rqlcdrhq533c7ay4ajzoreqkcym"
+                "link": "bafkreicfgsijijyjygl7nvm5zxn3r7mlwncwzca6fucvhaab44b57yv2wq"
               },
               "mimeType": "image/jpeg",
-              "size": 705040
+              "size": 332850
             },
-            "title": "Two weeks' notice: Trump's deadline on Iran is a familiar one",
-            "uri": "https://www.nbcnews.com/politics/donald-trump/two-weeks-notice-trumps-deadline-iran-familiar-one-rcna214089"
+            "title": "DOJ Declares Trump Has Right to Bulldoze Statue of Liberty — The New Republic",
+            "uri": "https://apple.news/AICAEt0M3SBKNFOTdXwvG8Q"
           }
         },
         "facets": [
           {
             "features": [
               {
-                "$type": "app.bsky.richtext.facet#tag",
-                "tag": "TACODon"
+                "type": "app.bsky.richtext.facet#tag",
+                "tag": "8647NOW"
               }
             ],
             "index": {
-              "byteEnd": 44,
-              "byteStart": 36
+              "byteEnd": 263,
+              "byteStart": 255
             }
           },
           {
             "features": [
               {
-                "$type": "app.bsky.richtext.facet#tag",
-                "tag": "Trump"
+                "type": "app.bsky.richtext.facet#link",
+                "uri": "https://apple.news/AICAEt0M3SBKNFOTdXwvG8Q"
               }
             ],
             "index": {
-              "byteEnd": 116,
-              "byteStart": 110
-            }
-          },
-          {
-            "features": [
-              {
-                "$type": "app.bsky.richtext.facet#tag",
-                "tag": "TheIrresoluteDesk"
-              }
-            ],
-            "index": {
-              "byteEnd": 135,
-              "byteStart": 117
-            }
-          },
-          {
-            "features": [
-              {
-                "$type": "app.bsky.richtext.facet#tag",
-                "tag": "Iran"
-              }
-            ],
-            "index": {
-              "byteEnd": 141,
-              "byteStart": 136
+              "byteEnd": 292,
+              "byteStart": 266
             }
           }
         ],
         "langs": [
           "en"
         ],
-        "text": "👇🇺🇸Everything Is Two Weeks #TACODon \n\"Two weeks' notice: Trump's deadline on Iran is a familiar one\" #Trump #TheIrresoluteDesk #Iran"
+        "text": "These scumbags think they can do whatever they want. What is it going to take before we the people have to step in and take back the peoples house? This criminal administration is not for the people and apparently think Trump is king. Thus needs to end!  #8647NOW \n\napple.news/AICAEt0M3SBK..."
       },
-      "cid": "bafyreigybdeaegvkt6b3xo4vukq7e373hgd242dk7netzgqlea6pqh6qzu"
+      "cid": "bafyreiacqxqq5htxzdy6gaolmv5fnsw67nda7iwxyqwr2iurizyrjb4w6e"
     }
   }
 }
 ```
 
-Let's create an Elasticsearch mapping for the Bluesky post messages. 
-
 ### Create the Elasticsearch mapping
 
-The automatic mapping does not work, as some of the fields can be mixed type (complex or primitive), what Elasticsearch does not support. Additionally we also do not index all `$type` attribute.  
+Elasticsearch's automatic mapping cannot handle fields that appear as both primitive and complex types across different messages, which is common in the Bluesky schema. We must define the mapping explicitly before indexing any data.
 
-Navigate to the dev console in Kibana on <http://dataplatform:5601/app/dev_tools#/console/shell> and copy the following command into the shell window (as shown in the screentshot below):
+Navigate to the Kibana Dev Tools console at <http://dataplatform:5601/app/dev_tools#/console/shell> and paste the following mapping:
 
 ```bash
 PUT /app.bsky.feed.post
@@ -707,7 +610,7 @@ PUT /app.bsky.feed.post
                               },
                               "ref": {
                                 "properties": {
-                                  "$link": {
+                                  "link": {
                                     "type": "text",
                                     "fields": {
                                       "keyword": {
@@ -791,7 +694,7 @@ PUT /app.bsky.feed.post
                               },
                               "ref": {
                                 "properties": {
-                                  "$link": {
+                                  "link": {
                                     "type": "text",
                                     "fields": {
                                       "keyword": {
@@ -845,7 +748,7 @@ PUT /app.bsky.feed.post
                                   },
                                   "ref": {
                                     "properties": {
-                                      "$link": {
+                                      "link": {
                                         "type": "text",
                                         "fields": {
                                           "keyword": {
@@ -915,7 +818,7 @@ PUT /app.bsky.feed.post
                                   },
                                   "ref": {
                                     "properties": {
-                                      "$link": {
+                                      "link": {
                                         "type": "text",
                                         "fields": {
                                           "keyword": {
@@ -946,7 +849,7 @@ PUT /app.bsky.feed.post
                               },
                               "ref": {
                                 "properties": {
-                                  "$link": {
+                                  "link": {
                                     "type": "text",
                                     "fields": {
                                       "keyword": {
@@ -1030,7 +933,7 @@ PUT /app.bsky.feed.post
                           },
                           "ref": {
                             "properties": {
-                              "$link": {
+                              "link": {
                                 "type": "text",
                                 "fields": {
                                   "keyword": {
@@ -1104,7 +1007,7 @@ PUT /app.bsky.feed.post
                           },
                           "ref": {
                             "properties": {
-                              "$link": {
+                              "link": {
                                 "type": "text",
                                 "fields": {
                                   "keyword": {
@@ -1218,7 +1121,7 @@ PUT /app.bsky.feed.post
                           },
                           "ref": {
                             "properties": {
-                              "$link": {
+                              "link": {
                                 "type": "text",
                                 "fields": {
                                   "keyword": {
@@ -1284,28 +1187,6 @@ PUT /app.bsky.feed.post
                               }
                             }
                           },
-                          "commit": {
-                            "properties": {
-                              "cid": {
-                                "type": "text",
-                                "fields": {
-                                  "keyword": {
-                                    "type": "keyword",
-                                    "ignore_above": 256
-                                  }
-                                }
-                              },
-                              "rev": {
-                                "type": "text",
-                                "fields": {
-                                  "keyword": {
-                                    "type": "keyword",
-                                    "ignore_above": 256
-                                  }
-                                }
-                              }
-                            }
-                          },
                           "uri": {
                             "type": "text",
                             "fields": {
@@ -1337,28 +1218,6 @@ PUT /app.bsky.feed.post
                               }
                             }
                           },
-                          "commit": {
-                            "properties": {
-                              "cid": {
-                                "type": "text",
-                                "fields": {
-                                  "keyword": {
-                                    "type": "keyword",
-                                    "ignore_above": 256
-                                  }
-                                }
-                              },
-                              "rev": {
-                                "type": "text",
-                                "fields": {
-                                  "keyword": {
-                                    "type": "keyword",
-                                    "ignore_above": 256
-                                  }
-                                }
-                              }
-                            }
-                          },
                           "uri": {
                             "type": "text",
                             "fields": {
@@ -1374,27 +1233,6 @@ PUT /app.bsky.feed.post
                               "keyword": {
                                 "type": "keyword",
                                 "ignore_above": 256
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "space": {
-                    "properties": {
-                      "aoisora": {
-                        "properties": {
-                          "post": {
-                            "properties": {
-                              "via": {
-                                "type": "text",
-                                "fields": {
-                                  "keyword": {
-                                    "type": "keyword",
-                                    "ignore_above": 256
-                                  }
-                                }
                               }
                             }
                           }
@@ -1497,50 +1335,45 @@ PUT /app.bsky.feed.post
 }
 ```
 
-Click to the command to select it and click on the **play** icon (**click to send request**) to execute the command against Eleastisearch.
+Click on the command to select it and click the **play** icon (**Send request**) to create the index in Elasticsearch.
 
 ![](./images/kibana-create-mapping.png)
 
-**Note:** if you need to delete the mapping, you can use this command `DELETE /app.bsky.feed.post` (do not do that now!)
+> **What you should see:** A `200 OK` response with `{"acknowledged": true, "shards_acknowledged": true, "index": "app.bsky.feed.post"}`.
+
+> **What just happened?** Elasticsearch created the index with the explicit field mapping you supplied. From this point on, any document written to this index will be validated against the mapping — fields outside the defined schema are still indexed under dynamic mapping, but the key nested fields (text, dates, numbers) are typed correctly, which enables full-text search and date-range queries.
+
+> **Note:** If you need to delete the index and start over, use `DELETE /app.bsky.feed.post` in the Dev Tools console.
 
 ### Run the Elasticsearch connector
 
-The Kafka Connect connector for working with Elasticsearch is the [Confluent Elasticsearch Sink Connector for Confluent Platform](https://docs.confluent.io/current/connect/kafka-connect-elasticsearch/index.html). 
+The [Confluent Elasticsearch Sink Connector](https://docs.confluent.io/current/connect/kafka-connect-elasticsearch/index.html) is pre-loaded in the Kafka Connect cluster. Verify it is available:
 
-It is available under the **Confluent Community License Agreement** and pre-loaded with the Kafka Connect cluster of the Data Platform. 
-
-Let's confirm that by using the Kafka Connect REST API
-
-```
-curl -XGET http://dataplatform:8083/connector-plugins | jq
+```bash
+curl -XGET http://dataplatform:8083/connector-plugins | jq '.[].class' | grep -i elastic
 ```
 
-We can also view the avaialble connectors using the [Kafka Connect UI](http://dataplatform:28103/#/cluster/kafka-connect-1). If you click on **New** then on the page you should see the 
-
-![Alt Image Text](./images/kafka-connect-ui-new-connector.png "Elasticsearch Connector") 
-
-You can see the **Elasticsearch** Sink connector, ready to be used. 
-
-We can either start it through the Kafka Connect UI by clicking on **New** or by using the REST API of Kafka Connect. For this workshop we will use the REST API.
-
-In the `scripts` folder, create a file `start-elasticsearch.sh` and add the code below.  
+> **What you should see:** The connector class name printed, confirming it is installed:
 
 ```
+"io.confluent.connect.elasticsearch.ElasticsearchSinkConnector"
+```
+
+In the `scripts` folder, create a file `start-elasticsearch.sh` with the following content:
+
+```bash
 #!/bin/bash
 
 echo "removing Elasticsearch Sink Connector"
-
 curl -X "DELETE" http://dataplatform:8083/connectors/elasticsearch-bluesky-sink
 
 echo "creating Elasticsearch Sink Connector"
-
 curl -X PUT \
   http://dataplatform:8083/connectors/elasticsearch-bluesky-sink/config \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json' \
   -d '{
   "connector.class": "io.confluent.connect.elasticsearch.ElasticsearchSinkConnector",
-  "type.name": "_doc",
   "tasks.max": "1",
   "topics": "app.bsky.feed.post",
   "connection.url": "http://elasticsearch-1:9200",
@@ -1550,109 +1383,104 @@ curl -X PUT \
   "type.name": "kafkaconnect",
   "value.converter": "org.apache.kafka.connect.json.JsonConverter",
   "value.converter.schemas.enable": "false",
-  "value.converter.schema.registry.url": "http://schema-registry-1:8081",
   "errors.tolerance": "all",
+  "errors.log.enable": "false",
   "errors.log.include.messages": "true",
   "errors.deadletterqueue.topic.name": "es-sink.bluesky.dlq",
-  "errors.log.enable": "false",
   "behavior.on.malformed.documents": "ignore",
   "drop.invalid.message": "true",
   "behavior.on.null.values": "IGNORE"
 }'
 ```
 
-We configure the connector to read from the topic `app.bsky.feed.post` and write messages to the Elasticsearch datastore. 
+Also create `stop-elasticsearch.sh`:
 
-Also create a separate script `stop-elasticsearch.sh` for just stopping the connector and add the following code:
-
-```
+```bash
 #!/bin/bash
 
 echo "removing Elasticsearch Sink Connector"
-
-curl -X "DELETE" http://dataplatform:8083/connectors/elasticsearch-sink
+curl -X "DELETE" http://dataplatform:8083/connectors/elasticsearch-bluesky-sink
 ```
 
-Make sure that the both scripts are executable
-
-```
-sudo chmod +x start-elasticsearch.sh
-sudo chmod +x stop-elasticsearch.sh
-```
-
-Finally let's start the connector by running the `start-elasticsearch` script.
+Make both scripts executable:
 
 ```bash
-./start-elasticsearch.sh
+chmod +x scripts/start-elasticsearch.sh
+chmod +x scripts/stop-elasticsearch.sh
 ```
 
-The connector will consume the JSON messages, automatically create an Elasticsearch Index, register the Index Mapping (which is based on the JSON structure) and stores the bluesky posts as documents into the Elasticsearch datastore.
-
-We can see that documents have been added by using the Elasticsearch API 
+Start the connector:
 
 ```bash
-curl dataplatform:9200/app.bsky.feed.post/_search
+./scripts/start-elasticsearch.sh
 ```
 
-and you should see a result similar to the one below
+> **What you should see:** The DELETE call returns a 404 (expected on first run) and the PUT call returns the connector configuration as JSON.
+
+> **What just happened?** Kafka Connect started a connector task that reads from `app.bsky.feed.post` and writes each message as a document into the `app.bsky.feed.post` Elasticsearch index. The `key.ignore=true` setting lets Elasticsearch generate its own document IDs. `behavior.on.malformed.documents=ignore` ensures that a single document that violates the mapping does not stop the connector — such messages are forwarded to the dead-letter topic `es-sink.bluesky.dlq` instead.
+
+Verify documents are arriving in Elasticsearch:
+
+```bash
+curl -s dataplatform:9200/app.bsky.feed.post/_count | jq .count
+```
+
+> **What you should see:** A growing document count, confirming that posts are being indexed.
+
+### Inspect the Elasticsearch mapping
+
+You can confirm the registered mapping at any time from the Kibana Dev Tools console at <http://dataplatform:5601/app/dev_tools#/console>. Run:
 
 ```
-{"took":2,"timed_out":false,"_shards":{"total":1,"successful":1,"skipped":0,"failed":0},"hits":{"total":{"value":10000,"relation":"gte"},"max_score":1.0,"hits":[{"_index":"app.bsky.feed.post","_id":"app.bsky.feed.post+0+73579","_score":1.0,"_ignored":["record.commit.record.text.keyword"],"_source":{"record":{"kind":"commit","commit":{"rev":"3ls4w46437p26","record":{"createdAt":"2025-06-21T15:56:07.666Z","langs":["en"],"embed":{"record":{"uri":"at://did:plc:fjhfhnkmshnyqbjjaqwcgnd4/app.bsky.feed.post/3lrfqm56uzk2k","cid":"bafyreibxlkz3bzjofvierrtgyuezceadlblnk52n5emtsixedfb5v32dmy"},"$type":"app.bsky.embed.record"},"text":"@dbarba77.bsky.social\nMy children are asking if we'll eat today, and I have no answer; we have no food, no shelter, no medicine, and with no money, we are living in real misery. Please, any help would be a glimmer of hope for us in these difficult circumstances.\nbsky.app/profile/help...","$type":"app.bsky.feed.post","facets":[{"features":[{"did":"did:plc:3qrjvgkhzt6vd7disghmyuzc","$type":"app.bsky.richtext.facet#mention"}],"index":{"byteEnd":21,"byteStart":0},"$type":"app.bsky.richtext.facet"},{"features":[{"uri":"https://bsky.app/profile/helpmykids2.bsky.social/post/3lrfqm56uzk2k","$type":"app.bsky.richtext.facet#link"}],"index":{"byteEnd":287,"byteStart":263}}]},"rkey":"3ls4w46pafc27","collection":"app.bsky.feed.post","operation":"create","cid":"bafyreigylu7bpmosxffgctjvscm6puyyug2r3dypp7cxbl55twlhlejve4"},"did":"did:plc:cdrqrnvlxhtzrvjgbftpcpmb","time_us":1750521367720208},"collection":"commit","capture_time":"2025-06-21T15:56:07.766Z"}},{"_index":"app.bsky.feed.post","_id":"app.bsky.feed.post+0+73662","_score":1.0,"_source":{"record":{"kind":"commit","commit":{"rev":"3ls4w4g5eeo2d","record":{"createdAt":"2025-06-21T15:56:16.530Z","langs":["de"],"embed":{"external":{"description":"","title":"Nachttische, Gehilfen und andere Gegenstände für das Altenheim Vradiyivka – Ukrainehilfe Hamburg","uri":"https://ukrainehilfe-hamburg.de/2025/2025-ankunft-der-spenden-in-der-ukraine/nachttische-gehilfen-und-andere-gegenstaende-fuer-das-altenheim-vradiyivka"},"$type":"app.bsky.embed.external"},"text":"Nachttische, Gehilfen und andere Gegenstände für das Altenheim Vradiyivka\n\nukrainehilfe-hamburg.de/2025/2025-an...","$type":"app.bsky.feed.post","facets":[{"features":[{"uri":"https://ukrainehilfe-hamburg.de/2025/2025-ankunft-der-spenden-in-der-ukraine/nachttische-gehilfen-und-andere-gegenstaende-fuer-das-altenheim-vradiyivka","$type":"app.bsky.richtext.facet#link"}],"index":{"byteEnd":116,"byteStart":77}}]},"rkey":"3ls4w4h5qnc2m","collection":"app.bsky.feed.post","operation":"create","cid":"bafyreigq7lfw25zxly3brtpa7arzoe5zqcb72gumbevvo47ajcspie3qjy"},"did":"did:plc:q6o2msn6axynyhgllv5sd5j5","time_us":1750521375644236},"collection":"commit","capture_time":"2025-06-21T15:56:15.688Z"}},{"_index":"app.bsky.feed.post","_id":"app.bsky.feed.post+0+73663","_score":1.0,"_source":{"record":{"kind":"commit","commit":{"rev":"3ls4w4cg2tj2a","record":{"createdAt":"2025-06-21T15:56:06.621Z","langs":["en"],"text":"Affe acordei muito tarde hoje e não consegui ver o volei","$type":"app.bsky.feed.post","facets":[],"tags":[]},"rkey":"3ls4w4cfm6r2a","collection":"app.bsky.feed.post","operation":"create","cid":"bafyreihgfp6jlyhj46hh53uzir5nmjvwtcmy7gk5twyyglgh3nxrddofzq"},"did":"did:plc:wpjcjplyd3asxr4ssckkuaq5","time_us":1750521371715244},"collection":"commit","capture_time":"2025-06-21T15:56:11.760Z"}},{"_index":"app.bsky.feed.post","_id":"app.bsky.feed.post+0+73582","_score":1.0,"_source":{"record":{"kind":"commit","commit":{"rev":"3ls4w464j5n27","record":{"createdAt":"2025-06-21T15:56:06Z","embed":{"external":{"thumb":{"ref":{"$link":"bafkreiahlmshufppeq5l42n6h7smtdlrhdtpelx3om3nzwodee3qoudr44"},"size":76237,"mimeType":"image/jpeg","$type":"blob"},"description":"90.00 USD\n\nVintage Chess Piece Horse Clip On Earrings, 1950's 1960's Jewelry\n\nMeasurements\nLength - 3/4 inch\nWidth - 7/8 inch\n\nIn very good vintage condition.\nGold tone metal.\nA nice addition to any collection.\n\nD186","title":"Vintage Chess Piece Horse Clip On Earrings, 1950's 1960's Jewelry by MartiniMermaid","uri":"http://dlvr.it/TLTkht"},"$type":"app.bsky.embed.external"},"text":"","$type":"app.bsky.feed.post"},"rkey":"3ls4w4644hf27","collection":"app.bsky.feed.post","operation":"create","cid":"bafyreiceq4nskjopsh3u3akdfbj7tl7al45xpcgypzgquinit4q2wos5p4"},"did":"did:plc:ngxcyqf3f2o6y5fnd3tudfc6","time_us":1750521369075477},"collection":"commit","capture_time":"2025-06-21T15:56:09.119Z"}},{"_index":"app.bsky.feed.post","_id":"app.bsky.feed.post+0+73583","_score":1.0,"_source":{"record":{"kind":"commit","commit":{"rev":"3ls4w47i7zo2c","record":{"createdAt":"2025-06-21T15:56:08.000Z","langs":["en"],"text":"Hobbit ass names","reply":{"parent":{"uri":"at://did:plc:6yhcuwmohgsz7hbshjtmnb6t/app.bsky.feed.post/3ls4vyiflrc2t","cid":"bafyreignhrg5ob5o4viiwe76jiiore2rm52xicvmlhpdq4oaxt4u44xyju"},"root":{"uri":"at://did:plc:6yhcuwmohgsz7hbshjtmnb6t/app.bsky.feed.post/3ls4vyiflrc2t","cid":"bafyreignhrg5ob5o4viiwe76jiiore2rm52xicvmlhpdq4oaxt4u44xyju"}},"$type":"app.bsky.feed.post","facets":[]},"rkey":"3ls4w47hjqcpb","collection":"app.bsky.feed.post","operation":"create","cid":"bafyreifq6mbr6u2oailr5up2zuuwaizdzhqsl5nw735s5nievn4ydlyhqi"},"did":"did:plc:ivl4btgba324e2vqqprwcxhf","time_us":1750521368620860},"collection":"commit","capture_time":"2025-06-21T15:56:08.665Z"}},{"_index":"app.bsky.feed.post","_id":"app.bsky.feed.post+0+73584","_score":1.0,"_source":{"record":{"kind":"commit","commit":{"rev":"3ls4w47ayvd27","record":{"createdAt":"2025-06-21T15:56:09.306Z","langs":["de"],"embed":{"external":{"description":"","title":"Kosiv Zentral-Bezirkskrankenhaus erhielt Desinfektionsmittel – Ukrainehilfe Hamburg","uri":"https://ukrainehilfe-hamburg.de/2025/2025-ankunft-der-spenden-in-der-ukraine/kosiv-zentral-bezirkskrankenhaus-erhielt-Desinfektionsmittel"},"$type":"app.bsky.embed.external"},"text":"Kosiv Zentral-Bezirkskrankenhaus erhielt Desinfektionsmittel\n\nukrainehilfe-hamburg.de/2025/2025-an...","$type":"app.bsky.feed.post","facets":[{"features":[{"uri":"https://ukrainehilfe-hamburg.de/2025/2025-ankunft-der-spenden-in-der-ukraine/kosiv-zentral-bezirkskrankenhaus-erhielt-Desinfektionsmittel","$type":"app.bsky.richtext.facet#link"}],"index":{"byteEnd":101,"byteStart":62}}]},"rkey":"3ls4w4abbxc2m","collection":"app.bsky.feed.post","operation":"create","cid":"bafyreigof2zal6yq7totdhpfagnleuniflwgbacgc3dp5m5nyf3aappkti"},"did":"did:plc:q6o2msn6axynyhgllv5sd5j5","time_us":1750521368402786},"collection":"commit","capture_time":"2025-06-21T15:56:08.448Z"}},{"_index":"app.bsky.feed.post","_id":"app.bsky.feed.post+0+73585","_score":1.0,"_source":{"record":{"kind":"commit","commit":{"rev":"3ls4w464llg25","record":{"createdAt":"2025-06-21T15:56:06.149Z","langs":["en"],"embed":{"record":{"uri":"at://did:plc:osevlq4avqaxvyyvb7hzckml/app.bsky.feed.post/3ls3tqaqlfs2z","cid":"bafyreif6v7aectqsj6zqdxrbngciynfnfv62ozd2e6uys4fby7f6i6taau"},"$type":"app.bsky.embed.record"},"text":"THIS RIGHT HERE‼️\uD83C\uDFAF","$type":"app.bsky.feed.post"},"rkey":"3ls4w45axwc2c","collection":"app.bsky.feed.post","operation":"create","cid":"bafyreibkv4bxp4art4csdp67kknutqdv45gvrgsb3bnxgx346piygowxsu"},"did":"did:plc:goe7jlyabuakr7zd473vmfr4","time_us":1750521367642454},"collection":"commit","capture_time":"2025-06-21T15:56:07.686Z"}},{"_index":"app.bsky.feed.post","_id":"app.bsky.feed.post+0+73547","_score":1.0,"_source":{"record":{"kind":"commit","commit":{"rev":"3ls4w3yuf5k2j","record":{"createdAt":"2025-06-21T15:56:01.178Z","text":"どぎち","$type":"app.bsky.feed.post"},"rkey":"3ls4w3yu5dk2j","collection":"app.bsky.feed.post","operation":"create","cid":"bafyreibx7v3xtsfvft5jhcezaoi5ezpldzr2vmvvg54c3izwmvyf4n3fe4"},"did":"did:plc:mbz7u54y4mfoz4fjymh4gyqb","time_us":1750521361777742},"collection":"commit","capture_time":"2025-06-21T15:56:01.822Z"}},{"_index":"app.bsky.feed.post","_id":"app.bsky.feed.post+0+73548","_score":1.0,"_source":{"record":{"kind":"commit","commit":{"rev":"3ls4w3z3kfc2p","record":{"createdAt":"2025-06-21T15:56:01.581Z","text":"Fail status check.\nName:本番API\nStatus:Too Many Requests","$type":"app.bsky.feed.post"},"rkey":"3ls4w3z33qk2p","collection":"app.bsky.feed.post","operation":"create","cid":"bafyreihsmsi63y27mjuc5fle7ya2fgyra27w4uqe5yfpdrfpigwzxnjjhq"},"did":"did:plc:klqa33aduuwtf5lsvco77gnt","time_us":1750521362180631},"collection":"commit","capture_time":"2025-06-21T15:56:02.224Z"}},{"_index":"app.bsky.feed.post","_id":"app.bsky.feed.post+0+73712","_score":1.0,"_source":{"record":{"kind":"commit","commit":{"rev":"3ls4w4ejzw52c","record":{"createdAt":"2025-06-21T15:56:12.989Z","langs":["en"],"text":"\uD83E\uDD72","$type":"app.bsky.feed.post"},"rkey":"3ls4w4dron22t","collection":"app.bsky.feed.post","operation":"create","cid":"bafyreidaqx6lnlsllkkisk2z7257iw7jrkidz52y6qw54ym5fkyb35rbv4"},"did":"did:plc:f7b6r344hpvh5bdqil7vykhe","time_us":1750521374019215},"collection":"commit","capture_time":"2025-06-21T15:56:14.063Z"}}]}}ubuntu@ip-172-26-6-222:~$
+GET /app.bsky.feed.post/_mapping
 ```
 
-We can see the first few documents which are stored by Elasticsearch, in a not very user-friendly way, Elasticsearch API returns the data as JSON and this would be the interface you use to integrate with a custom application. Later we will use Kibana, a nice UI for working with Elasticsearch. 
+![Alt Image Text](./images/kibana-dev-tools.png "Elasticsearch Dev Tools")
 
-### Elasticsearch Mapping
+> **What you should see:** The full field mapping for the index, showing every field name, its data type, and any `keyword` sub-fields.
 
-You can check the index and the registered mapping by navigating to the [Kibana Dev Tools UI](http://dataplatform:5601/app/dev_tools#/console). In the console enter `GET /app.bsky.feed.post/_mapping` and execute it. 
-
-![Alt Image Text](./images/kibana-dev-tools.png "Elasticsearch Connector") 
-
-The mapping describes how a document, and the fields it contains, are stored and indexed in Elasticsearch. For instance it defines which string fields should be treated as full text fields, which fields contain numbers or dates and the format of date values. 
-It has been created based on the Json structure for the Bluesky post message.
-
-With the data properly indexed in Elasticsearch, let's see how we can visualize it using Kibana.
+> **What just happened?** Elasticsearch stored the mapping you defined earlier. Text fields have both a `text` version for full-text search (analysed, tokenised) and a `keyword` sub-field for exact-match filters and aggregations. Date fields (`capture_time`, `createdAt`) enable time-range queries in Kibana. The `time_us` field is a `long` to store the microsecond-precision timestamp from the AT Protocol.
 
 ## Visualize Posts using Kibana
 
-[Kibana](https://www.elastic.co/kibana) is part of the so called [ELK-Stack](https://www.elastic.co/elastic-stack) and can be used to visualize the data stored in Elasticsearch. 
+[Kibana](https://www.elastic.co/kibana) is the visualisation layer of the [Elastic Stack](https://www.elastic.co/elastic-stack). Navigate to <http://dataplatform:5601>.
 
-In a browser, navigate to <http://dataplatform:5601>
+![Alt Image Text](./images/kibana-homepage.png "Kibana Homepage")
 
-![Alt Image Text](./images/kibana-homepage.png
- "Elastic Search Connector") 
+Click the **Analytics** tile.
 
-Click on the **Analytics** tile to navigate to the Analytics view.
+![Alt Image Text](./images/kibana-analytics-view.png "Kibana Analytics")
 
-![Alt Image Text](./images/kibana-analytics-view.png
- "Elasticsearch Connector") 
+Click **Create data view**.
 
-You should get a message saying that there is data in Elasticsearch ready to be explored. Click **Create data view** to create an index pattern.
+### Create a data view
 
-Enter `Bluesky Posts` **Name** field and `app.bsky*` into the **Index pattern** field. Navigate to the **Timestamp field** drop-down list and select `capture_time`. 
+Enter `Bluesky Posts` in the **Name** field and `app.bsky*` in the **Index pattern** field. Select `capture_time` from the **Timestamp field** drop-down.
 
-![Alt Image Text](./images/kibana-create-data-view.png
- "Elastic Search Connector") 
- 
-Click **Save data view to Kibana**. 
+![Alt Image Text](./images/kibana-create-data-view.png "Create Data View")
 
-![Alt Image Text](./images/kibana-analytics-home-page.png
- "Elastic Search Connector") 
+Click **Save data view to Kibana**.
 
-Click on the **Discover** tile and you will see the data over the last 15 minutes
+### Explore live data in Discover
 
-![Alt Image Text](./images/kibana-analytics-discoverer.png
- "Elastic Search Connector") 
- 
-[Discover](https://www.elastic.co/guide/en/kibana/current/discover.html) enables you to explore your data, find hidden insights and relationships, and get answers to your questions.
+Click on the **Hamburger** icon to show the left-side menu and click on **Discover**.
 
-Click on the calendar icon to change the date range and to enable automatic refresh to see the live data "arriving". Let's set the range to **1 hour** and switch to automatic refresh and select a refresh rate of 10 **Seconds**.
+![Alt Image Text](./images/kibana-analytics-discoverer.png "Kibana Discover")
 
-![Alt Image Text](./images/kibana-analytics-discoverer-2.png
- "Elastic Search Connector") 
+> **What you should see:** A histogram of message volume over the last 15 minutes and a table of individual documents below it.
 
-Click **Apply** and you should see the data update every 10 seconds.
+> **What just happened?** Kibana queried Elasticsearch for all documents in the `app.bsky*` index pattern with a `capture_time` within the selected time range and rendered the results. Each row is one Bluesky post. You can expand a row to see all indexed fields, add columns to the table, and apply filters.
 
-![Alt Image Text](./images/kibana-analytics-discoverer-3.png
- "Elastic Search Connector")
+### Enable live refresh
 
+Click the calendar icon to change the date range. Set the range to **Last 1 hour**. Again click on the calendar icon and now enable the **Refresh every** option and in the drop down choose **10** and **Seconds**.
+
+![Alt Image Text](./images/kibana-analytics-discoverer-2.png "Set Time Range")
+
+Click **Apply**.
+
+![Alt Image Text](./images/kibana-analytics-discoverer-3.png "Live Data")
+
+> **What you should see:** The histogram and document table refreshing every 10 seconds as new Bluesky posts flow through the pipeline and into Elasticsearch.
+
+> **What just happened?** The full pipeline is now running end-to-end: BlueBird streams the Bluesky firehose into Kafka → NiFi routes posts to `app.bsky.feed.post` → Kafka Connect indexes each post in Elasticsearch → Kibana renders the data in near real time.

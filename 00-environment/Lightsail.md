@@ -15,12 +15,16 @@ Keep **Linux/Unix** for the **Select a platform** and click on **OS Only** and s
 
 ![Alt Image Text](./images/lightsail-create-instance-2.png "Lightsail Homepage")
 
-Scroll down to **Launch script** and add the following script.
+Scroll down to **Launch script** and add the the following script to the edit field. Update the environment number according to the containers you want to use:
+
+ * `1` - Workshops 1 - 7
+ * `2` - Workshops xxx
 
 Optionally change the password from the default value of abc123! to a more secure one.
 
 ```
 export GITHUB_PROJECT=stream-processing-workshop
+export ENVIRONMENT=1
 export GITHUB_OWNER=gschmutz
 export PLATYS_VERSION=2.4.0
 export NETWORK_NAME=ens5
@@ -79,7 +83,7 @@ cd /home/${USERNAME}
 git clone https://github.com/${GITHUB_OWNER}/${GITHUB_PROJECT}
 chown -R ${USERNAME}:${USERNAME} ${GITHUB_PROJECT}
 
-cd /home/${USERNAME}/${GITHUB_PROJECT}/00-environment/docker
+cd /home/${USERNAME}/${GITHUB_PROJECT}/00-environment/docker-${ENVIRONMENT:-1}
 
 # Make Environment Variables persistent
 sudo echo "export PUBLIC_IP=$PUBLIC_IP" | sudo tee -a /etc/profile.d/platys-platform-env.sh
