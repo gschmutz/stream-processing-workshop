@@ -35,76 +35,22 @@ The data originates from the [MQTTX CLI](https://mqttx.app/docs/cli) `smart_home
 ## Prerequisites
 
 - The **Data Platform** described in [00-environment](../00-environment) is running and accessible
-- `DOCKER_HOST_IP` is set in your shell (e.g. `export DOCKER_HOST_IP=dataplatform` or the IP of your Docker host)
 
-## Part 1 — Update the Platform Configuration
+## Running the Simulator and publish to MQTT
 
-The base platform does not enable InfluxDB 3.x, Telegraf, or Grafana by default. You need to turn on these services and provide a custom Telegraf configuration before regenerating the platform.
+The MQTT CLI is part of the platform we have started using docker compose. We can use it via `docker exec` command. 
 
-### Update `config.yml`
+The simulator comes with a few built-in scenarios. To list the available scenarios, in a terminal window execute the following:
 
-Open `00-environment/docker/config.yml` and apply the following changes (search for each key and set the value):
-
-```yaml
-# ===== Influx DB 3.x ========
-INFLUXDB3_enable: true
-INFLUXDB3_object_store_type: file
-INFLUXDB3_database: demo-db
-INFLUXDB3_volume_map_data: false
-INFLUXDB3_volume_map_plugins: false
-
-# ===== Influx DB 3 Explorer (UI) ========
-INFLUXDB3_EXPLORER_enable: true
-INFLUXDB3_EXPLORER_mode: 'admin'
-INFLUXDB3_EXPLORER_session_secret_key: 3fd4e9d0a3f7307fb5e3285414781fc2cfff1486d9306d0ea10dd5f39d6b0ea5
-INFLUXDB3_EXPLORER_volume_map_data: false
-
-# ===== Influx Telegraf ========
-INFLUXDB_TELEGRAF_enable: true
-INFLUXDB_TELEGRAF_custom_conf_file: 'telegraf-kafka-to-influxdb.conf'
-
-# ===== Grafana ========
-GRAFANA_enable: true
-GRAFANA_install_plugins: 'grafana-piechart-panel'
 ```
-
-### Copy the Telegraf configuration
-
-Copy the Telegraf conf file provided in this workshop into the platform's Telegraf conf directory:
-
-```bash
-cp ./conf/telegraf-kafka-to-influxdb.conf $DATAPLATFORM_HOME/conf/telegraf/telegraf-kafka-to-influxdb.conf
-```
-
-Where `$DATAPLATFORM_HOME` is the `00-environment/docker` folder of this repository.
-
-### Regenerate and restart the platform
-
-Navigate to the platform folder and regenerate the `docker-compose.yml`:
-
-```bash
-cd $DATAPLATFORM_HOME
-platys gen
-docker compose up -d
-```
-
-> **What you should see:** `docker compose up -d` completes successfully with `influxdb3`, `telegraf`, and `grafana` containers listed as started.
-
-> **Note:** If you are adding these services to an already-running platform, it is enough to run `docker compose up -d` after `platys gen`. Docker Compose will only start the new containers.
-
-## Part 2 — Run the MQTT Simulator
-
-The MQTTX CLI is available inside the platform as the `mqttx-cli` container.
-
-### List available simulation scenarios
-
-```bash
 docker exec -ti mqttx-cli mqttx ls --scenarios
 ```
 
-You should see output similar to:
+and you should see a result similar to
 
 ```
+~/w/platys-datahub>docker exec -ti mqttx-cli mqttx ls --scenarios                                                               1.303s 23:12
+You can use any of the above scenario names as a parameter to run the scenario.
 ┌───────────────┬──────────────────────────────────────────────────────────────────────────────────────────────┐
 │ Scenario Name │ Description                                                                                  │
 ├───────────────┼──────────────────────────────────────────────────────────────────────────────────────────────┤
@@ -112,86 +58,159 @@ You should see output similar to:
 ├───────────────┼──────────────────────────────────────────────────────────────────────────────────────────────┤
 │ smart_home    │ Simulation to generate Smart Home data.                                                      │
 ├───────────────┼──────────────────────────────────────────────────────────────────────────────────────────────┤
-│ tesla         │ Simulation to generate Tesla's data.                                                         │
+│ tesla         │ Simulation to generate Tesla's data, reference form https://github.com/adriankumpf/teslamate │
 ├───────────────┼──────────────────────────────────────────────────────────────────────────────────────────────┤
 │ weather       │ Simulation to generate advanced weather station's data.                                      │
 └───────────────┴──────────────────────────────────────────────────────────────────────────────────────────────┘
+~/w/platys-datahub>
 ```
 
-> **What you should see:** Four built-in scenarios including `smart_home`.
+> **What you should see:** a table of four built-in scenarios including `smart_home`
 
-### Start the simulator
+we will be using the `IEM` scenario. 
 
-In a terminal window, run the `smart_home` scenario against the Mosquitto broker. The `-c 100` flag simulates 100 homes:
+To run it, use the `simulate` option and specify with `conn` the MQTT broker to connect to. We are running `mosquitto` as part of the platform and this is the one we are connecting to.
 
 ```bash
-docker exec -ti mqttx-cli mqttx simulate -sc smart_home -c 100 conn -h 'mosquitto-1' -p 1883
+docker exec -ti mqttx-cli mqttx simulate -sc IEM -c 100 conn  -h 'mosquitto-1' -p 1883
 ```
 
-> **What you should see:** The simulator runs silently; messages are published to topics matching `mqttx/simulate/#` at regular intervals.
+> **What you should see:** the simulator runs silently; messages are being published to the `mqttx/simulate/#` topic at regular intervals
 
-Keep this terminal running throughout the workshop.
+## Using an MQTT Client to view messages
 
-### Understanding the message format
+For viewing the messages in MQTT, there are many options available.
 
-Each message is a single-line JSON document. The `smart_home` scenario produces one message per home per interval, containing a `rooms` array with per-room sensor readings:
+In this workshop we will present two alternative options for consuming from MQTT
+
+ * use dockerized MQTT client in the terminal
+ * use browser-based HiveMQ Web UI
+
+Using dockerized MQTT Client
+
+To start consuming using through a command line, perform the following docker command from another terminal window:
+
+```bash
+docker run -it --network streaming-data-platform --rm efrecon/mqtt-client mosquitto_sub -h mosquitto-1 -p 1883 -t mqttx/simulate/IEM/#
+```
+
+The consumed messages will show up on the terminal window as shown below.
+
+![](./images/mosquitto-sub.png)
+
+> **What you should see:** a continuous stream of single-line JSON messages appearing in the terminal, one per simulated home per interval
+
+Alternatively you can also use the [MQTTX Desktop](https://mqttx.app/downloads) version, available for installation on Mac or Windows.
+
+In the subscription pattern of we have used `mqttx/simulate/IEM/#`, where  the `#` symbol is a wildcard used in topic subscriptions to match multiple levels in the topic hierarchy. It's known as the multi-level wildcard. It's important to note that # can only be used as the last character in a topic string, and only one # can be used in a single subscription.
+
+If we check one of the messages, we can see that they are in JSON format, although all one one single line:
+
+```json
+{"factory_id":"013","factory":"Upton LLC","values":{"air_compressor_1":2.69,"air_compressor_2":5.35,"lighting":1.08,"cooling_equipment":26.85,"heating_equipment":43.97,"conveyor":11.1,"coating_equipment":4.37,"inspection_equipment":2,"welding_equipment":4.47,"packaging_equipment":6.1,"cutting_equipment":19.32},"timestamp":1781119405905}
+```
+
+if we "pretty-print" it then it is more visible
 
 ```json
 {
-   "home_id": "88a76b99-6e22-4771-90cd-aba57deb1015",
-   "owner_name": "Erik O'Connell",
-   "address": "518 Ullrich Mall",
-   "rooms": [
-      { "room_type": "living room", "temperature": 20, "humidity": 47, "lights_on": true, "window_open": false },
-      { "room_type": "bedroom",     "temperature": 22, "humidity": 39, "lights_on": true, "window_open": false, "bed_occupancy": false },
-      { "room_type": "kitchen",     "temperature": 19, "humidity": 34, "lights_on": true, "window_open": true, "fridge_temperature": 7, "oven_on": true },
-      { "room_type": "bathroom",    "temperature": 24, "humidity": 50, "lights_on": true, "window_open": true, "water_tap_running": true, "bath_water_level": 91 }
-   ],
-   "timestamp": 1714807284732
+  "factory_id": "013",
+  "factory": "Upton LLC",
+  "values": {
+    "air_compressor_1": 2.69,
+    "air_compressor_2": 5.35,
+    "lighting": 1.08,
+    "cooling_equipment": 26.85,
+    "heating_equipment": 43.97,
+    "conveyor": 11.1,
+    "coating_equipment": 4.37,
+    "inspection_equipment": 2,
+    "welding_equipment": 4.47,
+    "packaging_equipment": 6.1,
+    "cutting_equipment": 19.32
+  },
+  "timestamp": 1781119405905
 }
 ```
 
-> **What just happened?** One JSON message represents all rooms of one home. Later, Telegraf will expand the `rooms` array so each room becomes its own row in InfluxDB.
+We can see that one message of the `IEM` simulator contains messages for one factory with various sensor values like `lighting `, `cooling_equipment` and others. 
 
-## Part 3 — View MQTT Messages
+Let's build a bridge to retrieve them from MQTT and send them to Apache Kafka.
 
-Before involving Kafka, confirm that messages are arriving at the MQTT broker.
+## Bridge MQTT to Kafka with Kafka Connect
 
-### Option A — Dockerized MQTT client
+For transporting messages from MQTT to Kafka, in this workshop we will be using Kafka Connect. We could also use Apache NiFi to achieve the same result. 
 
-In a second terminal window run:
+Luckily, there are multiple Kafka Source Connectors available for consuming from MQTT. We can either use the one provided by [Confluent Inc.](https://www.confluent.io/connector/kafka-connect-mqtt/) (which is part of Confluent Enterprise but needs an enterpise license) or the one provided as part of the [Landoop Stream-Reactor Project](https://github.com/Landoop/stream-reactor/tree/master/kafka-connect-mqtt) available on GitHub. We will be using the later one. 
 
-```bash
-docker run -it --network streaming-data-platform --rm efrecon/mqtt-client \
-    mosquitto_sub -h mosquitto-1 -p 1883 -t mqttx/simulate/#
+### Adding the MQTT Kafka Connector 
+
+There are instances of the Kafka Connect service instance running as part of the Modern Data Platform, `kafka-connect-1` and optionally `kafka-connect-2`. 
+
+To add the connector implementations, without having to copy them into the docker container (or even create a dedicated docker image holding the jar), both connect services are configured to use additional connector implementations from the local folder `/etc/kafka-connect/custom-plugins` inside the docker container. This folder is mapped as a volume to the `plugins/kafka-connect` folder outside of the container on to the docker host. 
+
+So its good enough to copy the necessary artefacts of the Kafka connectors we want to use. 
+
+Navigate into the `plugins/kafka-connect` folder (which is a sub-folder of the `docker` folder which holds the `docker-compose.yml` file.
+
+```
+cd $DATAPLATFORM_HOME/plugins/kafka-connect/connectors
 ```
 
-> **What you should see:** A continuous stream of single-line JSON messages, one per home per interval.
+and download the `11.7.7/kafka-connect-mqtt-11.7.7.zip` file from the [Landoop Stream-Reactor Project](https://github.com/Landoop/stream-reactor/tree/master/kafka-connect-mqtt) project.
 
-### Option B — HiveMQ Web UI
+```
+wget https://github.com/lensesio/stream-reactor/releases/download/11.7.7/kafka-connect-mqtt-11.7.7.zip
+```
 
-Navigate to [http://dataplatform:28136](http://dataplatform:28136) and connect using:
+Once it is successfully downloaded, uncompress it using this `tar` command and remove the file after the uncompress was successful. 
 
-- **Host**: `dataplatform`
-- **Port**: `9101`
+```
+unzip kafka-connect-mqtt-11.7.7.zip
+rm kafka-connect-mqtt-11.7.7.zip
+```
 
-Click **Connect**, then click **Add New Topic Subscription** and enter `mqttx/simulate/#`. Click **Subscribe**.
+Now let's restart Kafka connect in order to pick up the new connector (Make sure to navigate back to the docker folder first, either using `cd $DATAPLATFORM_HOME` or `cd ../..`)
 
-> **What you should see:** Messages flowing in the subscriptions panel in real time.
+```
+cd $DATAPLATFORM_HOME
+docker compose restart kafka-connect-1
+```
 
-## Part 4 — Bridge MQTT to Kafka with Kafka Connect
+The connector should now be added to the Kafka cluster. You can confirm that by watching the log file of the two containers
 
-Kafka Connect is already running as part of the platform and the **Confluent MQTT Source Connector** (`confluentinc/kafka-connect-mqtt`) is pre-installed.
+```
+docker compose logs -f kafka-connect-1
+```
 
-### Create the Kafka topic
+After a while you should see an output similar to the one below with a message that the MQTT connector was added and later that the connector finished starting ...
 
-Create a topic named `smart_home` with 8 partitions:
+```
+...
+kafka-connect-1             | [2019-06-08 18:01:02,590] INFO Registered loader: PluginClassLoader{pluginLocation=file:/etc/kafka-connect/custom-plugins/kafka-connect-mqtt-1.2.1-2.1.0-all/} (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
+kafka-connect-1             | [2019-06-08 18:01:02,591] INFO Added plugin 'com.datamountaineer.streamreactor.connect.mqtt.source.MqttSourceConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
+kafka-connect-1             | [2019-06-08 18:01:02,591] INFO Added plugin 'com.datamountaineer.streamreactor.connect.mqtt.sink.MqttSinkConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
+kafka-connect-1             | [2019-06-08 18:01:02,592] INFO Added plugin 'com.datamountaineer.streamreactor.connect.converters.source.JsonResilientConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
+kafka-connect-1             | [2019-06-08 18:01:02,592] INFO Added plugin 'com.landoop.connect.sql.Transformation' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
+...
+kafka-connect-1             | [2019-06-08 18:01:11,520] INFO Starting connectors and tasks using config offset -1 (org.apache.kafka.connect.runtime.distributed.DistributedHerder)
+kafka-connect-1             | [2019-06-08 18:01:11,520] INFO Finished starting connectors and tasks (org.apache.kafka.connect.runtime.distributed.DistributedHerder)
+
+```
+
+Now the connector is ready to be used. Before we can configure and use it we have to create the Kafka target topic. 
+
+### Create the necessary Kafka topic
+
+The Kafka cluster is configured with `auto.topic.create.enable` set to `false`. Therefore we first have to create all the necessary topics, using the `kafka-topics` command line utility of Apache Kafka. 
+
+Create a topic named `energy-monitoring.raw` with 8 partitions:
 
 ```bash
 docker exec -ti kafka-1 kafka-topics \
   --bootstrap-server kafka-1:19092 \
   --create \
-  --topic smart_home \
+  --topic energy-monitoring.raw \
   --partitions 8 \
   --replication-factor 3
 ```
@@ -202,64 +221,84 @@ Verify it was created:
 docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --list
 ```
 
-> **What you should see:** `smart_home` listed among the topics.
+> **What you should see:** `energy-monitoring.raw` listed among the topics.
 
-### Deploy the MQTT → Kafka connector
+### Configure and start the MQTT Connector
 
-Make the scripts executable and run the startup script:
+For creating an instance of the connector over the API, you can either use a REST client or the Linux `curl` command line utility, which should be available on the Docker host. Curl is what we are going to use here. 
+
+Remove the connector, should it already exist:
+
+```
+curl -X "DELETE" "http://dataplatform:8083/connectors/mqtt-source"
+```
+
+Now create it using this curl command:
 
 ```bash
-chmod +x ./scripts/start-mqtt-to-kafka.sh
-chmod +x ./scripts/stop-mqtt-to-kafka.sh
-./scripts/start-mqtt-to-kafka.sh
+curl -X PUT \
+  http://${DOCKER_HOST_IP}:8083/connectors/mqtt-source/config \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json' \
+  -d '{
+    "connector.class": "io.lenses.streamreactor.connect.mqtt.source.MqttSourceConnector",
+    "connect.mqtt.connection.timeout": "1000",
+    "tasks.max": "1",
+    "connect.mqtt.kcql": "INSERT INTO energy-monitoring.raw SELECT * FROM mqttx/simulate/IEM/+ WITHCONVERTER=`io.lenses.streamreactor.connect.converters.source.JsonSimpleConverter` WITHKEY(factory_id)",
+    "connect.mqtt.connection.clean": "true",
+    "connect.mqtt.service.quality": "0",
+    "connect.mqtt.connection.keep.alive": "1000",
+    "connect.mqtt.client.id": "tm-mqtt-connect-01",
+    "connect.mqtt.converter.throw.on.error": "true",
+    "connect.mqtt.hosts": "tcp://mosquitto-1:1883",
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "false",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false"
+}'
 ```
 
-The script calls the Kafka Connect REST API to register a connector with this configuration:
-
-| Property | Value |
-|---|---|
-| `connector.class` | `io.confluent.connect.mqtt.MqttSourceConnector` |
-| `mqtt.server.uri` | `tcp://mosquitto-1:1883` |
-| `mqtt.topics` | `mqttx/simulate/#` |
-| `kafka.topic` | `smart_home` |
-| `value.converter` | `ByteArrayConverter` (raw bytes → Kafka, preserves JSON) |
-
-> **What you should see:** The REST API responds with the connector configuration JSON confirming creation.
-
-### Monitor the connector
-
-Navigate to the [Kafka Connect UI](http://dataplatform:28103) to confirm the connector status shows **Running**.
-
-You can also check via the REST API:
+A soon as the connector starts getting the messages from MQTT, they should start appearing on the console where the Kafka consumer is running, either using `kafkacat` or `kafka-console-consumer`:
 
 ```bash
-curl -s http://dataplatform:8083/connectors/mqtt-source-smart-home/status | python3 -m json.tool
+docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring.raw -q
 ```
 
-> **What you should see:** `"state": "RUNNING"` for both the connector and its task.
-
-> **What just happened?** The MQTT source connector subscribes to all topics matching `mqttx/simulate/#` on the Mosquitto broker. Every incoming MQTT message is forwarded as a Kafka record to the `smart_home` topic, with the MQTT topic path as the key and the raw JSON bytes as the value.
-
-## Part 5 — Verify Data in Kafka
-
-In a new terminal, start a consumer to confirm messages are flowing into the Kafka topic:
-
-```bash
-docker exec -ti kcat kcat -b kafka-1:19092 -t smart_home -C -q
 ```
-
-You should see a continuous stream of JSON objects:
-
-```
-{"home_id":"88a76b99-6e22-4771-90cd-aba57deb1015","owner_name":"Erik O'Connell","address":"518 Ullrich Mall","rooms":[{"room_type":"living room","temperature":20,"humidity":47,"lights_on":true,"window_open":false},...]}
-{"home_id":"3a9f1c00-1b44-4e28-9e71-3f5a3c2b0f11","owner_name":"Alice Smith","address":"12 Main St","rooms":[...]}
-...
+eadp@eadp-virtual-machine:~$ docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring.raw -q
+{"factory_id":"078","factory":"Dickinson - Lind","values":{"air_compressor_1":3.2,"air_compressor_2":4.55,"lighting":1.05,"cooling_equipment":17.2,"heating_equipment":36.82,"conveyor":10.26,"coating_equipment":5.48,"inspection_equipment":2.09,"welding_equipment":4.36,"packaging_equipment":8.01,"cutting_equipment":12.64},"timestamp":1781285306247}
+{"factory_id":"078","factory":"Dickinson - Lind","values":{"air_compressor_1":2.72,"air_compressor_2":5.15,"lighting":0.92,"cooling_equipment":23.06,"heating_equipment":34.84,"conveyor":13.74,"coating_equipment":5.34,"inspection_equipment":2.15,"welding_equipment":4.36,"packaging_equipment":5.07,"cutting_equipment":12.4},"timestamp":1781285306249}
+{"factory_id":"023","factory":"Schmeler, Stiedemann and Lebsack","values":{"air_compressor_1":2.79,"air_compressor_2":3.65,"lighting":1.35,"cooling_equipment":25.58,"heating_equipment":37.72,"conveyor":11.42,"coating_equipment":4.74,"inspection_equipment":2.56,"welding_equipment":3.61,"packaging_equipment":7.27,"cutting_equipment":17.51},"timestamp":1781285306436}
+{"factory_id":"072","factory":"Heller, Parker and Weimann","values":{"air_compressor_1":4,"air_compressor_2":4.45,"lighting":1.13,"cooling_equipment":27.16,"heating_equipment":42.19,"conveyor":10.34,"coating_equipment":4.36,"inspection_equipment":2.11,"welding_equipment":5.02,"packaging_equipment":5.92,"cutting_equipment":17.8},"timestamp":1781285306579}
+{"factory_id":"037","factory":"Nicolas - Pouros","values":{"air_compressor_1":3.32,"air_compressor_2":5.01,"lighting":0.98,"cooling_equipment":21.3,"heating_equipment":39.02,"conveyor":11.15,"coating_equipment":4.08,"inspection_equipment":2.24,"welding_equipment":4.46,"packaging_equipment":5.97,"cutting_equipment":16.81},"timestamp":1781285306710}
+{"factory_id":"021","factory":"Lesch, Welch and O'Reilly","values":{"air_compressor_1":3.99,"air_compressor_2":4.63,"lighting":1.14,"cooling_equipment":22.47,"heating_equipment":44.75,"conveyor":8.97,"coating_equipment":5.1,"inspection_equipment":1.95,"welding_equipment":5.16,"packaging_equipment":6.98,"cutting_equipment":12.81},"timestamp":1781285306717}
+{"factory_id":"096","factory":"Daniel - O'Hara","values":{"air_compressor_1":3.19,"air_compressor_2":4.2,"lighting":1.19,"cooling_equipment":22.04,"heating_equipment":49.17,"conveyor":9.73,"coating_equipment":5.37,"inspection_equipment":1.72,"welding_equipment":5.28,"packaging_equipment":8.2,"cutting_equipment":16.29},"timestamp":1781285306975}
+{"factory_id":"094","factory":"Boyle Group","values":{"air_compressor_1":3.11,"air_compressor_2":4,"lighting":1.17,"cooling_equipment":27.53,"heating_equipment":47.04,"conveyor":10.87,"coating_equipment":4.69,"inspection_equipment":2.28,"welding_equipment":3.43,"packaging_equipment":7.37,"cutting_equipment":18.15},"timestamp":1781285306979}
+{"factory_id":"076","factory":"Altenwerth, Hodkiewicz and Schoen","values":{"air_compressor_1":4.08,"air_compressor_2":4.03,"lighting":0.95,"cooling_equipment":22.83,"heating_equipment":38.09,"conveyor":10.12,"coating_equipment":5.21,"inspection_equipment":2.47,"welding_equipment":5.16,"packaging_equipment":6.25,"cutting_equipment":14.61},"timestamp":1781285306993}
 ```
 
 To also display the Kafka message key (which contains the original MQTT topic path):
 
 ```bash
-docker exec -ti kcat kcat -b kafka-1:19092 -t smart_home -C -f "Key: %k\nValue: %s\n---\n" -q
+docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring-raw -C -f "Key: %k\nValue: %s\n---\n" -q
+```
+
+which produces an output like:
+
+```
+---
+Key: "077"
+Value: {"factory_id":"077","factory":"Bode - Feeney","values":{"air_compressor_1":3.74,"air_compressor_2":4.1,"lighting":0.91,"cooling_equipment":25.94,"heating_equipment":40.46,"conveyor":8.96,"coating_equipment":5.24,"inspection_equipment":1.76,"welding_equipment":4.59,"packaging_equipment":5.05,"cutting_equipment":12.06},"timestamp":1781285498451}
+---
+Key: "017"
+Value: {"factory_id":"017","factory":"Pfannerstill Group","values":{"air_compressor_1":3.59,"air_compressor_2":4.7,"lighting":1.11,"cooling_equipment":22.32,"heating_equipment":38.87,"conveyor":12.83,"coating_equipment":4.04,"inspection_equipment":2.53,"welding_equipment":4.28,"packaging_equipment":6.91,"cutting_equipment":14.46},"timestamp":1781285498464}
+---
+Key: "077"
+Value: {"factory_id":"077","factory":"Bode - Feeney","values":{"air_compressor_1":3.75,"air_compressor_2":5.26,"lighting":1.03,"cooling_equipment":19.76,"heating_equipment":50.83,"conveyor":13.71,"coating_equipment":4.1,"inspection_equipment":1.88,"welding_equipment":3.95,"packaging_equipment":7.48,"cutting_equipment":13.59},"timestamp":1781285522496}
+---
+Key: "077"
+Value: {"factory_id":"077","factory":"Bode - Feeney","values":{"air_compressor_1":3.86,"air_compressor_2":3.91,"lighting":1.38,"cooling_equipment":20.94,"heating_equipment":39.06,"conveyor":9.02,"coating_equipment":3.91,"inspection_equipment":2.14,"welding_equipment":5.07,"packaging_equipment":8.04,"cutting_equipment":17.14},"timestamp":1781285522503}
+---
 ```
 
 > **What you should see:** Lines like `Key: mqttx/simulate/smart_home/0` followed by the full JSON payload for each home.
@@ -268,337 +307,572 @@ docker exec -ti kcat kcat -b kafka-1:19092 -t smart_home -C -f "Key: %k\nValue: 
 
 Press **Ctrl-C** to stop the consumer.
 
-## Part 6 — Create an InfluxDB Authentication Token
+### Monitor connector in Kafka Connect UI
 
-Telegraf needs a valid token to write data to InfluxDB 3.x. You create an operator token using the InfluxDB CLI inside the container.
+Navigate to the [Kafka Connect UI](http://dataplatform:28103) to see the connector running.
 
-### Create the token
+![Alt Image Text](./images/kafka-connect-ui.png "Schema Registry UI")
+
+> **What you should see:** `"state": "RUNNING"` for both the connector and its task.
+
+> **What just happened?** The MQTT source connector subscribes to all topics matching `mqttx/simulate/IEM/+` on the Mosquitto broker. Every incoming MQTT message is forwarded as a Kafka record to the `energy-monitoring-raw` topic, with the MQTT topic path as the key and the raw JSON bytes as the value.
+
+## Create Avro Schema for downstream processing
+
+Pre-register the schema by POSTing it to the Schema Registry. Save the Avro schema to a file:
+
+```
+cat > energy-monitoring.avsc << 'EOF'
+{
+  "type": "record",
+  "name": "EnergyLog",
+  "namespace": "com.energy.monitoring",
+  "doc": "Flattened energy consumption record per factory",
+  "fields": [
+    {
+      "name": "factory_id",
+      "type": "string",
+      "doc": "Unique factory identifier"
+    },
+    {
+      "name": "factory",
+      "type": "string",
+      "doc": "Factory name"
+    },
+    {
+      "name": "timestamp",
+      "type": "long",
+      "doc": "Event time in milliseconds since epoch"
+    },
+    {
+      "name": "air_compressor_1",
+      "type": "double",
+      "doc": "Air compressor 1 energy consumption (kWh)"
+    },
+    {
+      "name": "air_compressor_2",
+      "type": "double",
+      "doc": "Air compressor 2 energy consumption (kWh)"
+    },
+    {
+      "name": "lighting",
+      "type": "double",
+      "doc": "Lighting energy consumption (kWh)"
+    },
+    {
+      "name": "cooling_equipment",
+      "type": "double",
+      "doc": "Cooling equipment energy consumption (kWh)"
+    },
+    {
+      "name": "heating_equipment",
+      "type": "double",
+      "doc": "Heating equipment energy consumption (kWh)"
+    },
+    {
+      "name": "conveyor",
+      "type": "double",
+      "doc": "Conveyor energy consumption (kWh)"
+    },
+    {
+      "name": "coating_equipment",
+      "type": "double",
+      "doc": "Coating equipment energy consumption (kWh)"
+    },
+    {
+      "name": "inspection_equipment",
+      "type": "double",
+      "doc": "Inspection equipment energy consumption (kWh)"
+    },
+    {
+      "name": "welding_equipment",
+      "type": "double",
+      "doc": "Welding equipment energy consumption (kWh)"
+    },
+    {
+      "name": "packaging_equipment",
+      "type": "double",
+      "doc": "Packaging equipment energy consumption (kWh)"
+    },
+    {
+      "name": "cutting_equipment",
+      "type": "double",
+      "doc": "Cutting equipment energy consumption (kWh)"
+    }
+  ]
+}
+EOF
+```
+
+Before registering the schema, set the compatibility level for the subject. The default is BACKWARD (new schema can read data written with the previous schema), but you can choose the level that fits your evolution strategy:
 
 ```bash
-docker exec -ti influxdb3 influxdb3 create token --admin
+curl -s -X PUT http://dataplatform:8081/config/energy-monitoring.avro-value \
+    -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+    -d '{"compatibility": "BACKWARD"}'
 ```
 
-The output will look similar to:
-
-```
-Token: apiv3_FBiA8QmpreTRyfkSwjfnI07NfmbNyEXvbc7tlsTtW2NQMQFm1Fi9MC-Clp7VlYapEeNF030nH8PIlzwyz0O60Q==
-```
-
-Copy the token value.
-
-### Export the token as an environment variable
+Then register the schema using jq to produce the correctly escaped request body:
 
 ```bash
-export INFLUXDB_TOKEN="apiv3_FBiA8QmpreTRyfkSwjfnI07NfmbNyEXvbc7tlsTtW2NQMQFm1Fi9MC-Clp7VlYapEeNF030nH8PIlzwyz0O60Q=="
-export INFLUXDB_DATABASE="demo-db"
+jq -n --arg schema "$(cat energy-monitoring.avsc)" '{"schema": $schema}' | \
+  curl -s -X POST http://dataplatform:8081/subjects/energy-monitoring.avro-value/versions \
+    -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+    -d @-
+```    
+
+### Transforming JSON to JSON using JOLT
+
+[JOLT](https://github.com/bazaarvoice/jolt) (JSON to JSON Transformation Library) is a Java library that transforms a JSON document into a new JSON structure using a declarative specification written in JSON itself. Instead of writing imperative code to map fields, you describe the desired output shape and JOLT figures out how to get there. The specification is made up of one or more transformation steps — the most commonly used are `shift` (picks fields from the input and places them at new paths in the output), `default` (adds fields with a constant value when they are absent), and `remove` (drops unwanted fields). In Apache NiFi the **JoltTransformRecord** (or **JoltTransformJSON**) processor applies a JOLT spec to every record that passes through it, making it straightforward to flatten, rename, or restructure JSON messages inline in the data flow without writing any custom code.
+
+In our case the raw message coming from the `energy-monitoring-raw` topic has the sensor readings nested inside a `values` object:
+
+```json
+{
+  "factory_id": "094",
+  "factory": "Grady Inc",
+  "values": {
+    "air_compressor_1": 2.92,
+    "air_compressor_2": 4.59,
+    "lighting": 1.02,
+    "cooling_equipment": 26.49,
+    "heating_equipment": 44.12,
+    "conveyor": 10.04,
+    "coating_equipment": 5.13,
+    "inspection_equipment": 2.13,
+    "welding_equipment": 3.36,
+    "packaging_equipment": 8.26,
+    "cutting_equipment": 11.89
+  },
+  "timestamp": 1781291723724
+}
 ```
 
-> **Important:** Keep the `INFLUXDB_TOKEN` value safe — it grants full administrative access to InfluxDB 3.x.
+The JOLT `shift` spec below promotes every key inside `values` to the top level, producing a flat record that matches the Avro schema registered earlier:
 
-## Part 7 — Configure Telegraf to Consume from Kafka
+```json
+[
+  {
+    "operation": "shift",
+    "spec": {
+      "factory_id": "factory_id",
+      "factory": "factory",
+      "timestamp": "timestamp",
+      "values": {
+        "*": "&"
+      }
+    }
+  }
+]
+```
 
-Telegraf is already running but needs to be (re)started with the correct environment variables so it can authenticate to InfluxDB and write to the right database.
+> **Tip — test your spec interactively:** Before pasting a JOLT spec into NiFi or any code, you can validate it in the browser using the [JOLT Transform Demo](https://jolt-demo.appspot.com/#inception). Paste the input JSON in the **Json Input** panel, the spec in the **Jolt Spec** panel, and click **Transform** to see the output immediately. This is the fastest way to iterate on a spec and catch mistakes without restarting any services.
 
-### Review the Telegraf configuration
+![Alt Image Text](./images/jolt-transform.png "Flow Connected")
 
-The configuration file provided at `conf/telegraf-kafka-to-influxdb.conf` (which you copied to the platform in Part 1) sets up:
 
-- **Input**: `kafka_consumer` — connects to `kafka-1:19092`, subscribes to the `smart_home` topic, and uses the `json_v2` parser to flatten the nested `rooms` array.
-- **Output**: `influxdb_v3` — writes to `http://influxdb3:8181` using the token and database from environment variables.
 
-The `json_v2` parser maps the message as follows:
+## Stream Processing Pipeline — NiFi or Python
 
-| Source JSON path | InfluxDB column | Type |
-|---|---|---|
-| `home_id` | `id` | tag |
-| `owner_name` | `owner` | tag |
-| `rooms[*].room_type` | `room_type` | tag |
-| `rooms[*].temperature` | `temperature` | field |
-| `rooms[*].humidity` | `humidity` | field |
-| `rooms[*].lights_on` | `lights_on` | field |
-| `rooms[*].window_open` | `window_open` | field |
-| `timestamp` | `time` | timestamp (unix ms) |
+Now that the raw messages are in Kafka and the JOLT transformation spec is defined, the next step is to wire the flattening into a running stream processing pipeline. The pipeline consumes records from `energy-monitoring-raw`, applies the JOLT shift transformation to promote the nested sensor values to the top level, serialises the result as Avro against the Schema Registry, and writes the flattened records to the `energy-monitoring` topic.
 
-Each element in the `rooms` array becomes **a separate row** in InfluxDB, meaning one MQTT message from a home with 4 rooms produces 4 InfluxDB rows.
+Two alternative implementations are provided — pick the one that fits your environment best:
 
-### Inject the token into the Telegraf container
+| Approach | When to use |
+|----------|-------------|
+| **Apache NiFi** | Visual, low-code; easy to monitor throughput and back-pressure; no Python runtime needed |
+| **Python script** | Lightweight; easy to run anywhere Python is available; useful for scripting or CI pipelines |
 
-Pass the token and database as environment variables when restarting the Telegraf container:
+Both approaches produce identical Avro output to the same `energy-monitoring` topic, so you can switch between them or run them side-by-side (using different consumer groups) without any downstream changes.
+
+## Using Apache NiFi to transform from raw to avro message
+
+### Why Apache NiFi
+
+[Apache NiFi](https://nifi.apache.org) is a visual data flow tool designed for routing, transforming, and mediating data between systems. It is a natural fit here because the routing logic — extract a field, match it against a list, publish to a dynamic topic name — is exactly the kind of stateless per-message transformation NiFi handles without writing any code. NiFi also provides a live monitoring view of throughput and backpressure on every connection, which makes it easy to observe the data flow during the workshop.
+
+### Open NiFi
+
+In a browser navigate to <https://dataplatform:18083/nifi>. NiFi uses a self-signed certificate, so confirm the browser security warning before proceeding.
+
+Enter `nifi` into the **User** field and `1234567890ACD` into the **Password** field and click **LOG IN**.
+
+> **What you should see:** The NiFi canvas — a workspace where you will build the data flow.
+
+### Add a Process Group first
+
+Drag the **Process Group** icon from the toolbar onto the canvas.
+
+![Alt Image Text](./images/nifi-drag-process-group-into-canvas.png "Add Processor")
+
+On the **Create Process Group** pop-up window, enter `energy-monitoring-pg` into the **Name** field and click **Add**. 
+
+Double click on the new **energy-monitoring-pg** process group to navigate into the group. 
+
+### Adding a `ConsumeKafka` processor
+
+Drag the **Processor** icon from the toolbar onto the canvas.
+
+![Alt Image Text](./images/nifi-drag-processor-into-canvas.png "Add Processor")
+
+The processor chooser dialog opens. Type **ConsumeK** into the filter box and select **ConsumeKafka**, then click **Add**.
+
+![Alt Image Text](./images/nifi-add-processor.png "Select ConsumeKafka")
+
+> **What you should see:** A `ConsumeKafka` processor on the canvas with a yellow warning marker, indicating it is not yet configured.
+
+Double-click the processor and click the **Properties** tab. Configure the following properties:
+
+- **Kafka Connection Service**: click the three dots, select **+ Create new service**, choose **Kafka3ConnectionService**, and click **Add**. Click the three dots again and select **Go To Service**. In the service list click the three dots and select **Edit**, navigate to **Properties**, and set:
+  - **Bootstrap Servers**: `kafka-1:19092`
+
+  Click **Apply**, then enable the service by clicking the three dots and selecting **Enable**. Click **Close** and **Back to Processor**.
+- **Group ID**: `energy-monitoring.raw-cg`
+- **Topics**: `energy-monitoring.raw`
+- **Processing Strategy**: `RECORD`
+- **Record Reader**: click the three dots, select **+ Create new service**, choose **JsonTreeReader**, and click **Add**. Click the three dots again and select **Go To Service**. Enable the service via its three-dot menu. Click **Close** and **Back to Processor**.
+- **Record Writer**: click the three dots, select **+ Create new service**, choose **JsonRecordSetWriter**, and click **Add**. Click the three dots again and select **Go To Service**. In the service list click the three dots and select **Edit**, navigate to **Properties** and set:
+  - **Output Grouping**: `One Line per Object`
+
+  Click **Apply** and enable the service. Click **Close** and **Back to Processor**.
+
+The configured processor should look as shown below:
+
+![Alt Image Text](./images/nifi-consume-kafka-processor-properties-1.png "ConsumeKafka Properties")
+
+Click **Apply** to close the dialog.
+
+### Flatten raw message using JOLT transformation
+
+[JOLT](https://github.com/bazaarvoice/jolt) (JSON to JSON Transformation Library) is a Java library that transforms a JSON document into a new JSON structure using a declarative specification written in JSON itself. Instead of writing imperative code to map fields, you describe the desired output shape and JOLT figures out how to get there. The specification is made up of one or more transformation steps — the most commonly used are `shift` (picks fields from the input and places them at new paths in the output), `default` (adds fields with a constant value when they are absent), and `remove` (drops unwanted fields). In Apache NiFi the **JoltTransformRecord** (or **JoltTransformJSON**) processor applies a JOLT spec to every record that passes through it, making it straightforward to flatten, rename, or restructure JSON messages inline in the data flow without writing any custom code.
+
+In our case the raw message coming from the `energy-monitoring-raw` topic has the sensor readings nested inside a `values` object:
+
+```json
+{
+  "factory_id": "013",
+  "factory": "Upton LLC",
+  "values": {
+    "air_compressor_1": 2.69,
+    "lighting": 1.08,
+    "cooling_equipment": 26.85
+  },
+  "timestamp": 1781119405905
+}
+```
+
+The JOLT `shift` spec below promotes every key inside `values` to the top level, producing a flat record that matches the Avro schema registered earlier:
+
+```json
+[
+  {
+    "operation": "shift",
+    "spec": {
+      "factory_id": "factory_id",
+      "factory": "factory",
+      "timestamp": "timestamp",
+      "values": {
+        "*": "&"
+      }
+    }
+  }
+]
+```
+
+> **Tip — test your spec interactively before wiring it into NiFi:** Open the [JOLT Transform Demo](https://jolt-demo.appspot.com/#inception) in a browser, paste the input JSON in the **Input JSON** panel and the spec above in the **Spec** panel, then click **Transform**. You will see the flattened output instantly, without restarting NiFi or any other service.
+
+As we already get records from the **ConsumeKafka** processor, let's use a **JoltTransformRecord** to transform (flatten) the raw message. Drag a new processor to the canvas and search for the **JoltTransformRecord** processor. Double-click on the new processor to navigate to the **Properties** tab. 
+
+Configure the following properties:
+
+  - **Jolt Transform**: `Chain`
+  - **Jolt Specification**: copy the JOLT spec from above, e.g. `[ { "operation": "shift" ...`
+  - **Record Reader**: select the existing `JsonTreeReader` created before
+  - **Record Writer**: select the existing `JsonRecordSetWriter` created before
+
+Click **Apply** to close the dialog for the **JoltTransformRecord** processor.  
+
+### Adding a `ProduceKafka` processor
+
+Drag the **Processor** icon from the toolbar onto the canvas.
+
+Type **PublishK** into the filter box and select **PublishKafka**, then click **Add**.
+
+![Alt Image Text](./images/nifi-3-processors.png "3 Processors")
+
+> **What you should see:** A `PublishKafka` processor on the canvas together with the other two processors.
+
+Before we configure the **PublishKafka** processors, let's connect them so we can already run the first two to validate that the flattening worked.
+
+### Connecting the processors
+
+Let's wire up the processors **ConsumeKafka → JoltTransformRecord → PublishKafka** by dragging from the source processor's edge to the destination and select the appropriate relationship in the dialog and terminate unused relationships on each processor:
+
+- **ConsumeKafka**: link `success`, terminate `parse.failure` (by double-clicking **ConsumeKafka** and navigate to tab **Relationships**)
+- **JoltTransformRecord** (both): link `success`, terminate `failure` and `original`
+- **PublishKafka**: terminate `failure` and `success`
+
+The first two processor should no longer have a warning indicator, only the last one. 
+
+### Start the first two processors
+
+Select **ConsumerKafka** and **JoltTransformRecord** and right-click and select **Start**. Wait a few seconds before you stop just the **ConsumerKafka** processor to only process a few records.
+
+![Alt Image Text](./images/nifi-run-first-2-processors.png "3 Processors")
+
+> **What you should see:** some messages should be queued on the **success** connection before the **PublishKafka** processor. 
+
+Right-click on the connection with the queued records and select **List Queue**. On the list of records, click on the 3 dots right to one of the messages and select **View content**
+
+![Alt Image Text](./images/nifi-list-queue.png "List queue")
+
+A window in a new browser tab with the content of the message should appear:$
+
+![Alt Image Text](./images/nifi-message-content.png "Message content")
+
+> **What you should see:** the message was successfully flattened by the Jolt transformation.
+
+Close the tab and on the list of records click on **Back to Connection** to navigate back to the canvas.
+
+### Configure the Publish Kafka processor
+
+To finish the pipeline, let's configure the last processor to send the message to the `energy-monitoring.avro` topic.
+
+Double-click on the **PublishKafka** processor and configure the following properties:
+
+- **Kafka Connection Service**: select `Kafka3ConnectionService` from the drop-down
+- **Topic Name**: `energy-monitoring.avro`
+- **Compression Type**: `zstd`
+- **Record Reader**: select existing `JsonTreeReader`
+- **Record Writer**: click the three dots, select **+ Create new service**, choose **AvroRecordSetWriter**, and click **Add**. Click the three dots again and select **Go To Service**. In the service list click the three dots and select **Edit**, navigate to **Properties** and set:
+  - **Schema Write Strategy**: `Schema Reference Writer`
+  - **Schema Reference Writer**: click the three dots, select **+ Create new service**, choose **ConfluentEncodedSchemaReferenceWriter**, and click **Add**. Click the three dots again and select **Go To Service**. Click the three dots again and select **Enable** and click **Enable** and click **Back to Controller Service**.  
+  - **Schema Access Strategy**: `Use 'Schema Name' Property`
+  - **Schema Name**: `energy-monitoring.avro-value`
+  - **Schema Registry**: click the three dots, select **+ Create new service**, choose **ConfluentSchemaRegistry**, and click **Add**. Click the three dots again and select **Go To Service**. In the service list click the three dots and select **Edit**, navigate to **Properties** and set:
+    - **Schema Registry URLs**: `http://schema-registry-1:8081`
+
+    Click **Apply** and enable the service. Also enable the **AvroRecordSetWriter**. Click **Back to Controller Service** and click **Close**.
+
+The **PublishKafka** should now be startable as well and no longer show a warning indicator. Before we can actually start it, we have to create the Kafka topic. 
 
 ```bash
-docker compose -f $DATAPLATFORM_HOME/docker-compose.yml stop telegraf
-docker compose -f $DATAPLATFORM_HOME/docker-compose.yml run -d \
-  -e INFLUXDB_TOKEN="${INFLUXDB_TOKEN}" \
-  -e INFLUXDB_DATABASE="${INFLUXDB_DATABASE}" \
-  --name telegraf \
-  telegraf
+docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --if-not-exists --topic energy-monitoring.avro     --replication-factor 3 --partitions 8
 ```
 
-Alternatively, if the platform's `.env` file is used, add the variables there and restart:
+Let's also create a `kcat` consumer to see the messages, as soon as we start the Kafka publisher
 
 ```bash
-echo "INFLUXDB_TOKEN=${INFLUXDB_TOKEN}" >> $DATAPLATFORM_HOME/.env
-echo "INFLUXDB_DATABASE=${INFLUXDB_DATABASE}" >> $DATAPLATFORM_HOME/.env
-docker compose -f $DATAPLATFORM_HOME/docker-compose.yml restart telegraf
+docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring.avro -q -s value=avro -r http://schema-registry-1:8081
 ```
 
-### Verify Telegraf is writing to InfluxDB
+Now start the **PublishKafka** processor in Apache Nifi and immediately the messages should appear in the terminal where `kcat` runs.
 
-Watch the Telegraf logs for write confirmations:
+```json
+{"factory_id": "058", "factory": "Hansen and Sons", "timestamp": 1781446704970, "air_compressor_1": 3.98, "air_compressor_2": 4.9800000000000004, "lighting": 1.0900000000000001, "cooling_equipment": 27.219999999999999, "heating_equipment": 50.530000000000001, "conveyor": 13.18, "coating_equipment": 3.5499999999999998, "inspection_equipment": 2.3799999999999999, "welding_equipment": 3.6499999999999999, "packaging_equipment": 5.3499999999999996, "cutting_equipment": 16.25}
+{"factory_id": "060", "factory": "Langworth Group", "timestamp": 1781446704967, "air_compressor_1": 3.2999999999999998, "air_compressor_2": 4.9000000000000004, "lighting": 1.0800000000000001, "cooling_equipment": 25.23, "heating_equipment": 40.560000000000002, "conveyor": 12.49, "coating_equipment": 3.6499999999999999, "inspection_equipment": 2.5800000000000001, "welding_equipment": 4.0800000000000001, "packaging_equipment": 5.2000000000000002, "cutting_equipment": 17.940000000000001}
+{"factory_id": "093", "factory": "Crist Inc", "timestamp": 1781446704970, "air_compressor_1": 3.77, "air_compressor_2": 4.1600000000000001, "lighting": 0.95999999999999996, "cooling_equipment": 27.77, "heating_equipment": 45.299999999999997, "conveyor": 10.32, "coating_equipment": 4.8399999999999999, "inspection_equipment": 2.3900000000000001, "welding_equipment": 5.4800000000000004, "packaging_equipment": 7.0700000000000003, "cutting_equipment": 19.09}
+{"factory_id": "049", "factory": "Littel - Kiehn", "timestamp": 1781446705074, "air_compressor_1": 4.1100000000000003, "air_compressor_2": 4.9800000000000004, "lighting": 1.03, "cooling_equipment": 19.059999999999999, "heating_equipment": 38.719999999999999, "conveyor": 12.42, "coating_equipment": 4.6299999999999999, "inspection_equipment": 2.25, "welding_equipment": 4.8499999999999996, "packaging_equipment": 5.6900000000000004, "cutting_equipment": 13.68}
+{"factory_id": "053", "factory": "Dooley - Kessler", "timestamp": 1781446705195, "air_compressor_1": 3.1800000000000002, "air_compressor_2": 3.77, "lighting": 0.98999999999999999, "cooling_equipment": 23.809999999999999, "heating_equipment": 43.200000000000003, "conveyor": 11.5, "coating_equipment": 4.5700000000000003, "inspection_equipment": 2.5099999999999998, "welding_equipment": 3.5, "packaging_equipment": 5.5300000000000002, "cutting_equipment": 18.07}
+{"factory_id": "075", "factory": "Metz, Stehr and Hyatt", "timestamp": 1781446705219, "air_compressor_1": 3.6200000000000001, "air_compressor_2": 4.5499999999999998, "lighting": 0.91000000000000003, "cooling_equipment": 24.870000000000001, "heating_equipment": 45.159999999999997, "conveyor": 9.2300000000000004, "coating_equipment": 4.6900000000000004, "inspection_equipment": 2.3900000000000001, "welding_equipment": 4.2300000000000004, "packaging_equipment": 7.1699999999999999, "cutting_equipment": 18.620000000000001}
+```
+
+> **What you should see:** the message are shown as JSON even thought behind they are sent as compressed Avro. `kcat` formats it in JSON because we specified `-s value=avro -r http://schema-registry-1:8081`. 
+
+
+## Using Python to transform from raw to avro message
+
+As an alternative to the NiFi flow, you can run a lightweight Python script that reads raw JSON messages from `energy-monitoring-raw`, flattens them, and produces Avro-serialised records to `energy-monitoring`. Two versions are provided in the `python/` folder — one using plain Python dict manipulation and one that applies the same JOLT shift spec used in NiFi, so both approaches produce identical output.
+
+### Prerequisites
+
+Install the dependencies (only `confluent-kafka` with its Avro extras is needed — no external JOLT library is required):
 
 ```bash
-docker logs -f telegraf
+cd python
+pip install -r requirements.txt
 ```
 
-After a few seconds you should see output like:
+### Option 1 — Plain Python
 
+[python/flatten_plain.py](python/flatten_plain.py) flattens the message with a single dict comprehension:
+
+```python
+def flatten(raw: dict) -> dict:
+    """Promote every key inside 'values' to the top level and drop the wrapper."""
+    result = {k: v for k, v in raw.items() if k != "values"}
+    result.update(raw.get("values", {}))
+    return result
 ```
-2026-04-12T12:00:05Z D! [outputs.influxdb_v3] Buffer fullness: 400 / 10000 metrics
-2026-04-12T12:00:05Z D! [outputs.influxdb_v3] Successfully wrote batch of 400 metrics
-```
 
-> **What you should see:** Repeated lines confirming successful batch writes to InfluxDB. If you see `401 Unauthorized`, the token is missing or incorrect — verify that `INFLUXDB_TOKEN` is set correctly and restart Telegraf.
-
-> **What just happened?** Telegraf polls Kafka for new records in the `smart_home` topic. For each record, the `json_v2` parser expands the `rooms` array into individual metrics and forwards them to InfluxDB 3.x using the Apache Arrow Flight SQL write protocol.
-
-## Part 8 — Query Data in InfluxDB
-
-### Verify the measurement exists
+Run it with:
 
 ```bash
-docker exec -ti influxdb3 influxdb3 query \
-  --token $INFLUXDB_TOKEN \
-  --database demo-db \
-  "SHOW TABLES"
+python python/flatten_plain.py
 ```
 
-> **What you should see:** `smart_home` listed under the `iox` schema:
+### Option 2 — JOLT spec
 
+[python/flatten_jolt.py](python/flatten_jolt.py) defines the same JOLT shift spec that is used in the NiFi `JoltTransformRecord` processor and applies it through a minimal built-in interpreter — no external JOLT library required:
+
+```python
+JOLT_SPEC = [
+    {
+        "operation": "shift",
+        "spec": {
+            "factory_id": "factory_id",
+            "factory":    "factory",
+            "timestamp":  "timestamp",
+            "values": {
+                "*": "&"   # promote every sensor field to the root level
+            },
+        },
+    }
+]
 ```
-+---------------+------------+------------+------------+
-| table_catalog | table_schema | table_name | table_type |
-+---------------+------------+------------+------------+
-| public        | iox        | smart_home | BASE TABLE |
-...
-+---------------+------------+------------+------------+
-```
 
-> **What just happened?** Telegraf created the `smart_home` measurement automatically when it wrote the first batch. InfluxDB 3.x stores measurements as tables in the `iox` schema; `SHOW TABLES` lists all of them.
+The interpreter supports direct field mappings (`"field": "output_name"`) and the wildcard-promote pattern (`"*": "&"`), which are the two patterns needed for this transformation. More complex JOLT operations (`default`, `remove`, `sort`) are not implemented since they are not required here.
 
-### Query the most recent rows
+Run it with:
 
 ```bash
-docker exec -ti influxdb3 influxdb3 query \
-  --token $INFLUXDB_TOKEN \
-  --database demo-db \
-  "SELECT time, id, owner, room_type, temperature, humidity FROM smart_home ORDER BY time DESC LIMIT 10"
+python python/flatten_jolt.py
 ```
 
-Example output:
+### What you should see
+
+Both scripts print a line per processed message:
 
 ```
-+-------------------------+--------------------------------------+----------------------+-------------+-------------+----------+
-| time                    | id                                   | owner                | room_type   | temperature | humidity |
-+-------------------------+--------------------------------------+----------------------+-------------+-------------+----------+
-| 2026-04-12T13:03:12.903 | 94169b47-7c9b-4c4f-832a-d257082fc928 | Tina Collins IV      | kitchen     | 22.0        | 33.0     |
-| 2026-04-12T13:03:12.903 | c0f5a3fe-ba16-4fc3-ae63-8cc470648b35 | Shaun Stiedemann V   | living room | 26.0        | 40.0     |
-| 2026-04-12T13:03:12.902 | 94944779-1801-4a71-863e-a185c647a44a | Kerry Schaefer       | bedroom     | 21.0        | 32.0     |
-| 2026-04-12T13:03:12.902 | db27e579-9f18-49cc-80c3-c063ff954b99 | Lola Thompson        | living room | 24.0        | 44.0     |
-...
-+-------------------------+--------------------------------------+----------------------+-------------+-------------+----------+
+Consuming 'energy-monitoring-raw' → producing Avro to 'energy-monitoring' ...
+Press Ctrl-C to stop.
+
+  factory_id=013  ts=1781119405905  heating=43.97 kWh
+  factory_id=078  ts=1781119405912  heating=36.82 kWh
+  ...
 ```
 
-> **What you should see:** Rows with one entry per room per home, ordered by most recent timestamp first.
-
-### Filter by room type
+Press **Ctrl-C** to stop. You can then verify the output topic with `kcat`:
 
 ```bash
-docker exec -ti influxdb3 influxdb3 query \
-  --token $INFLUXDB_TOKEN \
-  --database demo-db \
-  "SELECT time, id, owner, temperature, humidity FROM smart_home WHERE room_type = 'living room' ORDER BY time DESC LIMIT 10"
+docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring.avro -s avro -r http://dataplatform:8081 -C -q
 ```
 
-> **What you should see:** Only rows where `room_type = 'living room'`.
+> **What you should see:** flat JSON lines — one per factory record — with all sensor fields promoted to the top level alongside `factory_id`, `factory`, and `timestamp`.
 
-### Average temperature by room type
+## Write the Avro formatted messages to TimescaleDB
+
+[TimescaleDB](https://www.timescale.com) is an open-source time-series database built as a PostgreSQL extension. It adds automatic partitioning by time (hypertables), time-series specific functions, and compression on top of a standard PostgreSQL engine. Because it is a PostgreSQL extension rather than a separate database engine, you can connect to it with any PostgreSQL client, use standard SQL, and interact with it exactly as you would with a regular PostgreSQL database — including `psql`, JDBC/ODBC drivers, and tools like pgAdmin.
+
+### Connect to TimescaleDB
+
+Open a `psql` session inside the running TimescaleDB container:
 
 ```bash
-docker exec -ti influxdb3 influxdb3 query \
-  --token $INFLUXDB_TOKEN \
-  --database demo-db \
-  "SELECT room_type, AVG(temperature) AS avg_temp, AVG(humidity) AS avg_humidity FROM smart_home GROUP BY room_type ORDER BY room_type"
+docker exec -ti timescaledb psql -h timescaledb -p 5432 -U timescaledb
 ```
 
-Example output:
+When prompted for a password enter `abc123!`.
 
-```
-+-------------+--------------------+--------------------+
-| room_type   | avg_temp           | avg_humidity       |
-+-------------+--------------------+--------------------+
-| bathroom    | 21.99              | 40.04              |
-| bedroom     | 22.00              | 39.98              |
-| kitchen     | 22.01              | 39.99              |
-| living room | 21.99              | 39.99              |
-+-------------+--------------------+--------------------+
-```
+> **What you should see:** a `timescaledb=#` prompt, confirming you are connected to the database.
 
-> **What you should see:** One row per room type with averaged temperature and humidity across all homes and time.
+### Create the target table and hypertable
 
-### Filter by time range
-
-```bash
-docker exec -ti influxdb3 influxdb3 query \
-  --token $INFLUXDB_TOKEN \
-  --database demo-db \
-  "SELECT time, id, room_type, temperature, humidity FROM smart_home WHERE time >= now() - interval '5 minutes' ORDER BY time DESC"
-```
-
-> **What you should see:** Only rows from the last 5 minutes, sorted most-recent first.
-
-### Count rows ingested via Kafka
-
-Verify data is arriving through the full pipeline (MQTT → Kafka → Telegraf → InfluxDB):
-
-```bash
-docker exec -ti influxdb3 influxdb3 query \
-  --token $INFLUXDB_TOKEN \
-  --database demo-db \
-  "SELECT COUNT(*) AS total_rows FROM smart_home"
-```
-
-Run this query a second time after 30 seconds — the count should increase, confirming that the end-to-end pipeline is live.
-
-## Part 9 — Visualise with Grafana
-
-### Open Grafana
-
-Navigate to [http://dataplatform:3000](http://dataplatform:3000) and log in with:
-
-- **Username**: `admin`
-- **Password**: `admin`
-
-You will be asked to change the password on first login.
-
-### Add an InfluxDB datasource
-
-1. In the left sidebar, click **Connections** → **Data sources** → **Add new data source**.
-2. Search for **InfluxDB** and select it.
-3. Configure the datasource:
-
-| Field | Value |
-|---|---|
-| **Query language** | InfluxQL |
-| **URL** | `http://influxdb3:8181` |
-| **Database** | `demo-db` |
-| **Custom HTTP Headers** | Header: `Authorization` / Value: `Token <YOUR_TOKEN>` |
-
-Replace `<YOUR_TOKEN>` with the operator token generated in Part 6.
-
-4. Click **Save & test**.
-
-> **What you should see:** A green banner saying "datasource is working".
-
-> **Note:** InfluxDB 3.x supports InfluxQL through its v1 compatibility API at `/query`. Grafana sends InfluxQL queries to this endpoint, which InfluxDB 3.x translates internally to its SQL engine.
-
-### Create a new dashboard
-
-Click the **+** icon in the sidebar and select **Dashboard** → **Add visualization**.
-
-Select the **InfluxDB** datasource you just created.
-
-#### Panel 1 — Temperature over time by room type
-
-Switch to the **Code** editor in the query panel and enter:
+Once connected, run the following SQL to create the `energy_log` table and turn it into a TimescaleDB hypertable partitioned by time and factory:
 
 ```sql
-SELECT mean("temperature") AS "temperature"
-FROM "smart_home"
-WHERE $timeFilter
-GROUP BY time($__interval), "room_type"
-fill(none)
+CREATE TABLE energy_log (
+  factory_id VARCHAR(20),
+  factory VARCHAR(255),
+  air_compressor_1 DECIMAL(10, 2),
+  air_compressor_2 DECIMAL(10, 2),
+  lighting DECIMAL(10, 2),
+  cooling_equipment DECIMAL(10, 2),
+  heating_equipment DECIMAL(10, 2),
+  conveyor DECIMAL(10, 2),
+  coating_equipment DECIMAL(10, 2),
+  inspection_equipment DECIMAL(10, 2),
+  welding_equipment DECIMAL(10, 2),
+  packaging_equipment DECIMAL(10, 2),
+  cutting_equipment DECIMAL(10, 2),
+  timestamp TIMESTAMPTZ
+);
+
+-- Indexes for common filter and join patterns
+CREATE INDEX idx_factory_id ON energy_log(factory_id);
+CREATE INDEX idx_timestamp ON energy_log(timestamp);
+
+-- Convert the table into a hypertable partitioned by timestamp with 4 space partitions on factory_id.
+-- This gives TimescaleDB efficient pruning for both time-range and per-factory queries.
+SELECT create_hypertable('energy_log', 'timestamp', 'factory_id', 4);
 ```
 
-- Set the **Visualization** type to **Time series**.
-- Set the panel title to `Temperature by Room Type`.
-- Under **Legend**, set the **Display name** to `${__field.labels.room_type}`.
+> **What you should see:** `CREATE TABLE`, two `CREATE INDEX` confirmations, and a `create_hypertable` result row indicating the hypertable was created successfully.
 
-Click **Apply** to save the panel.
+Type `\q` to exit `psql`.
 
-#### Panel 2 — Humidity over time by room type
+### Configure the Kafka Connect JDBC Sink connector
 
-Add a second panel with the query:
+The Confluent JDBC Sink connector reads Avro records from the `energy-monitoring` Kafka topic and inserts them into `energy_log`. Because the `timestamp` field arrives as a Unix millisecond integer, a `TimestampConverter` Single Message Transform (SMT) is applied to convert it to a proper SQL `TIMESTAMP` before writing.
+
+In the `scripts` folder, create a file `start-timescaledb-sink.sh` with the following content:
+
+```bash
+#!/bin/bash
+
+echo "removing TimescaleDB Sink Connector"
+curl -X "DELETE" "http://${DOCKER_HOST_IP}:8083/connectors/timescaledb-sink"
+
+echo "creating TimescaleDB Sink Connector"
+curl -X PUT \
+  http://${DOCKER_HOST_IP}:8083/connectors/timescaledb-sink/config \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json' \
+  -d '{
+    "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+    "tasks.max": "2",
+    "connection.url": "jdbc:postgresql://timescaledb:5432/timescaledb",
+    "connection.user": "timescaledb",
+    "connection.password": "abc123!",
+    "topics": "energy-monitoring",
+    "table.name.format": "energy_log",
+    "insert.mode": "insert",
+    "pk.mode": "none",
+    "auto.create": "false",
+    "auto.evolve": "false",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "batch.size": "1000",
+    "dialect.name": "PostgreSqlDatabaseDialect",
+    "transforms": "tsConvert",
+    "transforms.tsConvert.type": "org.apache.kafka.connect.transforms.TimestampConverter$Value",
+    "transforms.tsConvert.field": "timestamp",
+    "transforms.tsConvert.target.type": "Timestamp",
+    "transforms.tsConvert.unix.precision": "milliseconds"
+  }'
+```
+
+Make the script executable and run it:
+
+```bash
+chmod +x scripts/start-timescaledb-sink.sh
+./scripts/start-timescaledb-sink.sh
+```
+
+> **What you should see:** a JSON response from the Kafka Connect REST API confirming the connector was created with `"name": "timescaledb-sink"`.
+
+### Verify data is flowing into TimescaleDB
+
+Reconnect to `psql` and query the table to confirm records are arriving:
+
+```bash
+docker exec -ti timescaledb psql -h timescaledb -p 5432 -U timescaledb
+```
 
 ```sql
-SELECT mean("humidity") AS "humidity"
-FROM "smart_home"
-WHERE $timeFilter
-GROUP BY time($__interval), "room_type"
-fill(none)
+SELECT factory_id, factory, timestamp, lighting, heating_equipment
+FROM energy_log
+ORDER BY timestamp DESC
+LIMIT 10;
 ```
 
-- Set the **Visualization** type to **Time series**.
-- Set the panel title to `Humidity by Room Type`.
-- Set the **Unit** (under Standard options) to `Humidity (%H)`.
-
-Click **Apply**.
-
-#### Panel 3 — Latest readings table
-
-Add a third panel to show the most recent reading per home and room:
-
-```sql
-SELECT last("temperature") AS "temperature", last("humidity") AS "humidity", "room_type", "owner"
-FROM "smart_home"
-WHERE $timeFilter
-GROUP BY "id", "room_type", "owner"
-```
-
-- Set the **Visualization** type to **Table**.
-- Set the panel title to `Latest Sensor Readings`.
-
-Click **Apply**.
-
-### Set dashboard time range and auto-refresh
-
-In the dashboard toolbar:
-
-- Set the time range to **Last 15 minutes** using the time picker in the top right.
-- Click the **refresh** dropdown and select **5s** to auto-refresh every 5 seconds.
-
-> **What you should see:** The time-series panels update with new data points arriving from the pipeline, and the table shows freshly ingested readings.
-
-### Save the dashboard
-
-Click the save icon (floppy disk) in the top toolbar, name the dashboard `Smart Home IoT`, and click **Save**.
-
-## Summary
-
-You have built a complete end-to-end IoT streaming pipeline:
-
-```
-MQTTX CLI (simulator)
-      │  smart_home scenario — 100 homes × 4 rooms × JSON per interval
-      ▼
-Mosquitto (MQTT broker)
-      │  topic: mqttx/simulate/#
-      ▼
-Kafka Connect — Confluent MQTT Source Connector
-      │  topic: smart_home  (key = MQTT topic, value = raw JSON bytes)
-      ▼
-Apache Kafka
-      │  topic: smart_home, 8 partitions
-      ▼
-Telegraf — kafka_consumer input + json_v2 parser
-      │  1 MQTT message → 4 InfluxDB rows (one per room)
-      ▼
-InfluxDB 3.x
-      │  measurement: smart_home  (tags: id, owner, room_type)
-      ▼
-Grafana
-      └─ time-series panels + table panel (InfluxQL over v1 compat API)
-```
-
-This architecture decouples the MQTT ingestion layer from the storage layer. Kafka acts as a durable buffer and fan-out point — additional consumers (stream analytics engines, other sinks, ML pipelines) can read from the same `smart_home` topic independently without affecting each other or the original MQTT producer.
-
-[back to overview](../README.md)
+> **What you should see:** the ten most recent rows with sensor readings, confirming that the Kafka → TimescaleDB pipeline is working end-to-end.
