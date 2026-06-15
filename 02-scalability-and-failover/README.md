@@ -9,8 +9,8 @@ In this workshop you will see these properties in action. You will start a reali
 - [What you will learn](#what-you-will-learn)
 - [Prerequisites](#prerequisites)
 - [Create the necessary Kafka topics](#create-the-necessary-kafka-topics)
-- [Showing Kafka Scalability](#showing-kafka-scalability)
-- [Showing Kafka Consumer Failover](#showing-kafka-consumer-failover)
+- [Kafka Scalability](#kafka-scalability)
+- [Kafka Consumer Failover](#kafka-consumer-failover)
 - [Kafka Broker Failover](#kafka-broker-failover)
 
 ## What you will learn
