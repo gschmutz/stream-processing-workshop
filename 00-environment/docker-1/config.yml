@@ -1223,7 +1223,7 @@
       #
       # ===== Adminer DB UI ========
       #
-      ADMINER_enable: true
+      ADMINER_enable: false
       #
       # ===== Cloudbeaver DB UI ========
       #
