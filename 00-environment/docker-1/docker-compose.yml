@@ -69,7 +69,6 @@ services:
       - 19093:19093
       - 29093:29093
       - 39093:39093
-      - 9993:9992
       - 1235:1234
     environment:
       KAFKA_BROKER_ID: 2
@@ -91,9 +90,6 @@ services:
       KAFKA_DELETE_TOPIC_ENABLE: 'True'
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'False'
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 100
-      KAFKA_JMX_PORT: 9992
-      KAFKA_JMX_OPTS: -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.rmi.port=9992
-      KAFKA_JMX_HOSTNAME: ${PUBLIC_IP:-127.0.0.1}
       KAFKA_LOG4J_ROOT_LOGLEVEL: INFO
       KAFKA_TOOLS_LOG4J_LOGLEVEL: WARN
     volumes:
@@ -117,7 +113,6 @@ services:
       - 19094:19094
       - 29094:29094
       - 39094:39094
-      - 9994:9992
       - 1236:1234
     environment:
       KAFKA_BROKER_ID: 3
@@ -139,9 +134,6 @@ services:
       KAFKA_DELETE_TOPIC_ENABLE: 'True'
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'False'
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 100
-      KAFKA_JMX_PORT: 9992
-      KAFKA_JMX_OPTS: -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.rmi.port=9992
-      KAFKA_JMX_HOSTNAME: ${PUBLIC_IP:-127.0.0.1}
       KAFKA_LOG4J_ROOT_LOGLEVEL: INFO
       KAFKA_TOOLS_LOG4J_LOGLEVEL: WARN
     volumes:
@@ -354,6 +346,7 @@ services:
       PROXY: 'true'
     volumes:
       - ./data-transfer:/data-transfer
+      - ./conf/kafka-connect-ui/resolv.conf:/etc/resolv.conf:ro
     restart: unless-stopped
     healthcheck:
       test: [CMD, wget, -qO-, http://localhost:8000/]

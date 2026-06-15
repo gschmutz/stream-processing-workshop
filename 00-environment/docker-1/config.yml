@@ -265,7 +265,7 @@
       KAFKA_TOPICS_UI_map_resolv_conf: true
       KAFKA_CONNECT_UI_enable: true
       # KAFKA_CONNECT_UI_use_public_ip: true
-      KAFKA_CONNECT_UI_map_resolv_conf: false
+      KAFKA_CONNECT_UI_map_resolv_conf: true
       #
       # ===== Cluster Manager for Apache Kafka ========
       #
