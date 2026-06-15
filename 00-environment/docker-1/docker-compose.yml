@@ -45,7 +45,7 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 100
       KAFKA_JMX_PORT: 9992
       KAFKA_JMX_OPTS: -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.rmi.port=9992
-      KAFKA_JMX_HOSTNAME: ${PUBLIC_IP:-127.0.0.1}
+      KAFKA_JMX_HOSTNAME: kafka-1 #'${PUBLIC_IP:-127.0.0.1}'
       KAFKA_LOG4J_ROOT_LOGLEVEL: INFO
       KAFKA_TOOLS_LOG4J_LOGLEVEL: WARN
     volumes:
@@ -93,7 +93,7 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 100
       KAFKA_JMX_PORT: 9992
       KAFKA_JMX_OPTS: -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.rmi.port=9992
-      KAFKA_JMX_HOSTNAME: ${PUBLIC_IP:-127.0.0.1}
+      KAFKA_JMX_HOSTNAME: kafka-2 #'${PUBLIC_IP:-127.0.0.1}'
       KAFKA_LOG4J_ROOT_LOGLEVEL: INFO
       KAFKA_TOOLS_LOG4J_LOGLEVEL: WARN
     volumes:
@@ -141,7 +141,7 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 100
       KAFKA_JMX_PORT: 9992
       KAFKA_JMX_OPTS: -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.rmi.port=9992
-      KAFKA_JMX_HOSTNAME: ${PUBLIC_IP:-127.0.0.1}
+      KAFKA_JMX_HOSTNAME: kafka-3 #'${PUBLIC_IP:-127.0.0.1}'
       KAFKA_LOG4J_ROOT_LOGLEVEL: INFO
       KAFKA_TOOLS_LOG4J_LOGLEVEL: WARN
     volumes:
@@ -354,6 +354,7 @@ services:
       PROXY: 'true'
     volumes:
       - ./data-transfer:/data-transfer
+      - ./conf/kafka-connect-ui/resolv.conf:/etc/resolv.conf:ro
     restart: unless-stopped
     healthcheck:
       test: [CMD, wget, -qO-, http://localhost:8000/]
@@ -862,7 +863,6 @@ services:
     environment:
       - GF_SERVER_HTTP_ADDR=0.0.0.0
       - GF_SERVER_HTTP_PORT=3000
-      - GF_INSTALL_PLUGINS=grafana-piechart-panel
       - GF_AUTH_ANONYMOUS_ENABLED=False
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
       - GF_SECURITY_ADMIN_USER=admin
@@ -876,8 +876,7 @@ services:
       - ./scripts/grafana/dashboards/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml
       - ./scripts/grafana/dashboards/docker/monitor_services.json:/etc/grafana/provisioning/dashboards/docker/monitor_services.json
       - ./scripts/grafana/datasources/timescaledb.yml:/etc/grafana/provisioning/datasources/timescaledb.yml
-      - ./plugins/grafana/plugins:/var/lib/grafana/plugins
-    restart: unless-stopped
+#        restart: unless-stopped
     healthcheck:
       test:
         - CMD-SHELL
