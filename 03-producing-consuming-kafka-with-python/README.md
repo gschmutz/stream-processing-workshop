@@ -13,13 +13,14 @@ In this workshop you will write Python scripts that produce and consume messages
 - [Working with Avro Messages and the Schema Registry](#working-with-avro-messages-and-the-schema-registry)
 - [Browsing the Schema Registry](#browsing-the-schema-registry)
 - [Schema Evolution with Forward Compatibility](#schema-evolution-with-forward-compatibility)
+- [Deleting schemas from the Schema Registry](#deleting-schemas-from-the-schema-registry)
 
 ## What you will learn
 
 - How to install and configure the Confluent Python client for Apache Kafka
 - How to produce messages without a key and with a key from Python
 - How to consume messages from a Kafka topic using a Python consumer
-- How to produce Avro-serialised messages using the Schema Registry
+- How to produce Avro-serialized messages using the Schema Registry
 - How to inspect registered schemas via the Schema Registry REST API and UI
 - How to consume Avro messages using `kcat`, `kafka-avro-console-consumer`, and Python
 
@@ -107,7 +108,7 @@ Leave this running in the background as you work through the sections below.
 
 ### Producing messages without a key
 
-The following script produces three messages with a `null` key. With no key, the producer distributes messages across partitions using round-robin:
+The following script produces six messages with a `null` key. With no key, the producer distributes messages across partitions using round-robin:
 
 ```python
 import time
@@ -170,7 +171,7 @@ for data in ["message1", "message2", "message3", "message4", "message5", "messag
 p.flush()
 ```
 
-> **What you should see:** Three more messages in the `kcat` terminal, all in the same partition and all carrying the key `1`:
+> **What you should see:** Six more messages in the `kcat` terminal, all in the same partition and all carrying the key `1`:
 
 ```
 P-5: 1=message1
@@ -181,7 +182,7 @@ P-5: 1=message5
 P-5: 1=message6
 ```
 
-> **What just happened?** The producer hashed the key `'1'` using the murmur2 algorithm and mapped it deterministically to a single partition. Every future message with key `'1'` will always land on partition 5, guaranteeing that a consumer of that partition sees all three messages in the order they were sent.
+> **What just happened?** The producer hashed the key `'1'` using the murmur2 algorithm and mapped it deterministically to a single partition. Every future message with key `'1'` will always land on partition 5, guaranteeing that a consumer of that partition sees all six messages in the order they were sent.
 
 ### Consuming messages
 
@@ -471,7 +472,7 @@ producer.flush()
 Record b'1001' successfully produced to test-python-avro-topic [1] at offset 0
 ```
 
-> **What just happened?** On the first run, the `AvroSerializer` checked whether the `Person` schema already exists in the Schema Registry. Since it did not, it registered it automatically. It then serialised the `Person` object into Avro binary format and prepended a 5-byte Confluent wire format header — 1 magic byte (`0x00`) followed by a 4-byte schema ID — before handing the payload to the producer. The Schema Registry enforces the configured compatibility level on subsequent schema changes — by default `BACKWARD`, meaning new schemas must be able to read data written with the previous schema.
+> **What just happened?** On the first run, the `AvroSerializer` checked whether the `Person` schema already exists in the Schema Registry. Since it did not, it registered it automatically. It then serialized the `Person` object into Avro binary format and prepended a 5-byte Confluent wire format header — 1 magic byte (`0x00`) followed by a 4-byte schema ID — before handing the payload to the producer. The Schema Registry enforces the configured compatibility level on subsequent schema changes — by default `BACKWARD`, meaning new schemas must be able to read data written with the previous schema.
 
 ### Producing Avro messages using a schema looked up from the Schema Registry
 
@@ -506,6 +507,12 @@ cat > person.avsc << 'EOF'
   ]
 }
 EOF
+```
+
+Before continuing, delete the Avro schema you might have previously registered in Python:
+
+```bash
+curl -s -X DELETE http://dataplatform:8081/subjects/test-python-avro-topic-value
 ```
 
 Before registering the schema, set the compatibility level for the subject. The default is `BACKWARD` (new schema can read data written with the previous schema), but you can choose the level that fits your evolution strategy:
@@ -665,7 +672,7 @@ docker exec -ti kcat kcat -b kafka-1:19092 -t test-python-avro-topic \
 P-1: 1001={"id": 1001, "firstName": "Peter", "lastName": "Muster", "dateOfBirth": "1985-03-15", "email": "peter.muster@example.com", "address": {"street": "Bahnhofstrasse 1", "city": "Zurich", "zipCode": "8001", "country": "CH"}}
 ```
 
-> **What just happened?** `kcat` read the 5-byte Confluent wire format prefix from each message, extracted the schema ID, fetched the corresponding Avro schema from the Schema Registry at `-r`, and used it to deserialise the binary payload into a human-readable JSON representation.
+> **What just happened?** `kcat` read the 5-byte Confluent wire format prefix from each message, extracted the schema ID, fetched the corresponding Avro schema from the Schema Registry at `-r`, and used it to deserialize the binary payload into a human-readable JSON representation.
 
 ### Consuming Avro messages with `kafka-avro-console-consumer`
 
@@ -691,11 +698,11 @@ kafka-avro-console-consumer \
 {"id":1001,"firstName":"Peter","lastName":"Muster","dateOfBirth":"1985-03-15","email":"peter.muster@example.com","address":{"street":"Bahnhofstrasse 1","city":"Zurich","zipCode":"8001","country":"CH"}}
 ```
 
-> **What just happened?** `kafka-avro-console-consumer` automatically fetches the schema from the Schema Registry and deserialises the Avro binary payload to JSON before printing it, in the same way `kcat` does with the `-s avro` flag — but it is pre-configured to talk to the Schema Registry running alongside it in the container.
+> **What just happened?** `kafka-avro-console-consumer` automatically fetches the schema from the Schema Registry and deserializes the Avro binary payload to JSON before printing it, in the same way `kcat` does with the `-s avro` flag — but it is pre-configured to talk to the Schema Registry running alongside it in the container.
 
 ### Consuming Avro messages from Python
 
-The following script consumes Avro messages and deserialises each one into a `Person` object. Rather than embedding the schema string, it fetches the reader schema from the Schema Registry by a pinned schema ID at startup. Using a fixed ID keeps the consumer stable — it always deserialises against the exact schema version it was built for, regardless of what gets registered later.
+The following script consumes Avro messages and deserializes each one into a `Person` object. Rather than embedding the schema string, it fetches the reader schema from the Schema Registry by a pinned schema ID at startup. Using a fixed ID keeps the consumer stable — it always deserializes against the exact schema version it was built for, regardless of what gets registered later.
 
 ```python
 from confluent_kafka import Consumer
@@ -778,7 +785,7 @@ finally:
     consumer.close()
 ```
 
-> **What you should see:** Each consumed Avro message deserialised and printed as a `Person` record:
+> **What you should see:** Each consumed Avro message deserialized and printed as a `Person` record:
 
 ```
 Person record b'1001': id: 1001
@@ -789,7 +796,7 @@ Person record b'1001': id: 1001
 	address:     Bahnhofstrasse 1, 8001 Zurich, CH
 ```
 
-> **What just happened?** `SchemaRegistryClient.get_schema(schema_id)` fetches the exact schema version registered under that ID and uses it as the reader schema for `AvroDeserializer`. For each message, the deserializer reads the 5-byte Confluent wire format header to get the writer's schema ID, resolves any differences between writer and reader schemas using Avro's schema resolution rules, and deserialises the payload into a Python dict. The `dict_to_person` callback then converts that dict into a `Person` instance. The consumer loop runs until interrupted with **Ctrl-C**, at which point the `finally` block calls `consumer.close()` to commit offsets and cleanly leave the consumer group.
+> **What just happened?** `SchemaRegistryClient.get_schema(schema_id)` fetches the exact schema version registered under that ID and uses it as the reader schema for `AvroDeserializer`. For each message, the deserializer reads the 5-byte Confluent wire format header to get the writer's schema ID, resolves any differences between writer and reader schemas using Avro's schema resolution rules, and deserializes the payload into a Python dict. The `dict_to_person` callback then converts that dict into a `Person` instance. The consumer loop runs until interrupted with **Ctrl-C**, at which point the `finally` block calls `consumer.close()` to commit offsets and cleanly leave the consumer group.
 
 ## Browsing the Schema Registry
 
@@ -858,6 +865,7 @@ Navigate to the Schema Registry UI at <http://dataplatform:28102>.
 [kafbat UI](https://github.com/kafbat/kafka-ui) is a lightweight, open-source Kafka management console. Navigate to <http://dataplatform:28183> and open the **Schema Registry** tab in the top navigation.
 
 > **What you should see:** All registered subjects listed by name. Selecting `test-python-avro-topic-value` displays the full Avro schema, the assigned schema ID, the version number, and the compatibility level. The UI also lets you register new schemas and update compatibility settings directly from the browser.
+
 ## Schema Evolution with Forward Compatibility
 
 Schemas rarely stay static. As requirements change, new fields are added — and you need a strategy that lets producers and consumers evolve independently without coordinated downtime. This section demonstrates a **FULL-compatible** schema change: a new optional field is added to the schema and the producer is updated to write it, while the existing consumer continues to work unchanged.
@@ -1052,3 +1060,38 @@ Person record b'1003': id: 1003
 
 > **What just happened?** The consumer fetched schema v1 (its pinned reader schema) at startup. When it received the message for `1003`, the `AvroDeserializer` detected that the writer schema (ID 2, from the wire header) differs from the reader schema (ID 1). Avro's schema resolution rules kicked in: `phoneNumber` exists in the writer schema but not in the reader schema, so it was silently skipped. This is the FULL-compatibility guarantee in action — the `default: null` on the new field means a new consumer could also read old messages safely, while the old consumer reads new messages by simply ignoring the unknown field. Neither side required a code change or restart.
 
+## Deleting schemas from the Schema Registry
+
+To delete a specific version of a registered schema:
+
+```bash
+curl -s -X DELETE http://dataplatform:8081/subjects/test-python-avro-topic-value/versions/1
+```
+
+> **What you should see:** The version number that was deleted:
+
+```json
+1
+```
+
+To delete all versions of a subject at once (removes the entire subject):
+
+```bash
+curl -s -X DELETE http://dataplatform:8081/subjects/test-python-avro-topic-value
+```
+
+> **What you should see:** The list of version numbers that were deleted:
+
+```json
+[1]
+```
+
+Both calls above perform a **soft delete** — the schema is marked as deleted and excluded from normal lookups, but the data is retained internally. This lets the registry continue serving deserialization requests for any messages already in Kafka that reference the deleted schema ID.
+
+To permanently remove the schema data, append `?permanent=true`. A permanent delete must be preceded by a soft delete:
+
+```bash
+curl -s -X DELETE "http://dataplatform:8081/subjects/test-python-avro-topic-value/versions/1?permanent=true"
+```
+
+> **Warning:** A permanent delete is irreversible. Any consumer that tries to deserialize a Kafka message whose wire-format header references the deleted schema ID will fail with a schema-not-found error.
