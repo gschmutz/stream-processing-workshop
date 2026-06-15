@@ -12,6 +12,7 @@ In this workshop you will write Python scripts that produce and consume messages
 - [Working with Text Messages](#working-with-text-messages)
 - [Working with Avro Messages and the Schema Registry](#working-with-avro-messages-and-the-schema-registry)
 - [Browsing the Schema Registry](#browsing-the-schema-registry)
+- [Schema Evolution with Forward Compatibility](#schema-evolution-with-forward-compatibility)
 
 ## What you will learn
 
@@ -129,8 +130,8 @@ for data in ["message1", "message2", "message3", "message4", "message5", "messag
 
 p.flush()
 ```
-w
-> **What you should see:** Three delivery confirmation lines from the `delivery_report` callback, and three new messages in the `kcat` terminal with `NULL` as the key:
+
+> **What you should see:** Six delivery confirmation lines from the `delivery_report` callback, and six new messages in the `kcat` terminal with `NULL` as the key:
 
 ```
 P-1: NULL=message1
@@ -658,7 +659,7 @@ docker exec -ti kcat kcat -b kafka-1:19092 -t test-python-avro-topic \
     -r http://schema-registry-1:8081
 ```
 
-> **What you should see:** The Avro payload decoded and displayed as a JSON string:
+> **What you should see:** The Avro payload is decoded and displayed as a JSON string:
 
 ```
 P-1: 1001={"id": 1001, "firstName": "Peter", "lastName": "Muster", "dateOfBirth": "1985-03-15", "email": "peter.muster@example.com", "address": {"street": "Bahnhofstrasse 1", "city": "Zurich", "zipCode": "8001", "country": "CH"}}
@@ -790,6 +791,73 @@ Person record b'1001': id: 1001
 
 > **What just happened?** `SchemaRegistryClient.get_schema(schema_id)` fetches the exact schema version registered under that ID and uses it as the reader schema for `AvroDeserializer`. For each message, the deserializer reads the 5-byte Confluent wire format header to get the writer's schema ID, resolves any differences between writer and reader schemas using Avro's schema resolution rules, and deserialises the payload into a Python dict. The `dict_to_person` callback then converts that dict into a `Person` instance. The consumer loop runs until interrupted with **Ctrl-C**, at which point the `finally` block calls `consumer.close()` to commit offsets and cleanly leave the consumer group.
 
+## Browsing the Schema Registry
+
+Once schemas are registered, the Schema Registry gives you two ways to inspect them: a REST API for scripting and automation, and a web UI for interactive exploration. Both show the same data — subjects, version history, schema definitions, and compatibility settings — so you can use whichever fits your workflow.
+
+### Viewing schemas via the REST API
+
+The Schema Registry exposes a REST API documented in the [Confluent documentation](https://docs.confluent.io/current/schema-registry/develop/api.html).
+
+#### List all registered subjects
+
+List all registered subjects:
+
+```bash
+curl http://dataplatform:8081/subjects
+```
+
+> **What you should see:** The subject created by the Avro producer:
+
+```json
+["test-python-avro-topic-value"]
+```
+
+List the available versions for the subject:
+
+```bash
+curl http://dataplatform:8081/subjects/test-python-avro-topic-value/versions
+```
+
+> **What you should see:** A single version, since we have only registered the schema once:
+
+```json
+[1]
+```
+
+Retrieve the full schema definition:
+
+```bash
+curl http://dataplatform:8081/subjects/test-python-avro-topic-value/versions/1
+```
+
+> **What you should see:** The schema object containing the subject name, version number, schema ID, and the Avro schema JSON:
+
+```json
+{"subject":"test-python-avro-topic-value","version":1,"id":1,"schema":"{\"type\":\"record\",\"name\":\"Person\",\"namespace\":\"my.test\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"firstName\",\"type\":\"string\"},{\"name\":\"lastName\",\"type\":\"string\"},{\"name\":\"dateOfBirth\",\"type\":{\"type\":\"int\",\"logicalType\":\"date\"}},{\"name\":\"email\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"address\",\"type\":{\"type\":\"record\",\"name\":\"Address\",\"fields\":[{\"name\":\"street\",\"type\":\"string\"},{\"name\":\"city\",\"type\":\"string\"},{\"name\":\"zipCode\",\"type\":\"string\"},{\"name\":\"country\",\"type\":\"string\"}]}}]}"}
+```
+
+> **What just happened?** The Schema Registry stored the schema under the subject name `<topic>-value` (the default naming strategy). The REST API lets you inspect, compare, and manage versions without any Kafka tooling — useful for auditing schema evolution in a pipeline.
+
+### Viewing schemas in the Schema Registry UI
+
+Navigate to the Schema Registry UI at <http://dataplatform:28102>.
+
+> **What you should see:** The `test-python-avro-topic-value` subject listed. Clicking on it displays the full Avro schema on the right side.
+
+![Alt Image Text](./images/schema-registry-ui-1.png "Schema Registry UI")
+
+### Viewing schemas using AKHQ
+
+[AKHQ](https://akhq.io) is a full-featured Kafka management UI that also surfaces Schema Registry data. Navigate to <http://dataplatform:28107> and select the **Schema Registry** section in the left sidebar.
+
+> **What you should see:** A list of all registered subjects. Clicking on `test-python-avro-topic-value` shows the schema definition, its version history, and the configured compatibility level. You can compare versions side by side and delete individual versions or entire subjects from the same view.
+
+### Viewing schemas using kafbat UI
+
+[kafbat UI](https://github.com/kafbat/kafka-ui) is a lightweight, open-source Kafka management console. Navigate to <http://dataplatform:28183> and open the **Schema Registry** tab in the top navigation.
+
+> **What you should see:** All registered subjects listed by name. Selecting `test-python-avro-topic-value` displays the full Avro schema, the assigned schema ID, the version number, and the compatibility level. The UI also lets you register new schemas and update compatibility settings directly from the browser.
 ## Schema Evolution with Forward Compatibility
 
 Schemas rarely stay static. As requirements change, new fields are added — and you need a strategy that lets producers and consumers evolve independently without coordinated downtime. This section demonstrates a **FULL-compatible** schema change: a new optional field is added to the schema and the producer is updated to write it, while the existing consumer continues to work unchanged.
@@ -951,7 +1019,11 @@ Record b'1003' successfully produced to test-python-avro-topic [1] at offset 2
 
 ### Consume with the unchanged consumer
 
-Run the original consumer script — the one pinned to `schema_id = 1` — against the topic that now contains the new v2 message:
+Run the original consumer script — the one pinned to `schema_id = 1` — against the topic that now contains the new v2 message. Paste the script into a new Jupyter cell (or re-run it as a standalone script) and execute it:
+
+```bash
+python avro_consumer.py
+```
 
 > **What you should see:** All three messages consumed correctly, including the new one produced with schema v2. The `phoneNumber` field is absent from the output because the reader schema (v1) does not include it:
 
@@ -980,70 +1052,3 @@ Person record b'1003': id: 1003
 
 > **What just happened?** The consumer fetched schema v1 (its pinned reader schema) at startup. When it received the message for `1003`, the `AvroDeserializer` detected that the writer schema (ID 2, from the wire header) differs from the reader schema (ID 1). Avro's schema resolution rules kicked in: `phoneNumber` exists in the writer schema but not in the reader schema, so it was silently skipped. This is the FULL-compatibility guarantee in action — the `default: null` on the new field means a new consumer could also read old messages safely, while the old consumer reads new messages by simply ignoring the unknown field. Neither side required a code change or restart.
 
-## Browsing the Schema Registry
-
-Once schemas are registered, the Schema Registry gives you two ways to inspect them: a REST API for scripting and automation, and a web UI for interactive exploration. Both show the same data — subjects, version history, schema definitions, and compatibility settings — so you can use whichever fits your workflow.
-
-### Viewing schemas via the REST API
-
-The Schema Registry exposes a REST API documented in the [Confluent documentation](https://docs.confluent.io/current/schema-registry/develop/api.html).
-
-#### List all registered subjects
-
-List all registered subjects:
-
-```bash
-curl http://dataplatform:8081/subjects
-```
-
-> **What you should see:** The subject created by the Avro producer:
-
-```json
-["test-python-avro-topic-value"]
-```
-
-List the available versions for the subject:
-
-```bash
-curl http://dataplatform:8081/subjects/test-python-avro-topic-value/versions
-```
-
-> **What you should see:** A single version, since we have only registered the schema once:
-
-```json
-[1]
-```
-
-Retrieve the full schema definition:
-
-```bash
-curl http://dataplatform:8081/subjects/test-python-avro-topic-value/versions/1
-```
-
-> **What you should see:** The schema object containing the subject name, version number, schema ID, and the Avro schema JSON:
-
-```json
-{"subject":"test-python-avro-topic-value","version":1,"id":1,"schema":"{\"type\":\"record\",\"name\":\"Person\",\"namespace\":\"my.test\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"firstName\",\"type\":\"string\"},{\"name\":\"lastName\",\"type\":\"string\"},{\"name\":\"dateOfBirth\",\"type\":{\"type\":\"int\",\"logicalType\":\"date\"}},{\"name\":\"email\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"address\",\"type\":{\"type\":\"record\",\"name\":\"Address\",\"fields\":[{\"name\":\"street\",\"type\":\"string\"},{\"name\":\"city\",\"type\":\"string\"},{\"name\":\"zipCode\",\"type\":\"string\"},{\"name\":\"country\",\"type\":\"string\"}]}}]}"}
-```
-
-> **What just happened?** The Schema Registry stored the schema under the subject name `<topic>-value` (the default naming strategy). The REST API lets you inspect, compare, and manage versions without any Kafka tooling — useful for auditing schema evolution in a pipeline.
-
-### Viewing schemas in the Schema Registry UI
-
-Navigate to the Schema Registry UI at <http://dataplatform:28102>.
-
-> **What you should see:** The `test-python-avro-topic-value` subject listed. Clicking on it displays the full Avro schema on the right side.
-
-![Alt Image Text](./images/schema-registry-ui-1.png "Schema Registry UI")
-
-### Viewing schemas using AKHQ
-
-[AKHQ](https://akhq.io) is a full-featured Kafka management UI that also surfaces Schema Registry data. Navigate to <http://dataplatform:28107> and select the **Schema Registry** section in the left sidebar.
-
-> **What you should see:** A list of all registered subjects. Clicking on `test-python-avro-topic-value` shows the schema definition, its version history, and the configured compatibility level. You can compare versions side by side and delete individual versions or entire subjects from the same view.
-
-### Viewing schemas using kafbat UI
-
-[kafbat UI](https://github.com/kafbat/kafka-ui) is a lightweight, open-source Kafka management console. Navigate to <http://dataplatform:28107> and open the **Schema Registry** tab in the top navigation.
-
-> **What you should see:** All registered subjects listed by name. Selecting `test-python-avro-topic-value` displays the full Avro schema, the assigned schema ID, the version number, and the compatibility level. The UI also lets you register new schemas and update compatibility settings directly from the browser.
