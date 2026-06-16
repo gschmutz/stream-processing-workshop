@@ -55,7 +55,7 @@ services:
       test: kafka-topics --bootstrap-server kafka-1:19092 --list
       interval: 30s
       timeout: 10s
-      retries: 25
+      retries: 40
       start_period: 20s
   kafka-2:
     image: confluentinc/cp-kafka:8.1.3
@@ -103,7 +103,7 @@ services:
       test: kafka-topics --bootstrap-server kafka-1:19092 --list
       interval: 30s
       timeout: 10s
-      retries: 25
+      retries: 40
       start_period: 20s
   kafka-3:
     image: confluentinc/cp-kafka:8.1.3
@@ -151,7 +151,7 @@ services:
       test: kafka-topics --bootstrap-server kafka-1:19092 --list
       interval: 30s
       timeout: 10s
-      retries: 25
+      retries: 40
       start_period: 20s
   #  ================================== Kafka Connect ========================================== #
   kafka-connect-1:
@@ -229,7 +229,7 @@ services:
       test: [CMD, curl, -f, http://localhost:8083/connectors]
       interval: 30s
       timeout: 10s
-      retries: 10
+      retries: 20
       start_period: 60s
   #  ================================== Confluent Schema Registry ========================================== #
   schema-registry-1:
@@ -662,7 +662,7 @@ services:
             echo "Uploading dashboard: $file"        
             response=$(curl -s -o /dev/null -X POST -u $$ELASTICSEARCH_USERNAME:$$ELASTICSEARCH_PASSWORD -F 'file=@/dashboards/$$dashboard.ndjson' -H 'kbn-xsrf:reporting' "http://kibana:5601/api/saved_objects/_import?overwrite=true")
           else
-            echo "No .ndjson files found in $DASHBOARD_DIR"
+            echo "No .ndjson files found in /dashboards directory, skipping dashboard upload"
           fi
         done
     restart: no
