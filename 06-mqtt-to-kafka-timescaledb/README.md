@@ -1,8 +1,8 @@
-# IoT Industrial Energy Monitoring — MQTT → Kafka → TimescaleDB → Grafana
+# IoT Industrial Energy Monitoring — MQTT → Kafka → Iceberg/S3 → TimescaleDB → Grafana
 
-In this workshop we will build a complete IoT data pipeline that ingests simulated industrial energy monitoring data, routes it through Apache Kafka, persists it in TimescaleDB, and visualises it in Grafana.
+In this workshop we will build a complete IoT data pipeline that ingests simulated industrial energy monitoring data, routes it through Apache Kafka, persists it in two storage backends — Apache Iceberg tables in S3-compatible object storage and a TimescaleDB time-series database — and visualizes it in Grafana.
 
-The data originates from the [MQTTX CLI](https://mqttx.app/docs/cli) `IEM` simulator, which publishes one JSON message per factory per interval to an MQTT broker. Kafka Connect bridges MQTT to a Kafka topic, NiFi or Python flattens and serialises the data as Avro, and a Kafka Connect JDBC Sink connector writes the records into TimescaleDB.
+The data originates from the [MQTTX CLI](https://mqttx.app/docs/cli) `IEM` simulator, which publishes one JSON message per factory per interval to an MQTT broker. Kafka Connect bridges MQTT to a Kafka topic, NiFi or Python flattens and serializes the nested JSON payload into Avro format, and the Avro records are then written to two sinks in parallel: an Apache Iceberg Sink Connector writes Parquet files into an S3 bucket (backed by RustFS), and a JDBC Sink Connector inserts the records into TimescaleDB. The Iceberg table can be queried interactively with Trino, while the TimescaleDB data is visualized through a Grafana dashboard.
 
 ![Architecture](./images/architecture.png)
 
@@ -17,8 +17,10 @@ The data originates from the [MQTTX CLI](https://mqttx.app/docs/cli) `IEM` simul
 - [Stream Processing Pipeline — NiFi or Python](#stream-processing-pipeline--nifi-or-python)
 - [Using Apache NiFi to transform from raw to avro message](#using-apache-nifi-to-transform-from-raw-to-avro-message)
 - [Using Python to transform from raw to avro message](#using-python-to-transform-from-raw-to-avro-message)
+- [Write the Avro formatted messages as Iceberg tables in S3](#write-the-avro-formatted-messages-as-iceberg-tables-in-s3)
+- [Query the Iceberg table with Trino](#query-the-iceberg-table-with-trino)
 - [Write the Avro formatted messages to TimescaleDB](#write-the-avro-formatted-messages-to-timescaledb)
-- [Visualize the data in Grafana](#visualize-the-data-in-grafana)
+- [Visualize the TimescaleDB data in Grafana](#visualize-the-timescaledb-data-in-grafana)
 
 ## What you will learn
 
@@ -28,6 +30,9 @@ The data originates from the [MQTTX CLI](https://mqttx.app/docs/cli) `IEM` simul
 - How to verify streaming data in Kafka using `kcat`
 - How to register an Avro schema in the Confluent Schema Registry
 - How to flatten nested JSON messages using Apache NiFi (JOLT transformation) or a Python script
+- How to write Avro records from Kafka into an Apache Iceberg table in S3 using the Iceberg Sink Connector
+- How to verify that Iceberg data files (Parquet) have arrived in S3 using the RustFS console and `mc` CLI
+- How to query the Iceberg table interactively using the Trino CLI and DBeaver
 - How to write Avro records from Kafka into TimescaleDB using the Kafka Connect JDBC Sink connector
 - How to query time-series data in TimescaleDB using SQL
 - How to connect Grafana to TimescaleDB and build a time-series dashboard
@@ -790,6 +795,253 @@ Now execute the cell.
 
 Stop execution of the python script by selecting **Kernel** | **Interrupt Kernel** from the menu bar.
 
+## Write the Avro formatted messages as Iceberg tables in S3
+
+[Apache Iceberg](https://iceberg.apache.org/) is an open table format designed for large analytic datasets stored in object storage such as S3. Unlike writing raw Parquet or ORC files directly, Iceberg adds a metadata layer that gives you ACID transactions, schema evolution, partition evolution, and time-travel queries on top of ordinary files. Every write is atomic and every historical snapshot is queryable, so you get data-warehouse semantics without a data warehouse.
+
+In this section you use the **Iceberg Kafka Connect Sink Connector** to stream records from the `energy-monitoring.avro` Kafka topic into an Iceberg table stored in an S3-compatible bucket (MinIO/RustFS). The connector reads each Avro message, converts it to Parquet, and commits it to the Iceberg table via a REST catalog backed by the Hive Metastore. The result is a durable, queryable table that can be read by any Iceberg-compatible engine such as Trino, Spark, or Flink.
+
+The steps below walk you through creating the catalog namespace, defining the table schema, creating the required control topic, and deploying the connector.
+
+### Create the Iceberg catalog namespace
+
+Create the `energy_db` namespace in the Iceberg REST catalog. A namespace groups related tables the same way a database schema does in a relational system:
+
+```bash
+curl -X POST http://localhost:9084/iceberg/v1/namespaces \
+  -H "Content-Type: application/json" \
+  -d '{"namespace": ["energy_db"]}'
+```
+
+### Create the Iceberg table
+
+Define the `energy_log` table inside the `energy_db` namespace. The schema mirrors the flattened Avro record produced by the previous step. The table is configured to write Parquet files with zstd compression, which gives a good balance of compression ratio and read performance for analytic workloads:
+
+```bash
+curl -v -X POST http://localhost:9084/iceberg/v1/namespaces/energy_db/tables \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "energy_log",
+    "schema": {
+      "type": "struct",
+      "schema-id": 0,
+      "fields": [
+        {"id": 1,  "name": "factory_id",           "type": "string",    "required": true,  "doc": "Unique factory identifier"},
+        {"id": 2,  "name": "factory",               "type": "string",    "required": true,  "doc": "Factory name"},
+        {"id": 3,  "name": "timestamp",             "type": "long",      "required": true,  "doc": "Event time in milliseconds since epoch"},
+        {"id": 4,  "name": "air_compressor_1",      "type": "double",    "required": true,  "doc": "Air compressor 1 energy consumption (kWh)"},
+        {"id": 5,  "name": "air_compressor_2",      "type": "double",    "required": true,  "doc": "Air compressor 2 energy consumption (kWh)"},
+        {"id": 6,  "name": "lighting",              "type": "double",    "required": true,  "doc": "Lighting energy consumption (kWh)"},
+        {"id": 7,  "name": "cooling_equipment",     "type": "double",    "required": true,  "doc": "Cooling equipment energy consumption (kWh)"},
+        {"id": 8,  "name": "heating_equipment",     "type": "double",    "required": true,  "doc": "Heating equipment energy consumption (kWh)"},
+        {"id": 9,  "name": "conveyor",              "type": "double",    "required": true,  "doc": "Conveyor energy consumption (kWh)"},
+        {"id": 10, "name": "coating_equipment",     "type": "double",    "required": true,  "doc": "Coating equipment energy consumption (kWh)"},
+        {"id": 11, "name": "inspection_equipment",  "type": "double",    "required": true,  "doc": "Inspection equipment energy consumption (kWh)"},
+        {"id": 12, "name": "welding_equipment",     "type": "double",    "required": true,  "doc": "Welding equipment energy consumption (kWh)"},
+        {"id": 13, "name": "packaging_equipment",   "type": "double",    "required": true,  "doc": "Packaging equipment energy consumption (kWh)"},
+        {"id": 14, "name": "cutting_equipment",     "type": "double",    "required": true,  "doc": "Cutting equipment energy consumption (kWh)"}
+      ]
+    },
+    "properties": {
+      "write.format.default":             "parquet",
+      "write.parquet.compression-codec":  "zstd",
+      "write.metadata.compression-codec": "gzip",
+      "commit.retry.num-retries":         "4"
+    }
+  }'
+``` 
+
+Verify that the table was created successfully:
+
+```bash
+curl http://localhost:9084/iceberg/v1/namespaces/energy_db/tables
+```
+
+> **What you should see:** A JSON response listing `energy_log` under the `energy_db` namespace.
+
+### Create the connector control topic
+
+The Iceberg Sink Connector uses an internal control topic to coordinate commits across connector tasks. Create it before deploying the connector:
+
+```bash
+docker exec -it kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic control-iceberg --partitions 1 --replication-factor 3
+```
+
+### Deploy the Iceberg Sink Connector
+
+Create the Kafka Connect Iceberg Sink Connector. It reads Avro records from the `energy-monitoring.avro` topic, deserializes them using the Schema Registry, and writes Parquet data files into the `energy_db.energy_log` Iceberg table in S3. Commits are batched and flushed every 60 seconds (`iceberg.control.commit.interval-ms`):
+
+```bash
+curl -X PUT \
+  http://$DATAPLATFORM_IP:8083/connectors/pay-transaction-kafka-to-s3/config \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json' \
+  -d '{
+      "connector.class": "org.apache.iceberg.connect.IcebergSinkConnector",
+      "tasks.max": "1",
+      "topics": "energy-monitoring.avro",
+      "iceberg.tables": "energy_db.energy_log",
+      "iceberg.tables.dynamic-enabled": "false",
+      "write.upsert.enabled": "false",
+      "iceberg.control.commit.interval-ms": "60000",
+      "consumer.max.poll.records": "5000",
+      "iceberg.catalog.type": "rest",
+      "iceberg.catalog.uri": "http://hive-metastore:9084/iceberg",
+      "iceberg.catalog.warehouse": "s3a://iceberg-bucket/energy_db",      
+      "iceberg.catalog.client.region": "us-east-1",
+      "iceberg.catalog.s3.endpoint": "http://rustfs-1:9000",
+      "iceberg.catalog.s3.path-style-access": "true",
+      "iceberg.catalog.s3.access-key-id": "admin",
+      "iceberg.catalog.s3.secret-access-key": "abc123abc123!",
+      "value.converter": "io.confluent.connect.avro.AvroConverter",
+      "value.converter.schema.registry.url": "http://schema-registry-1:8081",
+      "key.converter": "org.apache.kafka.connect.storage.StringConverter"
+	}'
+```
+
+### Verify data arrival in S3 (RustFS)
+
+After the connector has been running for at least one commit interval (60 seconds by default), Iceberg data files start appearing in the `iceberg-bucket` in RustFS. You can verify this using either the RustFS web console or the `mc` CLI that ships with the Data Platform.
+
+#### RustFS Console
+
+Open the RustFS web console at <http://dataplatform:9014> and log in with:
+
+- **Username:** `admin`
+- **Password:** `abc123abc123!`
+
+Navigate to **Buckets** → **iceberg-bucket** → **energy_db** → **energy_log**. You should see subdirectories for Iceberg metadata (`metadata/`) and data files (`data/`). The data directory contains Parquet files named with a UUID, one file per committed batch.
+
+> **What you should see:** At least one `.parquet` file under `energy_db/energy_log/data/` and a corresponding `metadata/` directory containing `.json` and `.avro` snapshot and manifest files.
+
+#### `mc` CLI
+
+The Data Platform includes a `rustfs-mc` container pre-configured with the `rustfs-1` alias pointing at the RustFS S3 endpoint.
+
+List the top-level directories in the Iceberg warehouse:
+
+```bash
+docker exec -ti rustfs-mc mc ls rustfs-1/iceberg-bucket/energy_db/energy_log/
+```
+
+> **What you should see:** Two directories — `data/` and `metadata/`.
+
+List the Parquet data files written so far:
+
+```bash
+docker exec -ti rustfs-mc mc ls rustfs-1/iceberg-bucket/energy_db/energy_log/data/
+```
+
+> **What you should see:** One or more `.parquet` files. A new file is added with each commit (every 60 seconds while the Kafka topic has new records).
+
+Count the total number of files to track ingestion progress:
+
+```bash
+docker exec -ti rustfs-mc mc find rustfs-1/iceberg-bucket/energy_db/energy_log/data/ --name "*.parquet" | wc -l
+```
+
+To inspect Iceberg metadata snapshots:
+
+```bash
+docker exec -ti rustfs-mc mc ls rustfs-1/iceberg-bucket/energy_db/energy_log/metadata/
+```
+
+> **What just happened?** The Iceberg Sink Connector writes records into a staging area and commits them to the Iceberg table at the configured interval. Each commit produces a new Parquet data file and appends a snapshot entry to the Iceberg metadata. The REST catalog (Hive Metastore) tracks all snapshots, so Trino always reads a consistent view of the table regardless of concurrent writes.
+
+## Query the Iceberg table with Trino
+
+[Trino](https://trino.io/) is a distributed SQL query engine designed to query large datasets across heterogeneous data sources at interactive speed. Because Trino has a native Iceberg connector, it can read the Parquet files written by the Kafka Connect Iceberg Sink Connector directly from S3 without any ETL step — the Iceberg metadata layer tells Trino exactly which files to read and which to skip.
+
+In the Data Platform, Trino is pre-configured with an `iceberg_hive_rest` catalog that points to the same REST catalog and S3 bucket used by the connector. The Trino UI is available at <http://dataplatform:28082/ui/preview>.
+
+### Query using the Trino CLI
+
+The Data Platform ships a dedicated `trino-cli` container. Open an interactive Trino session connected to the `iceberg_hive_rest` catalog and the `energy_db` schema:
+
+```bash
+docker exec -ti trino-cli trino --server trino-1:8080 \
+    --catalog iceberg_hive_rest \
+    --schema energy_db
+```
+
+> **What you should see:** A `trino:energy_db>` prompt, confirming you are connected.
+
+Verify the table is visible:
+
+```sql
+SHOW TABLES;
+```
+
+> **What you should see:**
+>
+> ```
+>    Table
+> ------------
+>  energy_log
+> (1 row)
+> ```
+
+Inspect the schema:
+
+```sql
+DESCRIBE energy_log;
+```
+
+Query the most recent records across all factories:
+
+```sql
+SELECT factory, timestamp, air_compressor_1, heating_equipment, conveyor
+FROM energy_log
+ORDER BY timestamp DESC
+LIMIT 10;
+```
+
+Aggregate total energy consumption per factory:
+
+```sql
+SELECT
+    factory,
+    COUNT(*)                                               AS record_count,
+    ROUND(SUM(air_compressor_1 + air_compressor_2
+        + lighting + cooling_equipment + heating_equipment
+        + conveyor + coating_equipment + inspection_equipment
+        + welding_equipment + packaging_equipment + cutting_equipment), 2) AS total_kwh
+FROM energy_log
+GROUP BY factory
+ORDER BY total_kwh DESC;
+```
+
+Type `exit` or press **Ctrl-D** to leave the Trino CLI.
+
+### Query using DBeaver
+
+[DBeaver](https://dbeaver.io/) is an open-source database tool that supports Trino via a built-in driver. Use it to browse the Iceberg table structure and run SQL queries from a graphical interface.
+
+**Install the Trino driver** (first time only):
+
+1. Open DBeaver and select **Database** | **Driver Manager**.
+2. Search for **Trino** and click **Edit**. If it is not listed, click **New** and enter the Maven coordinates `io.trino:trino-jdbc:481` — DBeaver downloads the driver automatically.
+3. Click **OK** to close the Driver Manager.
+
+**Create a new connection:**
+
+1. Select **Database** | **New Database Connection**.
+2. Choose **Trino** and click **Next**.
+3. Fill in the connection details:
+   - **Host:** `dataplatform` (or the IP address of your Docker host)
+   - **Port:** `28082`
+   - **Username:** `admin` (Trino requires a non-empty username but no password)
+   - **Database/Catalog:** `iceberg_hive_rest`
+4. Click **Test Connection** to verify, then **Finish**.
+
+**Browse and query the table:**
+
+1. In the **Database Navigator**, expand **iceberg_hive_rest** → **energy_db** → **Tables** → **energy_log**.
+2. Double-click the table to open the data viewer, or right-click and select **View Data**.
+3. Open a new SQL editor (**SQL Editor** | **New SQL Script**) and run the same queries from the CLI section above.
+
+> **What you should see:** The query results displayed in the DBeaver results grid, with all sensor columns and timestamps populated from the Iceberg Parquet files in S3.
+
 ## Write the Avro formatted messages to TimescaleDB
 
 [TimescaleDB](https://www.timescale.com) is an open-source time-series database built as a PostgreSQL extension. It adds automatic partitioning by time (hypertables), time-series specific functions, and compression on top of a standard PostgreSQL engine. Because it is a PostgreSQL extension rather than a separate database engine, you can connect to it with any PostgreSQL client, use standard SQL, and interact with it exactly as you would with a regular PostgreSQL database — including `psql`, JDBC/ODBC drivers, and tools like pgAdmin.
@@ -899,7 +1151,7 @@ LIMIT 10;
 
 > **What you should see:** the ten most recent rows with sensor readings, confirming that the Kafka → TimescaleDB pipeline is working end-to-end.
 
-## Visualize the data in Grafana
+## Visualize the TimescaleDB data in Grafana
 
 [Grafana](https://grafana.com) is an open-source observability and dashboarding platform that can connect to a wide range of data sources — including PostgreSQL and TimescaleDB — and render time-series data as interactive charts, gauges, and tables. It runs as a web application and requires no client installation beyond a browser. In this workshop Grafana reads directly from TimescaleDB using standard SQL queries and displays the energy sensor readings as live time-series panels.
 
