@@ -137,68 +137,17 @@ We can see that one message of the `IEM` simulator contains data for one factory
 
 Let's build a bridge to retrieve them from MQTT and send them to Apache Kafka.
 
-## Bridge MQTT to Kafka with Kafka Connect
+## Bridge MQTT to Kafka with Kafka Connect or Apache NiFi/MiNiFi
 
-For transporting messages from MQTT to Kafka, in this workshop we will be using Kafka Connect. 
+There are several ways to bridge MQTT to Kafka. In this section we will cover three approaches, working through them in order:
 
-There are multiple Kafka Source Connectors available for consuming from MQTT. We can either use the one provided by [Confluent Inc.](https://www.confluent.io/connector/kafka-connect-mqtt/) (which is part of Confluent Enterprise and requires an enterprise license) or the one provided as part of the [Landoop Stream-Reactor Project](https://github.com/Landoop/stream-reactor/tree/master/kafka-connect-mqtt) available on GitHub. We will be using the latter.
+1. **Kafka Connect** — the most common approach for production deployments. A dedicated MQTT Source Connector consumes messages from the MQTT broker and publishes them directly to a Kafka topic, with no custom code required.
+2. **Apache NiFi** — a browser-based data flow tool that lets you build the MQTT-to-Kafka pipeline visually using drag-and-drop processors.
+3. **Apache MiNiFi** — a lightweight agent designed to run close to the data source (e.g., on edge devices or near the MQTT broker). It runs the same NiFi flow but with a minimal footprint, making it suitable for resource-constrained environments.
 
-### Adding the MQTT Kafka Connector 
+We start with **Kafka Connect** in detail, then show the equivalent flows in NiFi and MiNiFi. Before we do that, let's create the target Kafka topic.
 
-Kafka Connect runs as `kafka-connect-1` (and optionally `kafka-connect-2`) as part of the platform.
-
-To add connector plugins without rebuilding the Docker image, both Connect services are configured to load additional plugins from `/etc/kafka-connect/custom-plugins` inside the container. This folder is mapped as a volume to the `plugins/kafka-connect` folder on the Docker host, so it is enough to copy the plugin files there.
-
-Navigate into the `plugins/kafka-connect/connectors` folder (a sub-folder of the `docker` folder that holds the `docker-compose.yml` file):
-
-```
-cd $DATAPLATFORM_HOME/plugins/kafka-connect/connectors
-```
-
-and download the `11.7.7/kafka-connect-mqtt-11.7.7.zip` file from the [Landoop Stream-Reactor Project](https://github.com/Landoop/stream-reactor/tree/master/kafka-connect-mqtt) project.
-
-```
-wget https://github.com/lensesio/stream-reactor/releases/download/11.7.7/kafka-connect-mqtt-11.7.7.zip
-```
-
-Once it is successfully downloaded, unzip it and remove the archive:
-
-```
-unzip kafka-connect-mqtt-11.7.7.zip
-rm kafka-connect-mqtt-11.7.7.zip
-```
-
-Now restart Kafka Connect to pick up the new plugin (make sure to navigate back to the docker folder first, either using `cd $DATAPLATFORM_HOME` or `cd ../..`):
-
-```
-cd $DATAPLATFORM_HOME
-docker compose restart kafka-connect-1
-```
-
-The connector plugin should now be available to Kafka Connect. Confirm it by watching the container log:
-
-```
-docker compose logs -f kafka-connect-1
-```
-
-After a while you should see an output similar to the one below with a message that the MQTT connector was added and later that the connector finished starting ...
-
-```
-...
-kafka-connect-1             | [2019-06-08 18:01:02,590] INFO Registered loader: PluginClassLoader{pluginLocation=file:/etc/kafka-connect/custom-plugins/kafka-connect-mqtt-1.2.1-2.1.0-all/} (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
-kafka-connect-1             | [2019-06-08 18:01:02,591] INFO Added plugin 'com.datamountaineer.streamreactor.connect.mqtt.source.MqttSourceConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
-kafka-connect-1             | [2019-06-08 18:01:02,591] INFO Added plugin 'com.datamountaineer.streamreactor.connect.mqtt.sink.MqttSinkConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
-kafka-connect-1             | [2019-06-08 18:01:02,592] INFO Added plugin 'com.datamountaineer.streamreactor.connect.converters.source.JsonResilientConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
-kafka-connect-1             | [2019-06-08 18:01:02,592] INFO Added plugin 'com.landoop.connect.sql.Transformation' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
-...
-kafka-connect-1             | [2019-06-08 18:01:11,520] INFO Starting connectors and tasks using config offset -1 (org.apache.kafka.connect.runtime.distributed.DistributedHerder)
-kafka-connect-1             | [2019-06-08 18:01:11,520] INFO Finished starting connectors and tasks (org.apache.kafka.connect.runtime.distributed.DistributedHerder)
-
-```
-
-Before we configure and use the connector, we first need to create the Kafka target topic.
-
-### Create the necessary Kafka topic
+#### Create the necessary Kafka topic
 
 The Kafka cluster is configured with `auto.topic.create.enable` set to `false`. Therefore we first have to create all the necessary topics, using the `kafka-topics` command line utility of Apache Kafka. 
 
@@ -221,7 +170,66 @@ docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --list
 
 > **What you should see:** `energy-monitoring.raw` listed among the topics.
 
-### Configure and start the MQTT Connector
+### Using Kafka Connect
+
+For the Kafka Connect approach, there are multiple MQTT Source Connectors available. We can either use the one provided by [Confluent Inc.](https://www.confluent.io/connector/kafka-connect-mqtt/) (which is part of Confluent Enterprise and requires an enterprise license) or the one provided as part of the [Landoop Stream-Reactor Project](https://github.com/Landoop/stream-reactor/tree/master/kafka-connect-mqtt) available on GitHub. We will be using the latter.
+
+#### Adding the MQTT Kafka Connector 
+
+Kafka Connect runs as `kafka-connect-1` (and optionally `kafka-connect-2`) as part of the platform.
+
+To add connector plugins without rebuilding the Docker image, both Connect services are configured to load additional plugins from `/etc/kafka-connect/custom-plugins` inside the container. This folder is mapped as a volume to the `plugins/kafka-connect` folder on the Docker host, so it is enough to copy the plugin files there.
+
+Navigate into the `plugins/kafka-connect/connectors` folder (a sub-folder of the `docker` folder that holds the `docker-compose.yml` file):
+
+```bash
+cd $DATAPLATFORM_HOME/plugins/kafka-connect/connectors
+```
+
+and download the `11.7.7/kafka-connect-mqtt-11.7.7.zip` file from the [Landoop Stream-Reactor Project](https://github.com/Landoop/stream-reactor/tree/master/kafka-connect-mqtt) project.
+
+```bash
+wget https://github.com/lensesio/stream-reactor/releases/download/11.7.7/kafka-connect-mqtt-11.7.7.zip
+```
+
+Once it is successfully downloaded, unzip it and remove the archive:
+
+```bash
+unzip kafka-connect-mqtt-11.7.7.zip
+rm kafka-connect-mqtt-11.7.7.zip
+```
+
+Now restart Kafka Connect to pick up the new plugin (make sure to navigate back to the docker folder first, either using `cd $DATAPLATFORM_HOME` or `cd ../..`):
+
+```bash
+cd $DATAPLATFORM_HOME
+docker compose restart kafka-connect-1
+```
+
+The connector plugin should now be available to Kafka Connect. Confirm it by watching the container log:
+
+```bash
+docker compose logs -f kafka-connect-1
+```
+
+After a while you should see an output similar to the one below with a message that the MQTT connector was added and later that the connector finished starting ...
+
+```bash
+...
+kafka-connect-1             | [2019-06-08 18:01:02,590] INFO Registered loader: PluginClassLoader{pluginLocation=file:/etc/kafka-connect/custom-plugins/kafka-connect-mqtt-1.2.1-2.1.0-all/} (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
+kafka-connect-1             | [2019-06-08 18:01:02,591] INFO Added plugin 'com.datamountaineer.streamreactor.connect.mqtt.source.MqttSourceConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
+kafka-connect-1             | [2019-06-08 18:01:02,591] INFO Added plugin 'com.datamountaineer.streamreactor.connect.mqtt.sink.MqttSinkConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
+kafka-connect-1             | [2019-06-08 18:01:02,592] INFO Added plugin 'com.datamountaineer.streamreactor.connect.converters.source.JsonResilientConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
+kafka-connect-1             | [2019-06-08 18:01:02,592] INFO Added plugin 'com.landoop.connect.sql.Transformation' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
+...
+kafka-connect-1             | [2019-06-08 18:01:11,520] INFO Starting connectors and tasks using config offset -1 (org.apache.kafka.connect.runtime.distributed.DistributedHerder)
+kafka-connect-1             | [2019-06-08 18:01:11,520] INFO Finished starting connectors and tasks (org.apache.kafka.connect.runtime.distributed.DistributedHerder)
+
+```
+
+Before we configure and use the connector, we first need to create the Kafka target topic.
+
+#### Configure and start the MQTT Connector
 
 For creating an instance of the connector over the API, you can either use a REST client or the Linux `curl` command line utility, which should be available on the Docker host. Curl is what we are going to use here. 
 
@@ -262,7 +270,7 @@ As soon as the connector starts receiving messages from MQTT, they will appear o
 docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring.raw -q
 ```
 
-```
+```bash
 eadp@eadp-virtual-machine:~$ docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring.raw -q
 {"factory_id":"078","factory":"Dickinson - Lind","values":{"air_compressor_1":3.2,"air_compressor_2":4.55,"lighting":1.05,"cooling_equipment":17.2,"heating_equipment":36.82,"conveyor":10.26,"coating_equipment":5.48,"inspection_equipment":2.09,"welding_equipment":4.36,"packaging_equipment":8.01,"cutting_equipment":12.64},"timestamp":1781285306247}
 {"factory_id":"078","factory":"Dickinson - Lind","values":{"air_compressor_1":2.72,"air_compressor_2":5.15,"lighting":0.92,"cooling_equipment":23.06,"heating_equipment":34.84,"conveyor":13.74,"coating_equipment":5.34,"inspection_equipment":2.15,"welding_equipment":4.36,"packaging_equipment":5.07,"cutting_equipment":12.4},"timestamp":1781285306249}
@@ -283,7 +291,7 @@ docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring.raw -C -f "Key: 
 
 which produces an output like:
 
-```
+```bash
 ---
 Key: "077"
 Value: {"factory_id":"077","factory":"Bode - Feeney","values":{"air_compressor_1":3.74,"air_compressor_2":4.1,"lighting":0.91,"cooling_equipment":25.94,"heating_equipment":40.46,"conveyor":8.96,"coating_equipment":5.24,"inspection_equipment":1.76,"welding_equipment":4.59,"packaging_equipment":5.05,"cutting_equipment":12.06},"timestamp":1781285498451}
@@ -305,7 +313,7 @@ Value: {"factory_id":"077","factory":"Bode - Feeney","values":{"air_compressor_1
 
 Press **Ctrl-C** to stop the consumer.
 
-### Monitor connector in Kafka Connect UI
+#### Monitor connector in Kafka Connect UI
 
 Navigate to the [Kafka Connect UI](http://dataplatform:28103) to see the connector running.
 
@@ -314,6 +322,237 @@ Navigate to the [Kafka Connect UI](http://dataplatform:28103) to see the connect
 > **What you should see:** `"state": "RUNNING"` for both the connector and its task.
 
 > **What just happened?** The MQTT source connector subscribes to all topics matching `mqttx/simulate/IEM/+` on the Mosquitto broker. Every incoming MQTT message is forwarded as a Kafka record to the `energy-monitoring.raw` topic, with the MQTT topic path as the key and the raw JSON bytes as the value.
+
+Remove the connector if you want to try out the other options. 
+
+```
+curl -X DELETE "http://dataplatform:8083/connectors/mqtt-source"
+```
+
+### Using Apache NiFi (optional)
+
+[Apache NiFi](https://nifi.apache.org) is a visual data flow tool designed for routing, transforming, and mediating data between systems. It is a natural fit here because flattening a nested JSON record — exactly what we need to do — is the kind of stateless per-message transformation NiFi handles without writing any code. NiFi also provides a live monitoring view of throughput and backpressure on every connection, which makes it easy to observe the data flow during the workshop.
+
+In a browser navigate to <https://dataplatform:18083/nifi>. NiFi uses a self-signed certificate, so confirm the browser security warning before proceeding.
+
+Enter `nifi` into the **User** field and `1234567890ACD` into the **Password** field and click **LOG IN**.
+
+> **What you should see:** The NiFi canvas — a workspace where you will build the data flow.
+
+> **Shortcut — import the pre-built flow:** Instead of building the pipeline manually step by step, you can import the complete process group directly. On the NiFi canvas, drag the **Process Group** icon from the toolbar, then click **Browse** in the dialog and select the file `nifi/mqtt-to-kafka-pg.json` from this workshop folder. The fully configured pipeline — ConsumeMQTT → PublishKafka — will appear on the canvas ready to start. To start it right-click on the process group and select **Enable All Controller Services** followed by another right-click and selecting **Start**. You can still follow the sections below to understand what each processor does.
+
+### Add a Process Group first
+
+Drag the **Process Group** icon from the toolbar onto the canvas.
+
+![Alt Image Text](./images/nifi-drag-process-group-into-canvas.png "Add Processor")
+
+On the **Create Process Group** pop-up window, enter `mqtt-to-kafka-pg` into the **Name** field and click **Add**. 
+
+Double click on the new **mqtt-to-kafka-pg** process group to navigate into the group. 
+
+### Adding a `ConsumeMQTT` processor
+
+Drag the **Processor** icon from the toolbar onto the canvas.
+
+![Alt Image Text](./images/nifi-drag-processor-into-canvas.png "Add Processor")
+
+The processor chooser dialog opens. Type **ConsumeM** into the filter box and select **ConsumeMQTT**, then click **Add**.
+
+![Alt Image Text](./images/nifi-add-mqtt-processor.png "Select ConsumeMQTT")
+
+> **What you should see:** A `ConsumeMQTT` processor on the canvas with a yellow warning marker, indicating it is not yet configured.
+
+Double-click the processor and click the **Properties** tab. Configure the following properties:
+
+- **Broker URI**: 'tcp://mosquitto-1:1883'
+- **Topic Filter**: `mqttx/simulate/IEM/+`
+- **Max Queue Size**: `1000`
+
+The configured processor should look as shown below:
+
+![Alt Image Text](./images/nifi-consume-mqtt-processor-properties-1.png "ConsumeKafka Properties")
+
+Click **Apply** to close the dialog.
+
+### Adding a `ProduceKafka` processor
+
+Drag the **Processor** icon from the toolbar onto the canvas.
+
+Type **PublishK** into the filter box and select **PublishKafka**, then click **Add**.
+
+![Alt Image Text](./images/nifi-mqtt-kafka-processors.png "3 Processors")
+
+> **What you should see:** A `PublishKafka` processor on the canvas together with the `ConsumeMQTT` processors.
+
+Before we configure the **PublishKafka** processor, let's connect them so we can already run the first one to see that consuming from MQTT works.
+
+### Connecting the processors
+
+Let's wire up the processors **ConsumeMQTT → PublishKafka** by dragging from the source processor's edge to the destination and select the appropriate relationship in the dialog and terminate unused relationships on each processor:
+
+- **ConsumeMQTT**: link `Message`, terminate `parse.failure` (by double-clicking **ConsumeMQTT** and navigate to tab **Relationships**)
+- **PublishKafka**: terminate `failure` and `success`
+
+The first processor should no longer have a warning indicator — only the last one.
+
+Select **ConsumeMQTT**, right-click and select **Start**. 
+
+![Alt Image Text](./images/nifi-run-mqtt-processors.png "3 Processors")
+
+> **What you should see:** messages should start queuing up on the **Message** connection before the **PublishKafka** processor. 
+
+Right-click on the connection with the queued records and select **List Queue**. On the list of records, click on the 3 dots right to one of the messages and select **View content**
+
+![Alt Image Text](./images/nifi-list-queue.png "List queue")
+
+A window in a new browser tab showing the content of the message in hex should appear. Select `json` in the **View** drop-down in the top-right corner to switch to the JSON view:
+
+![Alt Image Text](./images/nifi-mqtt-message-content.png "Message content")
+
+> **What you should see:** the message we got from the MQTT broker.
+
+Close the tab and on the list of records click on **Back to Connection** to navigate back to the canvas.
+
+### Configure the Publish Kafka processor
+
+To finish the pipeline, let's configure the last processor to send the message to the `energy-monitoring.raw` topic.
+
+Double-click on the **PublishKafka** processor and configure the following properties:
+
+- **Kafka Connection Service**: click the three dots, select **+ Create new service**, choose **Kafka3ConnectionService**, and click **Add**. Click the three dots again and select **Go To Service**. In the service list click the three dots and select **Edit**, navigate to **Properties**, and set:
+  - **Bootstrap Servers**: `kafka-1:19092,kafka-2:19093`
+
+Click **Apply** and enable the service by right-clicking on the three dots and click **Enable**. Click **Back to Processor**. Continue editing the properties:
+
+- **Topic Name**: `energy-monitoring.raw`
+
+Click **Apply** The **PublishKafka** should now be startable as well. Before we do that, let's create a `kcat` consumer to see the messages, as soon as we start the Kafka publisher
+
+```bash
+docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring.raw -q
+```
+
+Now start the **PublishKafka** processor in Apache Nifi and immediately the messages should appear in the terminal where `kcat` runs.
+
+```json
+{"factory_id":"071","factory":"White, Torphy and Schiller","values":{"air_compressor_1":3.21,"air_compressor_2":4.18,"lighting":0.97,"cooling_equipment":21.38,"heating_equipment":41.44,"conveyor":11.33,"coating_equipment":5.54,"inspection_equipment":2.2,"welding_equipment":4.47,"packaging_equipment":7.57,"cutting_equipment":16.54},"timestamp":1781991318292}
+{"factory_id":"015","factory":"Predovic, Connelly and Batz","values":{"air_compressor_1":3.9,"air_compressor_2":3.39,"lighting":1.18,"cooling_equipment":24.37,"heating_equipment":46.58,"conveyor":13.45,"coating_equipment":3.94,"inspection_equipment":2.69,"welding_equipment":4.71,"packaging_equipment":6.65,"cutting_equipment":18.61},"timestamp":1781991318382}
+{"factory_id":"001","factory":"Okuneva - Schoen","values":{"air_compressor_1":3.75,"air_compressor_2":5.49,"lighting":1.09,"cooling_equipment":19.2,"heating_equipment":53.24,"conveyor":12.01,"coating_equipment":4.76,"inspection_equipment":2.36,"welding_equipment":3.92,"packaging_equipment":5.11,"cutting_equipment":15.17},"timestamp":1781991318398}
+{"factory_id":"021","factory":"Metz Group","values":{"air_compressor_1":2.8,"air_compressor_2":3.44,"lighting":1.36,"cooling_equipment":18.22,"heating_equipment":54.86,"conveyor":12.63,"coating_equipment":3.37,"inspection_equipment":2.73,"welding_equipment":4.2,"packaging_equipment":5.91,"cutting_equipment":16.69},"timestamp":1781991318404}
+{"factory_id":"079","factory":"Marquardt and Sons","values":{"air_compressor_1":2.84,"air_compressor_2":4.15,"lighting":1.05,"cooling_equipment":19.29,"heating_equipment":51.29,"conveyor":9.13,"coating_equipment":3.62,"inspection_equipment":1.71,"welding_equipment":5.07,"packaging_equipment":6.54,"cutting_equipment":13.97},"timestamp":1781991318404}
+...
+```
+
+> **What you should see:** the raw messages like we got them from the MQTT broker.
+
+Stop both processors, if you want to try out the 3rd and last option as well.
+
+### Using Apache MiNiFi C++ (optional)
+
+[Apache MiNiFi C++](https://nifi.apache.org/minifi/) is a lightweight data collection agent built on the NiFi processor model. Unlike the full NiFi server, MiNiFi has no web UI — it is configured entirely through a `config.yml` file and is designed to run close to the data source with a minimal footprint. In this workshop it runs as a Docker container alongside the rest of the platform and performs the same MQTT-to-Kafka bridge as the Kafka Connect connector, but without requiring Kafka Connect at all.
+
+The flow consists of two processors connected in sequence:
+
+- **`ConsumeMQTT`** — subscribes to the MQTT broker and receives messages as NiFi FlowFiles.
+- **`PublishKafka`** — forwards each FlowFile as a record to a Kafka topic.
+
+#### The `config.yml` flow file
+
+The MiNiFi agent reads its flow from `00-environment/docker-1/custom-conf/minifi/config.yml`, which is volume-mounted into the container at `/opt/minifi/minifi-current/conf/config.yml`. 
+
+Edit the file
+
+```bash
+cd $DATAPLATFORM_HOME
+nano ./custom-conf/minifi/config.yml
+```
+
+and copy the flow definition
+
+```yaml
+Flow Controller:
+  name: MQTT to Kafka Pipeline
+Processors:
+  - name: ConsumeMQTT
+    id: 2438e3c8-015a-1000-79ca-83af40ec1001
+    class: org.apache.nifi.minifi.processors.ConsumeMQTT
+    scheduling strategy: TIMER_DRIVEN
+    scheduling period: 0 sec
+    Properties:
+      Broker URI: tcp://mosquitto-1:1883
+      Client ID: minifi-edge-consumer
+      Topic: mqttx/simulate/IEM/+
+      Quality of Service: 2
+      Max Flow Segment Size: 1 MB
+      Session Expiry Interval: 0 seconds
+  - name: PublishKafka
+    id: 2438e3c8-015a-1000-79ca-83af40ec1002
+    class: org.apache.nifi.minifi.processors.PublishKafka
+    scheduling strategy: EVENT_DRIVEN
+    scheduling period: 0 sec
+    Properties:
+      Known Brokers: kafka-1:19092,kafka-2:19092,kafka-3:19092
+      Topic Name: energy-monitoring.raw
+      Client Name: minifi-kafka-producer
+      Batch Size: 10
+      Compress Codec: none
+      Request Timeout: 10 sec
+      Message Timeout: 30 sec
+Connections:
+  - name: ConsumeMQTT->PublishKafka
+    id: 2438e3c8-015a-1000-79ca-83af40ec1003
+    source id: 2438e3c8-015a-1000-79ca-83af40ec1001
+    source relationship name: success
+    destination id: 2438e3c8-015a-1000-79ca-83af40ec1002
+  - name: PublishKafka->failure
+    id: 2438e3c8-015a-1000-79ca-83af40ec1004
+    source id: 2438e3c8-015a-1000-79ca-83af40ec1002
+    source relationship name: failure
+    destination id: 2438e3c8-015a-1000-79ca-83af40ec1002
+Controller Services: ~
+Remote Processing Groups: []
+```
+
+**Key configuration decisions explained:**
+
+| Setting | Value | Why |
+|---|---|---|
+| `Broker URI` | `tcp://mosquitto-1:1883` | Connects to the Mosquitto container on the internal Docker network |
+| `Topic` | `mqttx/simulate/IEM/+` | The `+` single-level wildcard matches one factory segment per message (e.g., `mqttx/simulate/IEM/013`) |
+| `Quality of Service` | `2` | Exactly-once MQTT delivery — each message is acknowledged before MiNiFi moves on |
+| `scheduling period` | `0 sec` | `ConsumeMQTT` polls continuously with no sleep between checks |
+| `scheduling strategy` (PublishKafka) | `EVENT_DRIVEN` | `PublishKafka` triggers immediately when a FlowFile arrives, rather than on a timer |
+| `Batch Size` | `10` | Up to 10 messages are bundled into a single Kafka produce request for efficiency |
+| `PublishKafka:failure → PublishKafka` | self-loop | Failed Kafka publishes are re-queued back into the same processor for automatic retry |
+
+#### Start the MiNiFi agent
+
+The `minifi` container starts automatically with Docker Compose and reads `config.yml` on boot. If you edit the config after the container is already running, restart it to pick up the changes:
+
+```bash
+docker restart minifi
+```
+
+#### Verify the flow is running
+
+Check the MiNiFi container logs to confirm the flow loaded and both processors started without errors:
+
+```bash
+docker logs minifi --tail 50
+```
+
+> **What you should see:** Log lines indicating the flow controller started, the `ConsumeMQTT` processor connected to the MQTT broker, and the `PublishKafka` processor connected to the Kafka cluster.
+
+Confirm messages are arriving in the Kafka topic using `kcat`:
+
+```bash
+docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring.raw -C -q -o end
+```
+
+> **What you should see:** A continuous stream of raw JSON messages appearing in the terminal, identical in content to the messages you observed earlier in the MQTT client — the MiNiFi agent is now forwarding them transparently from MQTT to Kafka.
+
+> **What just happened?** On start-up, MiNiFi C++ parsed `config.yml`, instantiated the two processors, and wired them together with the defined connections. `ConsumeMQTT` subscribes to `mqttx/simulate/IEM/+` and, for every received MQTT message, creates a NiFi FlowFile whose content is the raw JSON payload. Each FlowFile travels along the `success` connection into `PublishKafka`, which writes it as a Kafka record to the `energy-monitoring.raw` topic. If a Kafka write fails, the FlowFile loops back via the `failure` connection and is retried automatically.
 
 ## Create Avro Schema for downstream processing
 
@@ -580,7 +819,7 @@ Type **PublishK** into the filter box and select **PublishKafka**, then click **
 
 > **What you should see:** A `PublishKafka` processor on the canvas together with the other two processors.
 
-Before we configure the **PublishKafka** processor, let's connect them so we can already run the first two to validate that the flattening worked.
+Before we configure the **PublishKafka** processor, let's connect them so we can already run the first two to validate that the flattening works.
 
 ### Connecting the processors
 
