@@ -11,6 +11,7 @@ In this workshop you will build NiFi flows that produce and consume messages aga
 - [Opening Apache NiFi](#opening-apache-nifi)
 - [Working with Text Messages](#working-with-text-messages)
 - [Working with Avro Messages and the Schema Registry](#working-with-avro-messages-and-the-schema-registry)
+- [Exporting and Importing Process Groups](#exporting-and-importing-process-groups)
 
 ## What you will learn
 
@@ -22,7 +23,7 @@ In this workshop you will build NiFi flows that produce and consume messages aga
 - How to register an Avro schema in the Confluent Schema Registry
 - How to produce Avro-serialized records using `PublishKafkaRecord` with a `ConfluentSchemaRegistry` controller service
 - How to verify Avro messages using `kcat` and `kafka-avro-console-consumer`
-- How to consume Avro messages in NiFi using `ConsumeKafkaRecord`
+- How to consume Avro messages in NiFi using `ConsumeKafka` with the `RECORD` processing strategy
 
 ## Prerequisites
 
@@ -66,9 +67,9 @@ Drag the **Process Group** icon from the toolbar onto the canvas.
 
 ![Drag Process Group](./images/nifi-drag-process-group-into-canvas.png)
 
-On the **Add Process Group** dialog, enter `kafka-text-pg` into the **Process Group Name** field and click **Add**.
+On the **Add Process Group** dialog, enter `kafka-text-producer-pg` into the **Process Group Name** field and click **Add**.
 
-Double-click on the new **kafka-text-pg** group to navigate into it.
+Double-click on the new **kafka-text-producer-pg** group to navigate into it.
 
 ### Set up the Kafka Connection Service
 
@@ -125,7 +126,7 @@ Double-click the processor and configure the following **Properties**:
 | **Topic Name** | `test-nifi-topic` |
 | **Failure Strategy** | `Route to Failure` |
 
-Navigate to the **Relationships** tab and terminate both the `terminate` and `success` relationship (tick the **Terminate** checkbox) — the message is successfully delivered to Kafka and no further processing is needed downstream.
+Navigate to the **Relationships** tab and auto-terminate both the `success` and `failure` relationships (tick the **Terminate** checkbox for each) — once the message is delivered to Kafka no further processing is needed, and for this exercise failures are also silently discarded.
 
 Click **Apply**.
 
@@ -209,7 +210,7 @@ Instead, add an `UpdateAttribute` processor between `GenerateFlowFile` and `Publ
 
 
 Now re-wire:
-- Stop all running processors by right-clicking on the canvas and select **Stop**
+- Stop all running processors by right-clicking on the canvas and selecting **Stop**
 - Delete the existing `GenerateFlowFile → PublishKafka` connection (right-click → **Delete**).
 - Draw `GenerateFlowFile → UpdateAttribute` (select `success`).
 - Draw `UpdateAttribute → PublishKafka` (select `success`).
@@ -236,7 +237,7 @@ Stop the flow before continuing.
 
 Now build the consuming side of the pipeline.
 
-Navigate back to the top-level canvas (click on **NiFi Flow** of the breadcrumb **NiFi Flow >> kafka-text-pg** at the bottom-left) and create a new process group called `kafka-consumer-pg`. Double-click into it.
+Navigate back to the top-level canvas (click on **NiFi Flow** of the breadcrumb **NiFi Flow >> kafka-text-producer-pg** at the bottom-left) and create a new process group called `kafka-text-consumer-pg`. Double-click into it.
 
 Add a **`ConsumeKafka`** processor and configure the following **Properties**:
 
@@ -257,8 +258,6 @@ Add a **`LogAttribute`** processor and configure:
 | **Log Level** | `info` |
 | **Log Payload** | `true` |
 | **Attributes to Log** | `kafka.topic, kafka.partition, kafka.offset, kafka.key` |
-
-Terminate the `success` relationship on `LogAttribute`.
 
 Connect **`ConsumeKafka`** → **`LogAttribute`** on the `success` relationship. Terminate the `success` relationship on `LogAttribute`.
 
@@ -319,7 +318,7 @@ Navigate back to the top-level canvas and create a new process group called `kaf
 
 #### Set up controller services
 
-This flow requires four controller services. Right-click the canvas → **Controller Services** → **+** and add the following (in any order):
+This flow uses six controller services in total. You add four of them explicitly; the remaining two (`ConfluentEncodedSchemaReferenceWriter` and `ConfluentSchemaRegistry`) are created as nested services while configuring the `AvroRecordSetWriter`. Right-click the canvas → **Controller Services** → **+** and add the following four (in any order):
 
 **1. `Kafka3ConnectionService`**
 
@@ -379,7 +378,7 @@ Click **Apply**.
 
 #### Add the `PublishKafkaRecord` processor
 
-Drag a **`PublishKafkaRecord`** processor onto the canvas. We will configure it later and first only use it so that we can run the `GenerateRecord` processor. 
+Drag a **`PublishKafkaRecord`** processor onto the canvas. We will configure its properties fully later; adding it to the canvas now allows us to start `GenerateRecord` and inspect the FlowFiles it produces before wiring up the Kafka connection.
 
 Connect **`GenerateRecord`** → **`PublishKafkaRecord`** on the `success` relationship. Terminate `failure` on `PublishKafkaRecord`.
 
@@ -551,7 +550,7 @@ jq -n --arg schema "$(cat sensor.avsc)" '{"schema": $schema}' | \
 Check that the registration was successful by listing the subjects of the schema registry:
 
 ```bash
-curl http://localhost:8081/subjects | jq
+curl http://dataplatform:8081/subjects | jq
 ```
 
 > **What you should see:** an array with the new subject
@@ -566,7 +565,7 @@ With our contract (the Avro schema) ready and available in the Schema Registry, 
 
 #### Configure `PublishKafkaRecord` processor
 
-Double click on the **`PublishKafkaRecord`** processor, navigate to **Properties** and configure:
+Double-click on the **`PublishKafkaRecord`** processor, navigate to **Properties** and configure:
 
 | Property | Value |
 |---|---|
@@ -668,7 +667,7 @@ Add a **`LogAttribute`** processor and configure:
 
 Connect **`ConsumeKafka`** → **`LogAttribute`** on the `success` relationship. Terminate `parse.failure` on `ConsumeKafka` and `success` on `LogAttribute`.
 
-The flow should look like shown below:
+The flow should look as shown below:
 
 ![Message content](./images/nifi-kafka-avro-consumer.png)
 
@@ -725,4 +724,85 @@ Key: 'uuid'
 
 > **What just happened?** `ConsumeKafka` reads raw bytes from the Kafka topic. The `AvroReader` strips the 5-byte Confluent wire format prefix, extracts the schema ID, fetches the schema from the `ConfluentSchemaRegistry`, and deserializes the Avro binary payload into a NiFi record. `JsonRecordSetWriter` converts that record back to a JSON representation in the FlowFile content body. `LogAttribute` then logs the attributes and content.
 
+## Exporting and Importing Process Groups
 
+NiFi lets you save any process group to a JSON file and reload it later — on the same instance or a different one. This is useful for sharing flows, promoting them between environments (dev → test → prod), or keeping a local backup.
+
+### Export a process group
+
+1. Navigate to the top-level canvas so the process groups are visible.
+2. Right-click on the process group you want to export (e.g. `kafka-avro-producer-pg`).
+3. Select **Download flow definition**. A sub-menu appears with two options:
+   - **Without External Services** — exports only what is defined inside the process group. Controller services that live outside the group (for example, a `Kafka3ConnectionService` created at the root canvas level) are **not** included. Use this option when the target NiFi instance already has those shared services configured, or when you want to keep the export minimal.
+   - **With External Services** — bundles the process group together with every controller service it references, regardless of where those services are defined. This produces a self-contained export that can be imported on a fresh NiFi instance without any manual setup of controller services first.
+4. Choose the appropriate option and save the downloaded `.json` file.
+
+NiFi downloads a `.json` file that contains the complete flow definition — processors, controller services, connections, and all property values. Sensitive properties (passwords, credentials) are stripped from the export and must be re-entered after import.
+
+### Import a process group
+
+1. Drag the **Process Group** icon from the toolbar onto the canvas.
+2. On the **Create Process Group** dialog, click **Browse** icon next to the **Name** field.
+3. Select the `.json` file you exported earlier and click **Open**, then click **Add**.
+
+NiFi recreates the process group with all processors and connections in place. Controller services are imported in the **Disabled** state — enable them before starting the flow. You can do that quickly by right-clicking on the canvas and selecting **Enable All Controller Services**.
+
+> **Note:** Processor UUIDs are preserved in the export. If you import the same file twice, NiFi will create two independent copies, each with fresh UUIDs, so there is no conflict.
+
+### Keeping flows in Git (Optional)
+
+For lightweight sharing, exporting the `.json` file and committing it to a Git repository works well:
+
+1. Export the process group after every meaningful change.
+2. Commit the file: `git add my-flow.json && git commit -m "add avro producer flow"`.
+3. Push so teammates can pull and import the file into their own NiFi instance.
+
+For deeper, canvas-native version control, NiFi 2.x ships with a built-in **Git Flow Registry Client** that connects NiFi directly to a Git repository — no separate NiFi Registry service required (the external Registry was the NiFi 1.x approach and is no longer needed).
+
+#### Configure the GitHubFlowRegistryClient
+
+The GitHub registry client requires your own GitHub repository and a personal access token — you cannot use a shared instance for this step.
+
+1. Click the hamburger menu (top-right) and select **Controller Settings**.
+2. Navigate to the **Registry Clients** tab and click **+**.
+3. Select **GitHubFlowRegistryClient** and click **Add**.
+4. Click the three dots icon, select **Edit** and configure on the **Properties** tab:
+
+| Property | Value |
+|---|---|
+| **Name** | a descriptive label, e.g. `workshop-github` |
+| **Repository Owner** | the owner of the GitHub repository |
+| **Repository Name** | the repository name |
+| **Authentication Type** | `Personal Access Token` |
+| **Personal Access Token** | the token obtained from GitHub (**Settings → Developer settings → Personal access tokens**) |
+| **Repository Path** | the folder within the repository to store flows; leave empty to use the repository root |
+
+5. Click **Apply**.
+
+#### Version-control a process group
+
+Once the registry client is configured, you can put any process group under version control directly from the canvas:
+
+1. Right-click the process group → **Version** → **Start version control**.
+2. Select the `workshop-github` registry client and choose (or create) a **Bucket** — this maps to a subdirectory inside the repository.
+3. Give the version a **Flow Name** and an initial **Comments**, then click **Save**.
+
+NiFi commits the flow definition to the Git repository. The process group now shows a green checkmark indicating it is under version control and in sync.
+
+#### Committing changes
+
+After modifying processors or connections inside a versioned process group:
+
+1. Right-click the process group → **Version** → **Commit local changes**.
+2. Enter a commit message and click **Save**.
+
+NiFi writes the updated flow definition to the local clone and pushes the commit to the remote repository.
+
+#### Rolling back
+
+To restore a previous version:
+
+1. Right-click the process group → **Version** → **Change version**.
+2. Select an earlier version from the list and click **Change**.
+
+NiFi replaces the current flow with the selected version. Running processors are stopped before the rollback and must be restarted manually afterwards.
