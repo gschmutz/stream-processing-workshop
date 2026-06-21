@@ -14,10 +14,12 @@ The data originates from the [MQTTX CLI](https://mqttx.app/docs/cli) `IEM` simul
 - [Using an MQTT Client to view messages](#using-an-mqtt-client-to-view-messages)
 - [Bridge MQTT to Kafka with Kafka Connect or Apache NiFi or MiNiFi](#bridge-mqtt-to-kafka-with-kafka-connect-or-apache-nifi-or-minifi)
 - [Create Avro Schema for downstream processing](#create-avro-schema-for-downstream-processing)
+- [Transforming JSON using JOLT](#transforming-json-using-jolt)
 - [Stream Processing Pipeline — NiFi or Python](#stream-processing-pipeline--nifi-or-python)
-- [Using Apache NiFi to transform from raw to avro message](#using-apache-nifi-to-transform-from-raw-to-avro-message)
-- [Using Python to transform from raw to avro message](#using-python-to-transform-from-raw-to-avro-message)
+- [Using Apache NiFi to transform from raw to Avro message](#using-apache-nifi-to-transform-from-raw-to-avro-message)
+- [Using Python to transform from raw to Avro message](#using-python-to-transform-from-raw-to-avro-message)
 - [Write the Avro formatted messages as Iceberg tables in S3](#write-the-avro-formatted-messages-as-iceberg-tables-in-s3)
+- [Query the Iceberg table with Trino](#query-the-iceberg-table-with-trino)
 - [Write the Avro formatted messages to TimescaleDB](#write-the-avro-formatted-messages-to-timescaledb)
 - [Visualize the TimescaleDB data in Grafana](#visualize-the-timescaledb-data-in-grafana)
 
@@ -226,8 +228,6 @@ kafka-connect-1             | [2019-06-08 18:01:11,520] INFO Finished starting c
 
 ```
 
-Before we configure and use the connector, we first need to create the Kafka target topic.
-
 #### Configure and start the MQTT Connector
 
 For creating an instance of the connector over the API, you can either use a REST client or the Linux `curl` command line utility, which should be available on the Docker host. Curl is what we are going to use here. 
@@ -374,7 +374,7 @@ The configured processor should look as shown below:
 
 Click **Apply** to close the dialog.
 
-### Adding a `ProduceKafka` processor
+### Adding a `PublishKafka` processor
 
 Drag the **Processor** icon from the toolbar onto the canvas.
 
@@ -426,13 +426,13 @@ Click **Apply** and enable the service by right-clicking on the three dots and c
 
 - **Topic Name**: `energy-monitoring.raw`
 
-Click **Apply** The **PublishKafka** should now be startable as well. Before we do that, let's create a `kcat` consumer to see the messages, as soon as we start the Kafka publisher
+Click **Apply**. The **PublishKafka** should now be startable as well. Before we do that, let's create a `kcat` consumer to see the messages, as soon as we start the Kafka publisher:
 
 ```bash
 docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring.raw -q
 ```
 
-Now start the **PublishKafka** processor in Apache Nifi and immediately the messages should appear in the terminal where `kcat` runs.
+Now start the **PublishKafka** processor in Apache NiFi and immediately the messages should appear in the terminal where `kcat` runs.
 
 ```json
 {"factory_id":"071","factory":"White, Torphy and Schiller","values":{"air_compressor_1":3.21,"air_compressor_2":4.18,"lighting":0.97,"cooling_equipment":21.38,"heating_equipment":41.44,"conveyor":11.33,"coating_equipment":5.54,"inspection_equipment":2.2,"welding_equipment":4.47,"packaging_equipment":7.57,"cutting_equipment":16.54},"timestamp":1781991318292}
@@ -670,7 +670,7 @@ jq -n --arg schema "$(cat energy-monitoring.avsc)" '{"schema": $schema}' | \
     -d @-
 ```    
 
-### Transforming JSON to JSON using JOLT
+## Transforming JSON using JOLT
 
 [JOLT](https://github.com/bazaarvoice/jolt) (JSON to JSON Transformation Library) is a Java library that transforms a JSON document into a new JSON structure using a declarative specification written in JSON itself. Instead of writing imperative code to map fields, you describe the desired output shape and JOLT figures out how to get there. The specification is made up of one or more transformation steps — the most commonly used are `shift` (picks fields from the input and places them at new paths in the output), `default` (adds fields with a constant value when they are absent), and `remove` (drops unwanted fields). 
 
@@ -742,7 +742,7 @@ producing a flat record that matches the Avro schema registered earlier:
 
 ## Stream Processing Pipeline — NiFi or Python
 
-Now that the raw messages are in Kafka and the JOLT transformation spec is defined, the next step is to wire the flattening into a running stream processing pipeline. The pipeline consumes records from `energy-monitoring.raw`, applies the JOLT shift transformation to promote the nested sensor values to the top level, serialises the result as Avro against the Schema Registry, and writes the flattened records to the `energy-monitoring` topic.
+Now that the raw messages are in Kafka and the JOLT transformation spec is defined, the next step is to wire the flattening into a running stream processing pipeline. The pipeline consumes records from `energy-monitoring.raw`, applies the JOLT shift transformation to promote the nested sensor values to the top level, serialises the result as Avro against the Schema Registry, and writes the flattened records to the `energy-monitoring.avro` topic.
 
 Two alternative implementations are provided — pick the one that fits your environment best:
 
@@ -753,7 +753,7 @@ Two alternative implementations are provided — pick the one that fits your env
 
 Both approaches produce identical Avro output to the same `energy-monitoring` topic, so you can switch between them.
 
-## Using Apache NiFi to transform from raw to avro message
+## Using Apache NiFi to transform from raw to Avro message
 
 [Apache NiFi](https://nifi.apache.org) is a visual data flow tool designed for routing, transforming, and mediating data between systems. It is a natural fit here because flattening a nested JSON record — exactly what we need to do — is the kind of stateless per-message transformation NiFi handles without writing any code. NiFi also provides a live monitoring view of throughput and backpressure on every connection, which makes it easy to observe the data flow during the workshop.
 
@@ -812,7 +812,7 @@ Click **Apply** to close the dialog.
 
 In Apache NiFi the **JoltTransformRecord** (or **JoltTransformJSON**) processor applies a JOLT spec to every record that passes through it, making it straightforward to flatten, rename, or restructure JSON messages inline in the data flow without writing any custom code.
 
-The JOLT spec is already described in the [Transforming JSON to JSON using JOLT](#transforming-json-to-json-using-jolt) section above. We will use the same spec here.
+The JOLT spec is already described in the [Transforming JSON using JOLT](#transforming-json-using-jolt) section above. We will use the same spec here.
 
 As we already get records from the **ConsumeKafka** processor, let's use a **JoltTransformRecord** to transform (flatten) the raw message. Drag a new processor to the canvas and search for the **JoltTransformRecord** processor. Double-click on the new processor to navigate to the **Properties** tab. 
 
@@ -842,7 +842,7 @@ Configure the following properties:
 
 Click **Apply** to close the dialog for the **JoltTransformRecord** processor.  
 
-### Adding a `ProduceKafka` processor
+### Adding a `PublishKafka` processor
 
 Drag the **Processor** icon from the toolbar onto the canvas.
 
@@ -916,7 +916,7 @@ Let's also create a `kcat` consumer to see the messages, as soon as we start the
 docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring.avro -q -s value=avro -r http://schema-registry-1:8081
 ```
 
-Now start the **PublishKafka** processor in Apache Nifi and immediately the messages should appear in the terminal where `kcat` runs.
+Now start the **PublishKafka** processor in Apache NiFi and immediately the messages should appear in the terminal where `kcat` runs.
 
 ```json
 {"factory_id": "058", "factory": "Hansen and Sons", "timestamp": 1781446704970, "air_compressor_1": 3.98, "air_compressor_2": 4.9800000000000004, "lighting": 1.0900000000000001, "cooling_equipment": 27.219999999999999, "heating_equipment": 50.530000000000001, "conveyor": 13.18, "coating_equipment": 3.5499999999999998, "inspection_equipment": 2.3799999999999999, "welding_equipment": 3.6499999999999999, "packaging_equipment": 5.3499999999999996, "cutting_equipment": 16.25}
@@ -930,7 +930,7 @@ Now start the **PublishKafka** processor in Apache Nifi and immediately the mess
 > **What you should see:** the messages are shown as JSON even though they are transmitted as Avro. `kcat` deserialises them to JSON because we specified `-s value=avro -r http://schema-registry-1:8081`.
 
 
-## Using Python to transform from raw to avro message
+## Using Python to transform from raw to Avro message
 
 As an alternative to the NiFi flow, you can run a lightweight Python script that reads raw JSON messages from `energy-monitoring.raw`, flattens them using plain Python dict manipulation, and produces Avro-serialised records to `energy-monitoring.avro`.
 
@@ -1055,7 +1055,7 @@ Copy the code into a new cell in Jupyter. Before running it, make sure the outpu
 docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --if-not-exists --topic energy-monitoring.avro --replication-factor 3 --partitions 8
 ```
 
-Open a terminal and start a `kcat` consumer to verify messages appear as soon as the script runs:
+Open a terminal and start a `kcat` consumer to verify that messages appear as soon as the script runs:
 
 ```bash
 docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring.avro -q -s value=avro -r http://schema-registry-1:8081
@@ -1369,7 +1369,7 @@ Type `exit` to exit `psql`.
 
 ### Configure the Kafka Connect JDBC Sink connector
 
-The Confluent JDBC Sink connector reads Avro records from the `energy-monitoring` Kafka topic and inserts them into `energy_log`. Because the `timestamp` field arrives as a Unix millisecond integer, a `TimestampConverter` Single Message Transform (SMT) is applied to convert it to a proper SQL `TIMESTAMP` before writing.
+The Confluent JDBC Sink connector reads Avro records from the `energy-monitoring.avro` Kafka topic and inserts them into `energy_log`. Because the `timestamp` field arrives as a Unix millisecond integer, a `TimestampConverter` Single Message Transform (SMT) is applied to convert it to a proper SQL `TIMESTAMP` before writing.
 
 ```bash
 curl -X DELETE "http://${DOCKER_HOST_IP}:8083/connectors/timescaledb-sink"
