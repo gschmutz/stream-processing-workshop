@@ -11,9 +11,6 @@ In this workshop you will build NiFi flows that produce and consume messages aga
 - [Opening Apache NiFi](#opening-apache-nifi)
 - [Working with Text Messages](#working-with-text-messages)
 - [Working with Avro Messages and the Schema Registry](#working-with-avro-messages-and-the-schema-registry)
-- [Browsing the Schema Registry](#browsing-the-schema-registry)
-- [Schema Evolution with Full Compatibility](#schema-evolution-with-full-compatibility)
-- [Deleting schemas from the Schema Registry](#deleting-schemas-from-the-schema-registry)
 
 ## What you will learn
 
@@ -261,7 +258,7 @@ Add a **`LogAttribute`** processor and configure:
 | **Log Payload** | `true` |
 | **Attributes to Log** | `kafka.topic, kafka.partition, kafka.offset, kafka.key` |
 
-Terminate the `success` relationship on `LogMessage`.
+Terminate the `success` relationship on `LogAttribute`.
 
 Connect **`ConsumeKafka`** → **`LogAttribute`** on the `success` relationship. Terminate the `success` relationship on `LogAttribute`.
 
@@ -722,9 +719,10 @@ Key: 'uuid'
 	Value: 'b0e2880a-2d8c-4363-a5e6-5de5617295a2'
 --------------------------------------------------
 [{"identifier":"Kl2ZroV9a","additionalType":"Windows 10 Mobile","manufacturer":"BlackBerry","dateCreated":1782050349704,"temperature":-16.02,"humidity":26.44,"pressure":985.73,"batteryLevel":23,"signalStrength":-31,"isActive":true,"geo":{"latitude":-58.025729,"longitude":176.157141,"elevation":2939.79}}]
+```
 
 > **What you should see:** Log entries showing the deserialized Sensor record content alongside the Kafka partition and offset attributes.
 
-> **What just happened?** `ConsumeKafkaRecord` reads bytes from the Kafka topic. The `AvroReader` strips the 5-byte Confluent wire format prefix, extracts the schema ID, fetches the schema from the `ConfluentSchemaRegistry`, and deserializes the Avro binary payload into a NiFi record. `JsonRecordSetWriter` converts that record back to a JSON representation in the FlowFile content body. `LogMessage` then logs the attributes and content.
+> **What just happened?** `ConsumeKafkaRecord` reads bytes from the Kafka topic. The `AvroReader` strips the 5-byte Confluent wire format prefix, extracts the schema ID, fetches the schema from the `ConfluentSchemaRegistry`, and deserializes the Avro binary payload into a NiFi record. `JsonRecordSetWriter` converts that record back to a JSON representation in the FlowFile content body. `LogAttribute` then logs the attributes and content.
 
 
