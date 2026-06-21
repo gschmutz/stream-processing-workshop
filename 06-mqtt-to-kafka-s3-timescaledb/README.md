@@ -15,10 +15,8 @@ The data originates from the [MQTTX CLI](https://mqttx.app/docs/cli) `IEM` simul
 - [Bridge MQTT to Kafka with Kafka Connect or Apache NiFi or MiNiFi](#bridge-mqtt-to-kafka-with-kafka-connect-or-apache-nifi-or-minifi)
 - [Create Avro Schema for downstream processing](#create-avro-schema-for-downstream-processing)
 - [Transforming JSON using JOLT](#transforming-json-using-jolt)
-- [Stream Processing Pipeline — NiFi or Python](#stream-processing-pipeline--nifi-or-python)
-- [Using Apache NiFi to transform from raw to Avro message](#using-apache-nifi-to-transform-from-raw-to-avro-message)
-- [Using Python to transform from raw to Avro message](#using-python-to-transform-from-raw-to-avro-message)
-- [Write the Avro formatted messages as Iceberg tables in S3](#write-the-avro-formatted-messages-as-iceberg-tables-in-s3)
+- [Stream Processing Pipeline for flattening JSON](#stream-processing-pipeline-for-flattening-json)
+- [Write the Avro formatted messages as Iceberg tables in S3 (optional)](#write-the-avro-formatted-messages-as-iceberg-tables-in-s3-optional---skip-it)
 - [Query the Iceberg table with Trino](#query-the-iceberg-table-with-trino)
 - [Write the Avro formatted messages to TimescaleDB](#write-the-avro-formatted-messages-to-timescaledb)
 - [Visualize the TimescaleDB data in Grafana](#visualize-the-timescaledb-data-in-grafana)
@@ -148,7 +146,7 @@ There are several ways to bridge MQTT to Kafka. In this section we will cover th
 
 We start with **Kafka Connect** in detail, then show the equivalent flows in NiFi and MiNiFi. Before we do that, let's create the target Kafka topic.
 
-#### Create the necessary Kafka topic
+### Create the necessary Kafka topic
 
 The Kafka cluster is configured with `auto.topic.create.enable` set to `false`. Therefore we first have to create all the necessary topics, using the `kafka-topics` command line utility of Apache Kafka. 
 
@@ -187,7 +185,7 @@ Navigate into the `plugins/kafka-connect/connectors` folder (a sub-folder of the
 cd $DATAPLATFORM_HOME/plugins/kafka-connect/connectors
 ```
 
-and download the `11.7.7/kafka-connect-mqtt-11.7.7.zip` file from the [Landoop Stream-Reactor Project](https://github.com/Landoop/stream-reactor/tree/master/kafka-connect-mqtt) project.
+and download the `11.7.7/kafka-connect-mqtt-11.7.7.zip` file from the [Landoop Stream-Reactor Project](https://github.com/Landoop/stream-reactor/tree/master/kafka-connect-mqtt).
 
 ```bash
 wget https://github.com/lensesio/stream-reactor/releases/download/11.7.7/kafka-connect-mqtt-11.7.7.zip
@@ -740,7 +738,7 @@ producing a flat record that matches the Avro schema registered earlier:
 
 ![Alt Image Text](./images/jolt-transform.png "Flow Connected")
 
-## Stream Processing Pipeline — NiFi or Python
+## Stream Processing Pipeline for flattening JSON
 
 Now that the raw messages are in Kafka and the JOLT transformation spec is defined, the next step is to wire the flattening into a running stream processing pipeline. The pipeline consumes records from `energy-monitoring.raw`, applies the JOLT shift transformation to promote the nested sensor values to the top level, serialises the result as Avro against the Schema Registry, and writes the flattened records to the `energy-monitoring.avro` topic.
 
@@ -753,7 +751,7 @@ Two alternative implementations are provided — pick the one that fits your env
 
 Both approaches produce identical Avro output to the same `energy-monitoring.avro` topic, so you can switch between them.
 
-## Using Apache NiFi to transform from raw to Avro message
+### Using Apache NiFi to transform from raw to Avro message
 
 [Apache NiFi](https://nifi.apache.org) is a visual data flow tool designed for routing, transforming, and mediating data between systems. It is a natural fit here because flattening a nested JSON record — exactly what we need to do — is the kind of stateless per-message transformation NiFi handles without writing any code. NiFi also provides a live monitoring view of throughput and backpressure on every connection, which makes it easy to observe the data flow during the workshop.
 
@@ -765,7 +763,7 @@ Enter `nifi` into the **User** field and `1234567890ACD` into the **Password** f
 
 > **Shortcut — import the pre-built flow:** Instead of building the pipeline manually step by step, you can import the complete process group directly. On the NiFi canvas, drag the **Process Group** icon from the toolbar, then click **Browse** in the dialog and select the file `nifi/energy-monitoring-pg.json` from this workshop folder. The fully configured pipeline — ConsumeKafka → JoltTransformRecord → PublishKafka — will appear on the canvas ready to start. To start it right-click on the process group and select **Enable All Controller Services** followed by another right-click and selecting **Start**. You can still follow the sections below to understand what each processor does.
 
-### Add a Process Group first
+#### Add a Process Group first
 
 Drag the **Process Group** icon from the toolbar onto the canvas.
 
@@ -775,7 +773,7 @@ On the **Create Process Group** pop-up window, enter `energy-monitoring-pg` into
 
 Double click on the new **energy-monitoring-pg** process group to navigate into the group. 
 
-### Adding a `ConsumeKafka` processor
+#### Adding a `ConsumeKafka` processor
 
 Drag the **Processor** icon from the toolbar onto the canvas.
 
@@ -808,7 +806,7 @@ The configured processor should look as shown below:
 
 Click **Apply** to close the dialog.
 
-### Flatten raw message using JOLT transformation
+#### Flatten raw message using JOLT transformation
 
 In Apache NiFi the **JoltTransformRecord** (or **JoltTransformJSON**) processor applies a JOLT spec to every record that passes through it, making it straightforward to flatten, rename, or restructure JSON messages inline in the data flow without writing any custom code.
 
@@ -842,7 +840,7 @@ Configure the following properties:
 
 Click **Apply** to close the dialog for the **JoltTransformRecord** processor.  
 
-### Adding a `PublishKafka` processor
+#### Adding a `PublishKafka` processor
 
 Drag the **Processor** icon from the toolbar onto the canvas.
 
@@ -854,7 +852,7 @@ Type **PublishK** into the filter box and select **PublishKafka**, then click **
 
 Before we configure the **PublishKafka** processor, let's connect them so we can already run the first two to validate that the flattening works.
 
-### Connecting the processors
+#### Connecting the processors
 
 Let's wire up the processors **ConsumeKafka → JoltTransformRecord → PublishKafka** by dragging from the source processor's edge to the destination and select the appropriate relationship in the dialog and terminate unused relationships on each processor:
 
@@ -864,7 +862,7 @@ Let's wire up the processors **ConsumeKafka → JoltTransformRecord → PublishK
 
 The first two processors should no longer have a warning indicator — only the last one.
 
-### Start the first two processors
+#### Start the first two processors
 
 Select **ConsumeKafka** and **JoltTransformRecord**, right-click and select **Start**. Wait a few seconds, then stop only the **ConsumeKafka** processor (leave **JoltTransformRecord** running) to limit the number of records processed.
 
@@ -884,7 +882,7 @@ A window in a new browser tab showing the content of the message should appear:
 
 Close the tab and on the list of records click on **Back to Connection** to navigate back to the canvas.
 
-### Configure the Publish Kafka processor
+#### Configure the Publish Kafka processor
 
 To finish the pipeline, let's configure the last processor to send the message to the `energy-monitoring.avro` topic.
 
@@ -910,7 +908,7 @@ The **PublishKafka** should now be startable as well and no longer show a warnin
 docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --if-not-exists --topic energy-monitoring.avro     --replication-factor 3 --partitions 8
 ```
 
-Let's also create a `kcat` consumer to see the messages, as soon as we start the Kafka publisher
+Let's also create a `kcat` consumer to see the messages as soon as we start the Kafka publisher:
 
 ```bash
 docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring.avro -q -s value=avro -r http://schema-registry-1:8081
@@ -929,15 +927,15 @@ Now start the **PublishKafka** processor in Apache NiFi and immediately the mess
 
 > **What you should see:** the messages are shown as JSON even though they are transmitted as Avro. `kcat` deserialises them to JSON because we specified `-s value=avro -r http://schema-registry-1:8081`.
 
-## Using Python to transform from raw to Avro message (optional -> [skip it](#write-the-avro-formatted-messages-as-iceberg-tables-in-s3))
+### Using Python to transform from raw to Avro message
 
 As an alternative to the NiFi flow, you can run a lightweight Python script that reads raw JSON messages from `energy-monitoring.raw`, flattens them using plain Python dict manipulation, and produces Avro-serialised records to `energy-monitoring.avro`.
 
 > **Note:** JOLT is a Java library and there is no official Python port. Community packages that attempt to replicate JOLT in Python are incomplete and not production-ready. For the Python implementation we therefore apply the same transformation logic directly in code rather than interpreting a JOLT spec.
 
-### Run the code in Jupyter
+#### Run the code in Jupyter
 
-The simplest way to run the python code is from Jupyter notebook. In a browser window, navigate to <http://dataplatform:28888> and use token `abc123!` to login. 
+The simplest way to run the Python code is from a Jupyter notebook. In a browser window, navigate to <http://dataplatform:28888> and use token `abc123!` to login. 
 
 Create a new notebook and install the only dependency needed:
 
@@ -1060,11 +1058,11 @@ docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring.avro -q -s value
 
 Now execute the cell.
 
-> **What you should see:** flat JSON lines in the `kcat`output — one per factory record — with all sensor fields promoted to the top level alongside `factory_id`, `factory`, and `timestamp`.
+> **What you should see:** flat JSON lines in the `kcat` output — one per factory record — with all sensor fields promoted to the top level alongside `factory_id`, `factory`, and `timestamp`.
 
-Stop execution of the python script by selecting **Kernel** | **Interrupt Kernel** from the menu bar.
+Stop execution of the Python script by selecting **Kernel** | **Interrupt Kernel** from the menu bar.
 
-### Run the code as a Docker image (optional -> [skip it](#write-the-avro-formatted-messages-as-iceberg-tables-in-s3))
+#### Run the code as a Docker image (optional -> [skip it](#write-the-avro-formatted-messages-as-iceberg-tables-in-s3-optional---skip-it))
 
 Running the script in Jupyter is convenient during development, but it has a practical limitation: it only runs while the Jupyter session is open and stops the moment you close the notebook or interrupt the kernel. For anything that needs to run continuously alongside the rest of the platform — surviving terminal closures, restarting after crashes, and starting automatically when the stack comes up — the script needs to be packaged as a container.
 
@@ -1090,7 +1088,7 @@ ENV CONSUMER_GROUP=energy-flatten-plain-cg
 CMD ["python", "flatten_plain.py"]
 ```
 
-#### Build the image
+**Build the image**
 
 From the workshop folder, build the image and tag it as `streaming-data-platform/energy-monitoring-flatten`:
 
@@ -1100,7 +1098,7 @@ docker build -t streaming-data-platform/energy-monitoring-flatten ./python
 
 > **What you should see:** Docker pulls `python:3.12-slim`, installs `confluent-kafka[avro]`, copies `flatten_plain.py`, and reports `Successfully built ...`.
 
-#### Test the container manually
+**Test the container manually**
 
 Before wiring the container into the Compose stack, verify that it works by running it against the platform network directly:
 
@@ -1118,10 +1116,10 @@ You can override any of the default environment variables at run time without re
 docker run --rm \
   --network streaming-data-platform \
   -e CONSUMER_GROUP=energy-flatten-debug-cg \
-  energy-monitoring-flatten
+  streaming-data-platform/energy-monitoring-flatten
 ```
 
-#### Integrate into the platform stack with `docker-compose.override.yml`
+**Integrate into the platform stack with `docker-compose.override.yml`**
 
 Docker Compose supports an optional `docker-compose.override.yml` file that is automatically merged with `docker-compose.yml` when you run `docker compose up`. This is the standard way to extend the platform stack with custom services without modifying the generated `docker-compose.yml`. It also integrates with the docker compose network, so that we can directly refer to the service names, such as `kafka-1`.
 
@@ -1130,7 +1128,7 @@ Create (or extend) the file `$DATAPLATFORM_HOME/docker-compose.override.yml` wit
 ```yaml
 services:
   energy-monitoring-flatten:
-    image: energy-monitoring-flatten
+    image: streaming-data-platform/energy-monitoring-flatten
     container_name: energy-monitoring-flatten
     hostname: energy-monitoring-flatten
     restart: unless-stopped
@@ -1181,7 +1179,7 @@ Stop it individually without touching the rest of the stack:
 docker compose stop energy-monitoring-flatten
 ```
 
-> **Note** before we continue, make sure that one of the flattening pipleline works!
+> **Note:** before we continue, make sure that one of the flattening pipelines works!
 
 ## Write the Avro formatted messages as Iceberg tables in S3 (optional -> [skip it](#write-the-avro-formatted-messages-to-timescaledb))
 
