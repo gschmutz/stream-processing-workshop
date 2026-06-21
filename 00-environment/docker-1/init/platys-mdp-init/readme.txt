@@ -1,1 +1,0 @@
-Place platys-mdp-init scripts here.

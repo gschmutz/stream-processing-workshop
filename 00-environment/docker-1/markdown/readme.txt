@@ -1,1 +1,0 @@
-Place markdown files here to be rendered my the markdown-madness service.

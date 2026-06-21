@@ -1,1 +1,0 @@
-Place kafka broker keystore and truststore here.
