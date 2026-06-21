@@ -751,7 +751,7 @@ Two alternative implementations are provided — pick the one that fits your env
 | **Apache NiFi** | Visual, low-code; easy to monitor throughput and back-pressure; no Python runtime needed |
 | **Python script** | Lightweight; easy to run anywhere Python is available; useful for scripting or CI pipelines |
 
-Both approaches produce identical Avro output to the same `energy-monitoring` topic, so you can switch between them.
+Both approaches produce identical Avro output to the same `energy-monitoring.avro` topic, so you can switch between them.
 
 ## Using Apache NiFi to transform from raw to Avro message
 
@@ -935,11 +935,9 @@ As an alternative to the NiFi flow, you can run a lightweight Python script that
 
 > **Note:** JOLT is a Java library and there is no official Python port. Community packages that attempt to replicate JOLT in Python are incomplete and not production-ready. For the Python implementation we therefore apply the same transformation logic directly in code rather than interpreting a JOLT spec.
 
-The script needs to be able to reach the Kafka broker and Schema Registry, which are only accessible inside the Docker Compose network. We could deploy it as a Docker container (a `Dockerfile` is provided in the `python/` folder for that purpose), but for workshop simplicity we will run it directly inside Jupyter, which is already part of the platform.
+### Run the code in Jupyter
 
-### Preparation
-
-In a browser window, navigate to <http://dataplatform:28888> and use token `abc123!` to login. 
+The simplest way to run the python code is from Jupyter notebook. In a browser window, navigate to <http://dataplatform:28888> and use token `abc123!` to login. 
 
 Create a new notebook and install the only dependency needed:
 
@@ -1065,6 +1063,125 @@ Now execute the cell.
 > **What you should see:** flat JSON lines in the `kcat`output — one per factory record — with all sensor fields promoted to the top level alongside `factory_id`, `factory`, and `timestamp`.
 
 Stop execution of the python script by selecting **Kernel** | **Interrupt Kernel** from the menu bar.
+
+### Run the code as a Docker image (optional)
+
+Running the script in Jupyter is convenient during development, but it has a practical limitation: it only runs while the Jupyter session is open and stops the moment you close the notebook or interrupt the kernel. For anything that needs to run continuously alongside the rest of the platform — surviving terminal closures, restarting after crashes, and starting automatically when the stack comes up — the script needs to be packaged as a container.
+
+A `Dockerfile` is provided in the [`python/`](python/) folder for exactly this purpose. It bundles the script and its single dependency into a self-contained image based on `python:3.12-slim`. All runtime parameters (broker address, topic names, Schema Registry URL, consumer group) are baked in as `ENV` defaults and can be overridden at run time via `-e` flags or a Compose `environment:` block without rebuilding the image.
+
+```
+FROM python:3.12-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY flatten_plain.py .
+
+ENV KAFKA_BROKER=kafka-1:19092
+ENV SOURCE_TOPIC=energy-monitoring.raw
+ENV SINK_TOPIC=energy-monitoring.avro
+ENV SCHEMA_REGISTRY_URL=http://schema-registry-1:8081
+ENV SCHEMA_SUBJECT=energy-monitoring.avro-value
+ENV CONSUMER_GROUP=energy-flatten-plain-cg
+
+CMD ["python", "flatten_plain.py"]
+```
+
+#### Build the image
+
+From the workshop folder, build the image and tag it as `streaming-data-platform/energy-monitoring-flatten`:
+
+```bash
+docker build -t streaming-data-platform/energy-monitoring-flatten ./python
+```
+
+> **What you should see:** Docker pulls `python:3.12-slim`, installs `confluent-kafka[avro]`, copies `flatten_plain.py`, and reports `Successfully built ...`.
+
+#### Test the container manually
+
+Before wiring the container into the Compose stack, verify that it works by running it against the platform network directly:
+
+```bash
+docker run --rm \
+  --network streaming-data-platform \
+  streaming-data-platform/energy-monitoring-flatten
+```
+
+> **What you should see:** a startup message followed by Avro records being produced to `energy-monitoring.avro`, identical to what you observed when running the script in Jupyter. Press **Ctrl-C** to stop.
+
+You can override any of the default environment variables at run time without rebuilding the image. For example, to point at a different consumer group for testing:
+
+```bash
+docker run --rm \
+  --network streaming-data-platform \
+  -e CONSUMER_GROUP=energy-flatten-debug-cg \
+  energy-monitoring-flatten
+```
+
+#### Integrate into the platform stack with `docker-compose.override.yml`
+
+Docker Compose supports an optional `docker-compose.override.yml` file that is automatically merged with `docker-compose.yml` when you run `docker compose up`. This is the standard way to extend the platform stack with custom services without modifying the generated `docker-compose.yml`. It also integrates with the docker compose network, so that we can directly refer to the service names, such as `kafka-1`.
+
+Create (or extend) the file `$DATAPLATFORM_HOME/docker-compose.override.yml` with the following service definition:
+
+```yaml
+services:
+  energy-monitoring-flatten:
+    image: energy-monitoring-flatten
+    container_name: energy-monitoring-flatten
+    hostname: energy-monitoring-flatten
+    restart: unless-stopped
+    environment:
+      KAFKA_BROKER: kafka-1:19092
+      SOURCE_TOPIC: energy-monitoring.raw
+      SINK_TOPIC: energy-monitoring.avro
+      SCHEMA_REGISTRY_URL: http://schema-registry-1:8081
+      SCHEMA_SUBJECT: energy-monitoring.avro-value
+      CONSUMER_GROUP: energy-flatten-plain-cg
+    depends_on:
+      - kafka-1
+      - schema-registry-1
+```
+
+The key decisions in this definition are explained below:
+
+| Setting | Value | Why |
+|---|---|---|
+| `restart: unless-stopped` | automatic restart | The container recovers from transient Kafka connectivity issues or crashes without manual intervention |
+| `environment:` | explicit overrides | Even though these match the `ENV` defaults in the `Dockerfile`, making them explicit in Compose makes them easy to spot and change without rebuilding the image |
+| `depends_on:` | `kafka-1`, `schema-registry-1` | Compose starts the container only after the broker and registry containers are running |
+
+Start the service alongside the rest of the platform:
+
+```bash
+cd $DATAPLATFORM_HOME
+docker compose up -d energy-monitoring-flatten
+```
+
+Or bring up the full stack (the override file is merged automatically):
+
+```bash
+docker compose up -d
+```
+
+Confirm the container is running and producing records:
+
+```bash
+docker logs -f energy-monitoring-flatten
+```
+
+> **What you should see:** the same startup and producing output as in the manual run above, now running persistently in the background as part of the platform stack.
+
+Stop it individually without touching the rest of the stack:
+
+```bash
+docker compose stop energy-monitoring-flatten
+```
+
+> **Note** before we continue, make sure that one of the flattening pipleline works!
 
 ## Write the Avro formatted messages as Iceberg tables in S3
 
