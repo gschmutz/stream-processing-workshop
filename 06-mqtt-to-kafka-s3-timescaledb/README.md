@@ -929,7 +929,7 @@ Now start the **PublishKafka** processor in Apache NiFi and immediately the mess
 
 > **What you should see:** the messages are shown as JSON even though they are transmitted as Avro. `kcat` deserialises them to JSON because we specified `-s value=avro -r http://schema-registry-1:8081`.
 
-## Using Python to transform from raw to Avro message
+## Using Python to transform from raw to Avro message (optional -> [skip it](#write-the-avro-formatted-messages-as-iceberg-tables-in-s3))
 
 As an alternative to the NiFi flow, you can run a lightweight Python script that reads raw JSON messages from `energy-monitoring.raw`, flattens them using plain Python dict manipulation, and produces Avro-serialised records to `energy-monitoring.avro`.
 
@@ -1064,7 +1064,7 @@ Now execute the cell.
 
 Stop execution of the python script by selecting **Kernel** | **Interrupt Kernel** from the menu bar.
 
-### Run the code as a Docker image (optional)
+### Run the code as a Docker image (optional -> [skip it](#write-the-avro-formatted-messages-as-iceberg-tables-in-s3))
 
 Running the script in Jupyter is convenient during development, but it has a practical limitation: it only runs while the Jupyter session is open and stops the moment you close the notebook or interrupt the kernel. For anything that needs to run continuously alongside the rest of the platform — surviving terminal closures, restarting after crashes, and starting automatically when the stack comes up — the script needs to be packaged as a container.
 
@@ -1183,7 +1183,7 @@ docker compose stop energy-monitoring-flatten
 
 > **Note** before we continue, make sure that one of the flattening pipleline works!
 
-## Write the Avro formatted messages as Iceberg tables in S3
+## Write the Avro formatted messages as Iceberg tables in S3 (optional -> [skip it](#write-the-avro-formatted-messages-to-timescaledb))
 
 [Apache Iceberg](https://iceberg.apache.org/) is an open table format designed for large analytic datasets stored in object storage such as S3. Unlike writing raw Parquet or ORC files directly, Iceberg adds a metadata layer that gives you ACID transactions, schema evolution, partition evolution, and time-travel queries on top of ordinary files. Every write is atomic and every historical snapshot is queryable, so you get data-warehouse semantics without a data warehouse.
 
