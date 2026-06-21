@@ -75,11 +75,11 @@ Double-click on the new **kafka-text-pg** group to navigate into it.
 All Kafka processors in NiFi share a `Kafka3ConnectionService` controller service that holds the broker address and common settings. You only need to create this once per process group.
 
 1. Right-click anywhere on the canvas and select **Controller Services**.
-3. Click the **+** button to add a new service.
-4. Search for `Kafka3ConnectionService`, select it, and click **Add**.
-5. Click the three dots icon next to the new service, click **Edit** and navigate to **Properties**.
-6. Set **Bootstrap Servers** to `kafka-1:19092,kafka-2:19093`.
-7. Click **Apply**, then enable the service by clicking on the 3 dots icon and clicking **Enable**.
+2. Click the **+** button to add a new service.
+3. Search for `Kafka3ConnectionService`, select it, and click **Add**.
+4. Click the three dots icon next to the new service, click **Edit** and navigate to **Properties**.
+5. Set **Bootstrap Servers** to `kafka-1:19092,kafka-2:19093`.
+6. Click **Apply**, then enable the service by clicking on the 3 dots icon and clicking **Enable**.
 
 > **What you should see:** The `Kafka3ConnectionService` is showing in state **Enabled**.
 
@@ -209,7 +209,7 @@ Instead, add an `UpdateAttribute` processor between `GenerateFlowFile` and `Publ
 
 
 Now re-wire:
-- Stop all running processors by right-clicking on canvas an select **Stop**
+- Stop all running processors by right-clicking on the canvas and select **Stop**
 - Delete the existing `GenerateFlowFile → PublishKafka` connection (right-click → **Delete**).
 - Draw `GenerateFlowFile → UpdateAttribute` (select `success`).
 - Draw `UpdateAttribute → PublishKafka` (select `success`).
@@ -301,7 +301,7 @@ So far all messages contained a single text string. In real pipelines a message 
 
 ### Create the Kafka topic
 
-First create the target Kafka topic. The Kafka cluster is configured with auto.create.topics.enable set to false, so topics must be created explicitly: 
+First create the target Kafka topic. The Kafka cluster is configured with `auto.create.topics.enable` set to `false`, so topics must be created explicitly:
 
 ```bash
 docker exec -ti kafka-1 kafka-topics \
@@ -319,7 +319,7 @@ Navigate back to the top-level canvas and create a new process group called `kaf
 
 #### Set up controller services
 
-This flow requires three controller services. Right-click the canvas → **Controller Services** → **+** and add the following (in any order):
+This flow requires four controller services. Right-click the canvas → **Controller Services** → **+** and add the following (in any order):
 
 **1. `Kafka3ConnectionService`**
 
@@ -331,7 +331,9 @@ Enable it.
 
 **2. `JsonRecordSetWriter`**
 
-Leave all properties at their defaults. This reader parses a JSON object from the FlowFile content into a NiFi record.
+Leave all properties at their defaults. This writer serializes NiFi records to JSON format.
+
+Enable it.
 
 **3. `JsonTreeReader`**
 
@@ -367,7 +369,7 @@ Drag a **`GenerateRecord`** processor onto the canvas and configure:
 
 | Property | Value |
 |---|---|
-| **RecordWriter** | chose the `JsonRecordSetWriter` configured above |
+| **RecordWriter** | select the `JsonRecordSetWriter` configured above |
 | **Number of Records** | `1` |
 | **Predefined Schema** | select `Sensor` |
 
@@ -379,13 +381,13 @@ Click **Apply**.
 
 Drag a **`PublishKafkaRecord`** processor onto the canvas. We will configure it later and first only use it so that we can run the `GenerateRecord` processor. 
 
-Connect **`GenerateFlowFile`** → **`PublishKafkaRecord`** on the `success` relationship. Terminate `failure` on `PublishKafkaRecord`.
+Connect **`GenerateRecord`** → **`PublishKafkaRecord`** on the `success` relationship. Terminate `failure` on `PublishKafkaRecord`.
 
 ![Message content](./images/nifi-generaterecord-kafka.png)
 
 #### Start the `GenerateRecord` processor
 
-Right-click on `GenerateRecord` and click **Start** to start it. After a view seconds, new flow files should start appearing in the queue before the `PublishKafka` processor. 
+Right-click on `GenerateRecord` and click **Start** to start it. After a few seconds, new FlowFiles should start appearing in the queue before the `PublishKafkaRecord` processor.
 
 #### Inspecting one of the flow files
 
@@ -546,7 +548,7 @@ jq -n --arg schema "$(cat sensor.avsc)" '{"schema": $schema}' | \
     -d @-
 ```
 
-Check that the registration was successful by listing the subjects of the schema registry
+Check that the registration was successful by listing the subjects of the schema registry:
 
 ```bash
 curl http://localhost:8081/subjects | jq
@@ -560,7 +562,7 @@ curl http://localhost:8081/subjects | jq
 ]
 ```
 
-With our contract (the avro schema) ready and available in the Schema Registry, we can now configure the `PublishKafka` processor. 
+With our contract (the Avro schema) ready and available in the Schema Registry, we can now configure the `PublishKafkaRecord` processor.
 
 #### Configure `PublishKafkaRecord` processor
 
@@ -568,7 +570,7 @@ Double click on the **`PublishKafkaRecord`** processor, navigate to **Properties
 
 | Property | Value |
 |---|---|
-| **Kafka Connection Service** | chose the `Kafka3ConnectionService` |
+| **Kafka Connection Service** | select the `Kafka3ConnectionService` |
 | **Topic Name** | `test-nifi-avro-topic` |
 | **Failure Strategy** | `Route to Failure` |
 | **Compression Type** | `zstd` |
@@ -618,7 +620,7 @@ Navigate back to the top-level canvas and create a new process group called `kaf
 
 #### Set up controller services
 
-This flow requires again some controller services. Right-click the canvas → **Controller Services** → **+** and add the following:
+This flow also requires some controller services. Right-click the canvas → **Controller Services** → **+** and add the following:
 
 **1. `Kafka3ConnectionService`**
 
@@ -630,7 +632,7 @@ Enable it.
 
 #### Add a `ConsumeKafka` processor to consume Avro messages
 
-Actually, for consuming Avro the simplest approach is to use `ConsumeKafka` (raw bytes), but if we want to use the data, we have to parse it as Avro using the schema.
+To consume and deserialize Avro messages, configure `ConsumeKafka` with the `RECORD` processing strategy and an Avro-aware reader. This instructs NiFi to strip the Confluent wire-format prefix from each Kafka record, look up the schema from the registry, and deserialize the Avro binary payload into a NiFi record. A `JsonRecordSetWriter` then re-encodes the record as JSON for downstream processors.
 
 Add a **`ConsumeKafka`** processor and configure:
 
@@ -648,7 +650,7 @@ Configure the **`AvroReader`** controller service as follows:
 
 | Property | Value |
 |---|---|
-| **Schema Access Strategy** | chose `Schema Reference Reader` so the schema is referenced from the schema registry  |
+| **Schema Access Strategy** | select `Schema Reference Reader` so the schema is looked up from the Schema Registry |
 | **Schema Reference Reader** | Create a new `ConfluentEncodedSchemaReferenceReader` service |
 | **Schema Registry** | Create a new `ConfluentSchemaRegistry` service pointing to `http://schema-registry-1:8081` |
 
@@ -664,9 +666,7 @@ Add a **`LogAttribute`** processor and configure:
 | **Log Payload** | `true` |
 | **Attributes to Log** | `kafka.topic, kafka.partition, kafka.offset, kafka.key` |
 
-Terminate the `success` relationship on `LogMessage`.
-
-Connect **`ConsumeKafka`** → **`LogAttribute`** on the `success` relationship. Terminate `parse.failure` on `ConsumeKafkaRecord` and `success` on `LogAttribute` processor.
+Connect **`ConsumeKafka`** → **`LogAttribute`** on the `success` relationship. Terminate `parse.failure` on `ConsumeKafka` and `success` on `LogAttribute`.
 
 The flow should look like shown below:
 
@@ -723,6 +723,6 @@ Key: 'uuid'
 
 > **What you should see:** Log entries showing the deserialized Sensor record content alongside the Kafka partition and offset attributes.
 
-> **What just happened?** `ConsumeKafkaRecord` reads bytes from the Kafka topic. The `AvroReader` strips the 5-byte Confluent wire format prefix, extracts the schema ID, fetches the schema from the `ConfluentSchemaRegistry`, and deserializes the Avro binary payload into a NiFi record. `JsonRecordSetWriter` converts that record back to a JSON representation in the FlowFile content body. `LogAttribute` then logs the attributes and content.
+> **What just happened?** `ConsumeKafka` reads raw bytes from the Kafka topic. The `AvroReader` strips the 5-byte Confluent wire format prefix, extracts the schema ID, fetches the schema from the `ConfluentSchemaRegistry`, and deserializes the Avro binary payload into a NiFi record. `JsonRecordSetWriter` converts that record back to a JSON representation in the FlowFile content body. `LogAttribute` then logs the attributes and content.
 
 
