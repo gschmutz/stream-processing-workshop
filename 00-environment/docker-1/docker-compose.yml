@@ -464,13 +464,83 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+  #  ================================== Apache Hive Metastore ========================================== #
+  hive-metastore:
+    image: trivadis/apache-hive:4.2.0-postgresql-standalone-metastore-s3
+    container_name: hive-metastore
+    hostname: hive-metastore
+    labels:
+      com.platys.name: hive-metastore
+      com.platys.description: Hive Metastore
+      com.platys.restapi.title: Hive Metastore Iceberg REST API
+      com.platys.restapi.url: http://dataplatform:9084/iceberg/v1/namespaces
+    depends_on:
+      hive-metastore-db:
+        condition: service_healthy
+    ports:
+      - 9083:9083
+      - 9084:9084
+    environment:
+      HIVE_VER: 4.2.0
+      # configure iceberg catalog service (if HMS >= 4.1.0)
+      HIVE_SITE_CONF_metastore_catalog_servlet_port: 9084
+      HIVE_SITE_CONF_metastore_catalog_servlet_auth: none
+      CORE_CONF_fs_defaultFS: file:///tmp
+      HIVE_SITE_CONF_fs_defaultFS: file:///tmp
+      HIVE_SITE_CONF_fs_s3a_endpoint: http://rustfs-1:9000
+      HIVE_SITE_CONF_fs_s3a_access_key: ${PLATYS_AWS_ACCESS_KEY:-admin}
+      HIVE_SITE_CONF_fs_s3a_secret_key: ${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}
+      HIVE_SITE_CONF_fs_s3a_path_style_access: 'true'
+      HIVE_SITE_CONF_fs_s3a_impl: org.apache.hadoop.fs.s3a.S3AFileSystem
+      HIVE_SITE_CONF_hive_metastore_uris: thrift://hive-metastore:9083
+      HIVE_SITE_CONF_hive_metastore_warehouse_dir: s3a://admin-bucket/warehouse
+      HIVE_SITE_CONF_hive_metastore_warehouse_external_dir: s3a://admin-bucket/warehouse/external
+      HIVE_SITE_CONF_javax_jdo_option_ConnectionURL: jdbc:postgresql://hive-metastore-db/metastore_db
+      HIVE_SITE_CONF_javax_jdo_option_ConnectionDriverName: org.postgresql.Driver
+      HIVE_SITE_CONF_javax_jdo_option_ConnectionUserName: hive
+      HIVE_SITE_CONF_javax_jdo_option_ConnectionPassword: ${PLATYS_HMS_POSTGRESQL_PASSWORD:-abc123!}
+      HIVE_SITE_CONF_datanucleus_autoCreateSchema: false
+      HIVE_SITE_CONF_hive_metastore_event_db_notification_api_auth: false
+      # necessary for Trino to be able to read from Avro
+      HIVE_SITE_CONF_metastore_storage_schema_reader_impl: org.apache.hadoop.hive.metastore.SerDeStorageSchemaReader
+      SERVICE_PRECONDITION: hive-metastore-db:5432
+      DB_DRIVER: postgres
+      SERVICE_NAME: standalone-metastore
+      SERVICE_OPTS: -Xmx1G -Djavax.jdo.option.ConnectionDriverName=org.postgresql.Driver -Djavax.jdo.option.ConnectionURL=jdbc:postgresql://hive-metastore-db/metastore_db -Djavax.jdo.option.ConnectionUserName=hive -Djavax.jdo.option.ConnectionPassword=${PLATYS_HMS_POSTGRESQL_PASSWORD:-abc123!}
+    volumes:
+      - ./data-transfer:/data-transfer
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, nc, -z, hive-metastore, '9083']
+      interval: 30s
+      timeout: 10s
+      retries: 10
+  hive-metastore-db:
+    image: postgres
+    container_name: hive-metastore-db
+    hostname: hive-metastore-db
+    labels:
+      com.platys.name: hive-metastore
+      com.platys.description: Hive Metastore DB
+      com.platys.password.envvars: PLATYS_HMS_POSTGRESQL_PASSWORD
+    ports:
+      - 5442:5432
+    environment:
+      POSTGRES_DB: metastore_db
+      POSTGRES_USER: hive
+      POSTGRES_PASSWORD: ${PLATYS_HMS_POSTGRESQL_PASSWORD:-abc123!}
+    volumes:
+      - ./data-transfer:/data-transfer
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, psql, -U, hive, metastore_db]
   #  ================================== NiFi 2 ========================================== #
   nifi2-1:
     image: apache/nifi:2.9.0
     container_name: nifi2-1
     hostname: nifi2-1
     labels:
-      com.platys.name: nifi
+      com.platys.name: nifi2
       com.platys.description: NiFi Data Integration Engine (V2)
       com.platys.webui.title: Apache NiFi UI
       com.platys.webui.url: https://dataplatform:18083/nifi
@@ -515,8 +585,24 @@ services:
       - bash
       - -c
       - |
-        /tmp/pre-start.sh        
+        grep -q 'nifi.security.user.login.identity.provider.expiration' /opt/nifi/nifi-current/conf/nifi.properties \
+          && sed -i 's/nifi.security.user.login.identity.provider.expiration=.*/nifi.security.user.login.identity.provider.expiration=30 days/' /opt/nifi/nifi-current/conf/nifi.properties \
+          || echo 'nifi.security.user.login.identity.provider.expiration=30 days' >> /opt/nifi/nifi-current/conf/nifi.properties  
+           /tmp/pre-start.sh        
         ../scripts/start.sh
+    restart: unless-stopped
+  #  ================================== Apache MiNiFi C++ ========================================== #
+  minifi:
+    image: apache/nifi-minifi-cpp:0.99.2
+    container_name: minifi
+    hostname: minifi
+    profiles: [minifi_profile]
+    labels:
+      com.platys.name: minifi
+      com.platys.description: Apache MiNiFi C++ Agent
+    volumes:
+      - ./data-transfer:/data-transfer
+      - ./custom-conf/minifi/config.yml:/opt/minifi/minifi-current/conf/config.yml
     restart: unless-stopped
   #  ================================== Jupyter ========================================== #
   jupyter:
@@ -724,6 +810,84 @@ services:
     volumes:
       - ./data-transfer:/data-transfer
     restart: always
+  #  ================================== Trino ========================================== #
+  trino-1:
+    image: trinodb/trino:481
+    hostname: trino-1
+    container_name: trino-1
+    labels:
+      com.platys.name: trino
+      com.platys.description: SQL Virtualization Engine
+      com.platys.webui.title: Trino UI
+      com.platys.webui.url: http://dataplatform:28082/ui/preview
+      com.platys.password.envvars: PLATYS_GSHEET_CREDENTIALS_KEY
+    ports:
+      - 28082:8080
+      - 28087:8443
+    environment:
+      COORDINATOR_HOST: trino-1
+      CATALOG_MANAGEMENT: static
+      CATALOG_CONFIG_DIR: /catalog
+      #CATALOG_STORE: file
+      QUERY_MAX_MEMORY_PER_NODE: 4GB
+      HMS_ICEBERG_REST_CATALOG_URI: http://hive-metastore:9084/iceberg
+      HMS_ICEBERG_REST_CATALOG_WAREHOUSE: s3a://admin-bucket/iceberg/warehouse
+      S3_ENDPOINT: http://rustfs-1:9000
+      S3_REGION: us-east-1
+      S3_AWS_ACCESS_KEY: ${PLATYS_AWS_ACCESS_KEY:-admin}
+      S3_AWS_SECRET_KEY: ${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}
+      S3_PATH_STYLE_ACCESS: 'true'
+      HIVE_METASTORE_URI: thrift://hive-metastore:9083
+      HIVE_STORAGE_FORMAT: ORC
+      HIVE_COMPRESSION_CODEC: GZIP
+      HIVE_VIEWS_ENABLED: 'false'
+      HIVE_RUN_AS_INVOKER: 'false'
+      HIVE_LEGACY_TRANSLATION: 'false'
+      NESSIE_CATALOG_WAREHOUSE_DIR: s3a://admin-bucket/nessie/warehouse
+      KAFKA_NODES: kafka-1:19092,kafka-2:19093,kafka-3:19094
+      KAFKA_SCHEMA_REGISTRY_URL: http://schema-registry-1:8081
+      KAFKA_CONFIG_RESOURCES: /etc/trino/kafka-configuration.properties
+      KAFKA_SECURITY_PROTOCOL: PLAINTEXT
+      KAFKA_TABLE_NAMES:
+      KAFKA_DEFAULT_SCHEMA: default
+      KAFKA_TABLE_DESCRIPTOR_DIR: /etc/trino/kafka/
+      POSTGRESQL_DATABASE: postgres
+      POSTGRESQL_USER: postgres
+      POSTGRESQL_PASSWORD: abc123!
+      TIMESCALEDB_DATABASE: timescaledb
+      TIMESCALEDB_USER: timescaledb
+      TIMESCALEDB_PASSWORD: ${PLATYS_TIMESCALEDB_PASSWORD:-abc123!}
+      EVENT_LISTENER_CONFIG_FILES: ''
+    volumes:
+      - ./data-transfer:/data-transfer
+      - ./conf/trino/single/config.properties:/etc/trino/config.properties
+      - ./conf/trino/single/node.properties:/etc/trino/node.properties
+      - ./conf/trino/single/log-debug.properties:/etc/trino/log.properties
+      - ./conf/trino/catalog/hive.properties:/catalog/minio.properties
+      - ./conf/trino/catalog/hive.properties:/catalog/hive.properties
+      - ./conf/trino/catalog/iceberg-hive.properties:/catalog/iceberg_hive.properties
+      - ./conf/trino/catalog/iceberg-hive-rest.properties:/catalog/iceberg_hive_rest.properties
+      - ./conf/trino/catalog/postgresql.properties:/catalog/postgresql.properties
+      - ./conf/trino/catalog/timescaledb.properties:/catalog/timescaledb.properties
+      - ./conf/trino/catalog/elasticsearch.properties:/catalog/elasticsearch.properties
+      - ./custom-conf/trino/security:/etc/trino/security
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD-SHELL, trino --version]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  trino-cli:
+    image: trivadis/trino-cli:latest
+    hostname: trino-cli
+    container_name: trino-cli
+    labels:
+      com.platys.name: trino
+      com.platys.description: Trino CLI
+    volumes:
+      - ./data-transfer:/data-transfer
+    tty: true
+    restart: unless-stopped
   #  ================================== RustFS (S3 Storage) ========================================== #
   rustfs-1:
     image: rustfs/rustfs:latest

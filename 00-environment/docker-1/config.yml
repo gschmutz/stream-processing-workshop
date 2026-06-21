@@ -21,7 +21,10 @@
       # either 'minio' or 'rustfs'
       s3_service_to_use: rustfs
       table_formats_to_use: iceberg
-
+      
+      # enable jmx monitoring with prometheus
+      jmx_monitoring_with_prometheus_enable: false
+      
       copy_cookbook_data_folder: true
 
       # ========================================================================
@@ -64,7 +67,7 @@
       KAFKA_delete_topic_enable: true
       KAFKA_auto_create_topics_enable: false
       KAFKA_message_timestamp_type: CreateTime
-      KAFKA_jmx_monitoring_prometheus_enable: false
+
       # KAFKA_log_segment_bytes:
       # KAFKA_log_retention_ms:
       # KAFKA_log_retention_hours:
@@ -467,7 +470,21 @@
       #
       # ===== Apache Hive Metastore ========
       #
-      HIVE_METASTORE_enable: false
+      HIVE_METASTORE_enable: true
+      HIVE_METASTORE_major_version: 4
+      HIVE_METASTORE_use_standalone_edition: true
+      HIVE_METASTORE_transactional_event_listener_enabled: false
+      # an implementatio of the TransactionalMetaStoreEventListener, for example 'org.apache.hive.hcatalog.listener.DbNotificationListener'
+      HIVE_METASTORE_transactional_event_listeners: 
+      HIVE_METASTORE_transactional_event_listener_configs: ''
+      HIVE_METASTORE_plugin_jars: 
+      HIVE_METASTORE_volume_map_data: false
+      # one of 'derby' or 'postgres'
+      HIVE_METASTORE_db_type: postgres
+      HIVE_METASTORE_db_user: hive
+      HIVE_METASTORE_db_password: abc123!
+      # one of the valid Postgresql wal_levels: "replica", "minimal", "logical". Use logical if you want to work with Debezium.
+      HIVE_METASTORE_db_postgresql_wal_level:       
       #
       # ===== Apache Avro Tools ========
       #
@@ -637,6 +654,14 @@
       # ===== Apache NiFi Toolkit ========
       #
       NIFI_TOOLKIT_enable: false
+      NIFI_TOOLKIT_major_version: 2
+      #
+      # ===== Apache MiNiFi C++ ========
+      #
+      MINIFI_enable: true
+      MINIFI_compose_profile: minifi_profile
+      MINIFI_volume_map_custom_config: true
+      MINIFI_volume_map_custom_minifi_properties: false      
       #
       # ===== MonitoFi ========
       #
@@ -1268,17 +1293,40 @@
       #
       # ===== Trino ========
       #
-      TRINO_enable: false
+      TRINO_enable: true
+      TRINO_custom_image_name: ''
       # "single" or "cluster" install
       TRINO_install: single
+      TRINO_clusters: 1
       TRINO_workers: 3
       # either starburstdata or oss
-      TRINO_edition: 'starburstdata'
+      TRINO_edition: 'oss'
+      # either 'static' or 'dynamic'
+      TRINO_catalog_management: static
+      TRINO_max_memory_per_node: 4GB
+      TRINO_db_migrations_enabled: true
+      TRINO_auth_enabled: false
+      TRINO_auth_use_custom_password_file: false
+      TRINO_auth_use_custom_certs: false
+      TRINO_auth_with_groups: false
+      TRINO_access_control_enabled: false
+      # either 'file' or 'opa'
+      TRINO_access_control_method: file
+      TRINO_opa_namespace:
+      TRINO_resource_groups_enabled: false
+      # either 'file' or 'db'
+      TRINO_resource_groups_type: 'file'
+
       TRINO_hive_storage_format: ORC
       TRINO_hive_compression_codec: GZIP
+      TRINO_hive_views_enabled: false
+      TRINO_hive_run_as_invoker: false
+      TRINO_hive_legacy_translation: false
+      # either 'file' or 'schema-registry'
+      TRINO_kafka_descriptor_supplier: file
       TRINO_kafka_table_names: ''
-      TRINO_kafka_default_schema: ''
-      TRINO_event_listener: ''
+      TRINO_kafka_default_schema: 'default'
+      TRINO_event_listeners: ''
       TRINO_postgresql_database: ''
       TRINO_postgresql_user: ''
       TRINO_postgresql_password: ''
@@ -1287,8 +1335,31 @@
       TRINO_sqlserver_database: ''
       TRINO_sqlserver_user: ''
       TRINO_sqlserver_password: ''
+      TRINO_redis_table_names: ''
+      TRINO_redis_stack_table_names: ''
+      TRINO_with_iceberg_rest_catalog: false
+      TRINO_iceberg_rest_catalog_url: http://iceberg-rest-catalog:8181
+      TRINO_iceberg_rest_catalog_warehouse: 
+      TRINO_with_duckdb_catalog: false
+      TRINO_duckdb_path_to_db: '/data-transfer/duckdb/duckdb-demo.duckdb'
+      # add the hive metastore db as a catalog?
+      TRINO_with_hive_metastore_db_catalog: false
+      TRINO_with_faker_catalog: false
+      TRINO_faker_default_limit: 1000
+      TRINO_with_tpch_catalog: false
+      # either 'SIMPLIFIED' or 'STANDARD'
+      TRINO_tpch_column_naming: SIMPLIFIED
+      TRINO_with_tpcds_catalog: false
+      TRINO_with_memory_catalog: false
+      TRINO_with_jmx_catalog: false
+      TRINO_jmx_dump_tables: java.lang:type=Runtime,trino.execution.scheduler:name=NodeScheduler
+      TRINO_with_gsheets_catalog: false
+      TRINO_gsheets_metadata_sheet_id:
+      TRINO_gsheets_credentials_key:
       TRINO_starburstdata_use_license: false
       TRINO_starburstdata_enable_data_product: false
+      TRINO_additional_catalogs: ''
+      TRINO_additional_plugins: ''
       # Trino-CLI is enabled by default
       TRINO_CLI_enable: true
       #

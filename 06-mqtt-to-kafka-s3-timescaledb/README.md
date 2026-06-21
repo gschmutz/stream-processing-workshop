@@ -1,0 +1,1569 @@
+# IoT Industrial Energy Monitoring — MQTT → Kafka → Iceberg/S3 → TimescaleDB → Grafana
+
+In this workshop we will build a complete IoT data pipeline that ingests simulated industrial energy monitoring data, routes it through Apache Kafka, persists it in two storage backends — Apache Iceberg tables in S3-compatible object storage and a TimescaleDB time-series database — and visualizes it in Grafana.
+
+The data originates from the [MQTTX CLI](https://mqttx.app/docs/cli) `IEM` simulator, which publishes one JSON message per factory per interval to an MQTT broker. Kafka Connect bridges MQTT to a Kafka topic, NiFi or Python flattens and serializes the nested JSON payload into Avro format, and the Avro records are then written to two sinks in parallel: an Apache Iceberg Sink Connector writes Parquet files into an S3 bucket (backed by RustFS), and a JDBC Sink Connector inserts the records into TimescaleDB. The Iceberg table can be queried interactively with Trino, while the TimescaleDB data is visualized through a Grafana dashboard.
+
+![Architecture](./images/architecture.png)
+
+## Table of Contents
+
+- [What you will learn](#what-you-will-learn)
+- [Prerequisites](#prerequisites)
+- [Running the Simulator and Publishing to MQTT](#running-the-simulator-and-publishing-to-mqtt)
+- [Using an MQTT Client to view messages](#using-an-mqtt-client-to-view-messages)
+- [Bridge MQTT to Kafka with Kafka Connect or Apache NiFi or MiNiFi](#bridge-mqtt-to-kafka-with-kafka-connect-or-apache-nifi-or-minifi)
+- [Create Avro Schema for downstream processing](#create-avro-schema-for-downstream-processing)
+- [Transforming JSON using JOLT](#transforming-json-using-jolt)
+- [Stream Processing Pipeline for flattening JSON](#stream-processing-pipeline-for-flattening-json)
+- [Write the Avro formatted messages as Iceberg tables in S3 (optional)](#write-the-avro-formatted-messages-as-iceberg-tables-in-s3-optional---skip-it)
+- [Query the Iceberg table with Trino](#query-the-iceberg-table-with-trino)
+- [Write the Avro formatted messages to TimescaleDB](#write-the-avro-formatted-messages-to-timescaledb)
+- [Visualize the TimescaleDB data in Grafana](#visualize-the-timescaledb-data-in-grafana)
+
+## What you will learn
+
+- How to simulate industrial energy monitoring data using the MQTTX CLI `IEM` scenario
+- How to view MQTT messages using a dockerized CLI client
+- How to use Kafka Connect (Lenses MQTT source connector) to bridge MQTT topics to a Kafka topic
+- How to verify streaming data in Kafka using `kcat`
+- How to register an Avro schema in the Confluent Schema Registry
+- How to flatten nested JSON messages using Apache NiFi (JOLT transformation) or a Python script
+- How to write Avro records from Kafka into an Apache Iceberg table in S3 using the Iceberg Sink Connector
+- How to verify that Iceberg data files (Parquet) have arrived in S3 using the RustFS console and `mc` CLI
+- How to query the Iceberg table interactively using the Trino CLI and DBeaver
+- How to write Avro records from Kafka into TimescaleDB using the Kafka Connect JDBC Sink connector
+- How to query time-series data in TimescaleDB using SQL
+- How to connect Grafana to TimescaleDB and build a time-series dashboard
+
+## Prerequisites
+
+- The **Data Platform** described in [00-environment](../00-environment) is running and accessible
+
+## Running the Simulator and Publishing to MQTT
+
+The MQTT CLI is part of the platform started with Docker Compose. We can use it via the `docker exec` command.
+
+The simulator comes with a few built-in scenarios. To list the available scenarios, in a terminal window execute the following:
+
+```
+docker exec -ti mqttx-cli mqttx ls --scenarios
+```
+
+and you should see a result similar to
+
+```
+~/w/platys-datahub>docker exec -ti mqttx-cli mqttx ls --scenarios                                                               1.303s 23:12
+You can use any of the above scenario names as a parameter to run the scenario.
+┌───────────────┬──────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Scenario Name │ Description                                                                                  │
+├───────────────┼──────────────────────────────────────────────────────────────────────────────────────────────┤
+│ IEM           │ Simulation to generate Industrial Energy Monitoring data.                                    │
+├───────────────┼──────────────────────────────────────────────────────────────────────────────────────────────┤
+│ smart_home    │ Simulation to generate Smart Home data.                                                      │
+├───────────────┼──────────────────────────────────────────────────────────────────────────────────────────────┤
+│ tesla         │ Simulation to generate Tesla's data, reference from https://github.com/adriankumpf/teslamate │
+├───────────────┼──────────────────────────────────────────────────────────────────────────────────────────────┤
+│ weather       │ Simulation to generate advanced weather station's data.                                      │
+└───────────────┴──────────────────────────────────────────────────────────────────────────────────────────────┘
+~/w/platys-datahub>
+```
+
+> **What you should see:** a table of four built-in scenarios including `IEM`.
+
+We will be using the `IEM` scenario.
+
+To run it, use the `simulate` option and specify with `conn` the MQTT broker to connect to. We are running `mosquitto` as part of the platform and this is the one we are connecting to.
+
+```bash
+docker exec -ti mqttx-cli mqttx simulate -sc IEM -c 100 conn  -h 'mosquitto-1' -p 1883
+```
+
+> **What you should see:** the simulator runs silently; messages are being published to the `mqttx/simulate/#` topic at regular intervals
+
+## Using an MQTT Client to view messages
+
+For viewing the messages in MQTT, there are many options available.
+
+In this workshop we will use a dockerized MQTT client in the terminal to view the messages.
+
+To start consuming through a command line, run the following Docker command from another terminal window:
+
+```bash
+docker run -it --network streaming-data-platform --rm efrecon/mqtt-client mosquitto_sub -h mosquitto-1 -p 1883 -t mqttx/simulate/IEM/#
+```
+
+The consumed messages will show up on the terminal window as shown below.
+
+![](./images/mosquitto-sub.png)
+
+> **What you should see:** a continuous stream of single-line JSON messages appearing in the terminal, one per simulated factory per interval
+
+Alternatively you can also use the [MQTTX Desktop](https://mqttx.app/downloads) version, available for installation on Mac or Windows.
+
+In the subscription pattern we have used `mqttx/simulate/IEM/#`, where the `#` symbol is a wildcard used in topic subscriptions to match multiple levels in the topic hierarchy. It is known as the multi-level wildcard. It is important to note that `#` can only be used as the last character in a topic string, and only one `#` can be used in a single subscription.
+
+If we check one of the messages, we can see that they are in JSON format, although all on one single line:
+
+```json
+{"factory_id":"013","factory":"Upton LLC","values":{"air_compressor_1":2.69,"air_compressor_2":5.35,"lighting":1.08,"cooling_equipment":26.85,"heating_equipment":43.97,"conveyor":11.1,"coating_equipment":4.37,"inspection_equipment":2,"welding_equipment":4.47,"packaging_equipment":6.1,"cutting_equipment":19.32},"timestamp":1781119405905}
+```
+
+If we "pretty-print" it, it is more readable:
+
+```json
+{
+  "factory_id": "013",
+  "factory": "Upton LLC",
+  "values": {
+    "air_compressor_1": 2.69,
+    "air_compressor_2": 5.35,
+    "lighting": 1.08,
+    "cooling_equipment": 26.85,
+    "heating_equipment": 43.97,
+    "conveyor": 11.1,
+    "coating_equipment": 4.37,
+    "inspection_equipment": 2,
+    "welding_equipment": 4.47,
+    "packaging_equipment": 6.1,
+    "cutting_equipment": 19.32
+  },
+  "timestamp": 1781119405905
+}
+```
+
+We can see that one message of the `IEM` simulator contains data for one factory with various sensor values such as `lighting`, `cooling_equipment`, and others.
+
+Let's build a bridge to retrieve them from MQTT and send them to Apache Kafka.
+
+## Bridge MQTT to Kafka with Kafka Connect or Apache NiFi or MiNiFi
+
+There are several ways to bridge MQTT to Kafka. In this section we will cover three approaches, working through them in order:
+
+1. **Kafka Connect** — the most common approach for production deployments. A dedicated MQTT Source Connector consumes messages from the MQTT broker and publishes them directly to a Kafka topic, with no custom code required.
+2. **Apache NiFi** — a browser-based data flow tool that lets you build the MQTT-to-Kafka pipeline visually using drag-and-drop processors.
+3. **Apache MiNiFi** — a lightweight agent designed to run close to the data source (e.g., on edge devices or near the MQTT broker). It runs the same NiFi flow but with a minimal footprint, making it suitable for resource-constrained environments.
+
+We start with **Kafka Connect** in detail, then show the equivalent flows in NiFi and MiNiFi. Before we do that, let's create the target Kafka topic.
+
+### Create the necessary Kafka topic
+
+The Kafka cluster is configured with `auto.topic.create.enable` set to `false`. Therefore we first have to create all the necessary topics, using the `kafka-topics` command line utility of Apache Kafka. 
+
+Create a topic named `energy-monitoring.raw` with 8 partitions:
+
+```bash
+docker exec -ti kafka-1 kafka-topics \
+  --bootstrap-server kafka-1:19092 \
+  --create \
+  --topic energy-monitoring.raw \
+  --partitions 8 \
+  --replication-factor 3
+```
+
+Verify it was created:
+
+```bash
+docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --list
+```
+
+> **What you should see:** `energy-monitoring.raw` listed among the topics.
+
+### Using Kafka Connect
+
+For the Kafka Connect approach, there are multiple MQTT Source Connectors available. We can either use the one provided by [Confluent Inc.](https://www.confluent.io/connector/kafka-connect-mqtt/) (which is part of Confluent Enterprise and requires an enterprise license) or the one provided as part of the [Landoop Stream-Reactor Project](https://github.com/Landoop/stream-reactor/tree/master/kafka-connect-mqtt) available on GitHub. We will be using the latter.
+
+#### Adding the MQTT Kafka Connector 
+
+Kafka Connect runs as `kafka-connect-1` (and optionally `kafka-connect-2`) as part of the platform.
+
+To add connector plugins without rebuilding the Docker image, both Connect services are configured to load additional plugins from `/etc/kafka-connect/custom-plugins` inside the container. This folder is mapped as a volume to the `plugins/kafka-connect` folder on the Docker host, so it is enough to copy the plugin files there.
+
+Navigate into the `plugins/kafka-connect/connectors` folder (a sub-folder of the `docker` folder that holds the `docker-compose.yml` file):
+
+```bash
+cd $DATAPLATFORM_HOME/plugins/kafka-connect/connectors
+```
+
+and download the `11.7.7/kafka-connect-mqtt-11.7.7.zip` file from the [Landoop Stream-Reactor Project](https://github.com/Landoop/stream-reactor/tree/master/kafka-connect-mqtt).
+
+```bash
+wget https://github.com/lensesio/stream-reactor/releases/download/11.7.7/kafka-connect-mqtt-11.7.7.zip
+```
+
+Once it is successfully downloaded, unzip it and remove the archive:
+
+```bash
+unzip kafka-connect-mqtt-11.7.7.zip
+rm kafka-connect-mqtt-11.7.7.zip
+```
+
+Now restart Kafka Connect to pick up the new plugin (make sure to navigate back to the docker folder first, either using `cd $DATAPLATFORM_HOME` or `cd ../..`):
+
+```bash
+cd $DATAPLATFORM_HOME
+docker compose restart kafka-connect-1
+```
+
+The connector plugin should now be available to Kafka Connect. Confirm it by watching the container log:
+
+```bash
+docker compose logs -f kafka-connect-1
+```
+
+After a while you should see an output similar to the one below with a message that the MQTT connector was added and later that the connector finished starting ...
+
+```bash
+...
+kafka-connect-1             | [2019-06-08 18:01:02,590] INFO Registered loader: PluginClassLoader{pluginLocation=file:/etc/kafka-connect/custom-plugins/kafka-connect-mqtt-1.2.1-2.1.0-all/} (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
+kafka-connect-1             | [2019-06-08 18:01:02,591] INFO Added plugin 'com.datamountaineer.streamreactor.connect.mqtt.source.MqttSourceConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
+kafka-connect-1             | [2019-06-08 18:01:02,591] INFO Added plugin 'com.datamountaineer.streamreactor.connect.mqtt.sink.MqttSinkConnector' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
+kafka-connect-1             | [2019-06-08 18:01:02,592] INFO Added plugin 'com.datamountaineer.streamreactor.connect.converters.source.JsonResilientConverter' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
+kafka-connect-1             | [2019-06-08 18:01:02,592] INFO Added plugin 'com.landoop.connect.sql.Transformation' (org.apache.kafka.connect.runtime.isolation.DelegatingClassLoader)
+...
+kafka-connect-1             | [2019-06-08 18:01:11,520] INFO Starting connectors and tasks using config offset -1 (org.apache.kafka.connect.runtime.distributed.DistributedHerder)
+kafka-connect-1             | [2019-06-08 18:01:11,520] INFO Finished starting connectors and tasks (org.apache.kafka.connect.runtime.distributed.DistributedHerder)
+
+```
+
+#### Configure and start the MQTT Connector
+
+For creating an instance of the connector over the API, you can either use a REST client or the Linux `curl` command line utility, which should be available on the Docker host. Curl is what we are going to use here. 
+
+Remove the connector, should it already exist:
+
+```
+curl -X DELETE "http://dataplatform:8083/connectors/mqtt-source"
+```
+
+Now create it using this curl command:
+
+```bash
+curl -X PUT \
+  http://${DOCKER_HOST_IP}:8083/connectors/mqtt-source/config \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json' \
+  -d '{
+    "connector.class": "io.lenses.streamreactor.connect.mqtt.source.MqttSourceConnector",
+    "connect.mqtt.connection.timeout": "1000",
+    "tasks.max": "1",
+    "connect.mqtt.kcql": "INSERT INTO energy-monitoring.raw SELECT * FROM mqttx/simulate/IEM/+ WITHCONVERTER=`io.lenses.streamreactor.connect.converters.source.JsonSimpleConverter` WITHKEY(factory_id)",
+    "connect.mqtt.connection.clean": "true",
+    "connect.mqtt.service.quality": "0",
+    "connect.mqtt.connection.keep.alive": "1000",
+    "connect.mqtt.client.id": "tm-mqtt-connect-01",
+    "connect.mqtt.converter.throw.on.error": "true",
+    "connect.mqtt.hosts": "tcp://mosquitto-1:1883",
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "false",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false"
+}'
+```
+
+As soon as the connector starts receiving messages from MQTT, they will appear on the console. Use `kcat` to consume from the topic:
+
+```bash
+docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring.raw -q
+```
+
+```bash
+eadp@eadp-virtual-machine:~$ docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring.raw -q
+{"factory_id":"078","factory":"Dickinson - Lind","values":{"air_compressor_1":3.2,"air_compressor_2":4.55,"lighting":1.05,"cooling_equipment":17.2,"heating_equipment":36.82,"conveyor":10.26,"coating_equipment":5.48,"inspection_equipment":2.09,"welding_equipment":4.36,"packaging_equipment":8.01,"cutting_equipment":12.64},"timestamp":1781285306247}
+{"factory_id":"078","factory":"Dickinson - Lind","values":{"air_compressor_1":2.72,"air_compressor_2":5.15,"lighting":0.92,"cooling_equipment":23.06,"heating_equipment":34.84,"conveyor":13.74,"coating_equipment":5.34,"inspection_equipment":2.15,"welding_equipment":4.36,"packaging_equipment":5.07,"cutting_equipment":12.4},"timestamp":1781285306249}
+{"factory_id":"023","factory":"Schmeler, Stiedemann and Lebsack","values":{"air_compressor_1":2.79,"air_compressor_2":3.65,"lighting":1.35,"cooling_equipment":25.58,"heating_equipment":37.72,"conveyor":11.42,"coating_equipment":4.74,"inspection_equipment":2.56,"welding_equipment":3.61,"packaging_equipment":7.27,"cutting_equipment":17.51},"timestamp":1781285306436}
+{"factory_id":"072","factory":"Heller, Parker and Weimann","values":{"air_compressor_1":4,"air_compressor_2":4.45,"lighting":1.13,"cooling_equipment":27.16,"heating_equipment":42.19,"conveyor":10.34,"coating_equipment":4.36,"inspection_equipment":2.11,"welding_equipment":5.02,"packaging_equipment":5.92,"cutting_equipment":17.8},"timestamp":1781285306579}
+{"factory_id":"037","factory":"Nicolas - Pouros","values":{"air_compressor_1":3.32,"air_compressor_2":5.01,"lighting":0.98,"cooling_equipment":21.3,"heating_equipment":39.02,"conveyor":11.15,"coating_equipment":4.08,"inspection_equipment":2.24,"welding_equipment":4.46,"packaging_equipment":5.97,"cutting_equipment":16.81},"timestamp":1781285306710}
+{"factory_id":"021","factory":"Lesch, Welch and O'Reilly","values":{"air_compressor_1":3.99,"air_compressor_2":4.63,"lighting":1.14,"cooling_equipment":22.47,"heating_equipment":44.75,"conveyor":8.97,"coating_equipment":5.1,"inspection_equipment":1.95,"welding_equipment":5.16,"packaging_equipment":6.98,"cutting_equipment":12.81},"timestamp":1781285306717}
+{"factory_id":"096","factory":"Daniel - O'Hara","values":{"air_compressor_1":3.19,"air_compressor_2":4.2,"lighting":1.19,"cooling_equipment":22.04,"heating_equipment":49.17,"conveyor":9.73,"coating_equipment":5.37,"inspection_equipment":1.72,"welding_equipment":5.28,"packaging_equipment":8.2,"cutting_equipment":16.29},"timestamp":1781285306975}
+{"factory_id":"094","factory":"Boyle Group","values":{"air_compressor_1":3.11,"air_compressor_2":4,"lighting":1.17,"cooling_equipment":27.53,"heating_equipment":47.04,"conveyor":10.87,"coating_equipment":4.69,"inspection_equipment":2.28,"welding_equipment":3.43,"packaging_equipment":7.37,"cutting_equipment":18.15},"timestamp":1781285306979}
+{"factory_id":"076","factory":"Altenwerth, Hodkiewicz and Schoen","values":{"air_compressor_1":4.08,"air_compressor_2":4.03,"lighting":0.95,"cooling_equipment":22.83,"heating_equipment":38.09,"conveyor":10.12,"coating_equipment":5.21,"inspection_equipment":2.47,"welding_equipment":5.16,"packaging_equipment":6.25,"cutting_equipment":14.61},"timestamp":1781285306993}
+```
+
+To also display the Kafka message key (which contains the original MQTT topic path):
+
+```bash
+docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring.raw -C -f "Key: %k\nValue: %s\n---\n" -q
+```
+
+which produces an output like:
+
+```bash
+---
+Key: "077"
+Value: {"factory_id":"077","factory":"Bode - Feeney","values":{"air_compressor_1":3.74,"air_compressor_2":4.1,"lighting":0.91,"cooling_equipment":25.94,"heating_equipment":40.46,"conveyor":8.96,"coating_equipment":5.24,"inspection_equipment":1.76,"welding_equipment":4.59,"packaging_equipment":5.05,"cutting_equipment":12.06},"timestamp":1781285498451}
+---
+Key: "017"
+Value: {"factory_id":"017","factory":"Pfannerstill Group","values":{"air_compressor_1":3.59,"air_compressor_2":4.7,"lighting":1.11,"cooling_equipment":22.32,"heating_equipment":38.87,"conveyor":12.83,"coating_equipment":4.04,"inspection_equipment":2.53,"welding_equipment":4.28,"packaging_equipment":6.91,"cutting_equipment":14.46},"timestamp":1781285498464}
+---
+Key: "077"
+Value: {"factory_id":"077","factory":"Bode - Feeney","values":{"air_compressor_1":3.75,"air_compressor_2":5.26,"lighting":1.03,"cooling_equipment":19.76,"heating_equipment":50.83,"conveyor":13.71,"coating_equipment":4.1,"inspection_equipment":1.88,"welding_equipment":3.95,"packaging_equipment":7.48,"cutting_equipment":13.59},"timestamp":1781285522496}
+---
+Key: "077"
+Value: {"factory_id":"077","factory":"Bode - Feeney","values":{"air_compressor_1":3.86,"air_compressor_2":3.91,"lighting":1.38,"cooling_equipment":20.94,"heating_equipment":39.06,"conveyor":9.02,"coating_equipment":3.91,"inspection_equipment":2.14,"welding_equipment":5.07,"packaging_equipment":8.04,"cutting_equipment":17.14},"timestamp":1781285522503}
+---
+```
+
+> **What you should see:** Lines like `Key: "077"` (the factory ID) followed by the full JSON payload for each factory.
+
+> **What just happened?** The MQTT connector wrote each MQTT message as a Kafka record. The `factory_id` value is stored as the Kafka message key, and the raw JSON is the value. `kcat` connects directly to the broker and prints records as they arrive — no consumer group overhead.
+
+Press **Ctrl-C** to stop the consumer.
+
+#### Monitor connector in Kafka Connect UI
+
+Navigate to the [Kafka Connect UI](http://dataplatform:28103) to see the connector running.
+
+![Alt Image Text](./images/kafka-connect-ui.png "Schema Registry UI")
+
+> **What you should see:** `"state": "RUNNING"` for both the connector and its task.
+
+> **What just happened?** The MQTT source connector subscribes to all topics matching `mqttx/simulate/IEM/+` on the Mosquitto broker. Every incoming MQTT message is forwarded as a Kafka record to the `energy-monitoring.raw` topic, with the MQTT topic path as the key and the raw JSON bytes as the value.
+
+Remove the connector if you want to try out the other options. 
+
+```
+curl -X DELETE "http://dataplatform:8083/connectors/mqtt-source"
+```
+
+### Using Apache NiFi (optional)
+
+[Apache NiFi](https://nifi.apache.org) is a visual data flow tool designed for routing, transforming, and mediating data between systems. It is a natural fit here because flattening a nested JSON record — exactly what we need to do — is the kind of stateless per-message transformation NiFi handles without writing any code. NiFi also provides a live monitoring view of throughput and backpressure on every connection, which makes it easy to observe the data flow during the workshop.
+
+In a browser navigate to <https://dataplatform:18083/nifi>. NiFi uses a self-signed certificate, so confirm the browser security warning before proceeding.
+
+Enter `nifi` into the **User** field and `1234567890ACD` into the **Password** field and click **LOG IN**.
+
+> **What you should see:** The NiFi canvas — a workspace where you will build the data flow.
+
+> **Shortcut — import the pre-built flow:** Instead of building the pipeline manually step by step, you can import the complete process group directly. On the NiFi canvas, drag the **Process Group** icon from the toolbar, then click **Browse** in the dialog and select the file `nifi/mqtt-to-kafka-pg.json` from this workshop folder. The fully configured pipeline — ConsumeMQTT → PublishKafka — will appear on the canvas ready to start. To start it right-click on the process group and select **Enable All Controller Services** followed by another right-click and selecting **Start**. You can still follow the sections below to understand what each processor does.
+
+### Add a Process Group first
+
+Drag the **Process Group** icon from the toolbar onto the canvas.
+
+![Alt Image Text](./images/nifi-drag-process-group-into-canvas.png "Add Processor")
+
+On the **Create Process Group** pop-up window, enter `mqtt-to-kafka-pg` into the **Name** field and click **Add**. 
+
+Double click on the new **mqtt-to-kafka-pg** process group to navigate into the group. 
+
+### Adding a `ConsumeMQTT` processor
+
+Drag the **Processor** icon from the toolbar onto the canvas.
+
+![Alt Image Text](./images/nifi-drag-processor-into-canvas.png "Add Processor")
+
+The processor chooser dialog opens. Type **ConsumeM** into the filter box and select **ConsumeMQTT**, then click **Add**.
+
+![Alt Image Text](./images/nifi-add-mqtt-processor.png "Select ConsumeMQTT")
+
+> **What you should see:** A `ConsumeMQTT` processor on the canvas with a yellow warning marker, indicating it is not yet configured.
+
+Double-click the processor and click the **Properties** tab. Configure the following properties:
+
+- **Broker URI**: 'tcp://mosquitto-1:1883'
+- **Topic Filter**: `mqttx/simulate/IEM/+`
+- **Max Queue Size**: `1000`
+
+The configured processor should look as shown below:
+
+![Alt Image Text](./images/nifi-consume-mqtt-processor-properties-1.png "ConsumeKafka Properties")
+
+Click **Apply** to close the dialog.
+
+### Adding a `PublishKafka` processor
+
+Drag the **Processor** icon from the toolbar onto the canvas.
+
+Type **PublishK** into the filter box and select **PublishKafka**, then click **Add**.
+
+![Alt Image Text](./images/nifi-mqtt-kafka-processors.png "3 Processors")
+
+> **What you should see:** A `PublishKafka` processor on the canvas together with the `ConsumeMQTT` processors.
+
+Before we configure the **PublishKafka** processor, let's connect them so we can already run the first one to see that consuming from MQTT works.
+
+### Connecting the processors
+
+Let's wire up the processors **ConsumeMQTT → PublishKafka** by dragging from the source processor's edge to the destination and select the appropriate relationship in the dialog and terminate unused relationships on each processor:
+
+- **ConsumeMQTT**: link `Message`, terminate `parse.failure` (by double-clicking **ConsumeMQTT** and navigate to tab **Relationships**)
+- **PublishKafka**: terminate `failure` and `success`
+
+The first processor should no longer have a warning indicator — only the last one.
+
+Select **ConsumeMQTT**, right-click and select **Start**. 
+
+![Alt Image Text](./images/nifi-run-mqtt-processors.png "3 Processors")
+
+> **What you should see:** messages should start queuing up on the **Message** connection before the **PublishKafka** processor. 
+
+Right-click on the connection with the queued records and select **List Queue**. On the list of records, click on the 3 dots right to one of the messages and select **View content**
+
+![Alt Image Text](./images/nifi-list-queue.png "List queue")
+
+A window in a new browser tab showing the content of the message in hex should appear. Select `json` in the **View** drop-down in the top-right corner to switch to the JSON view:
+
+![Alt Image Text](./images/nifi-mqtt-message-content.png "Message content")
+
+> **What you should see:** the message we got from the MQTT broker.
+
+Close the tab and on the list of records click on **Back to Connection** to navigate back to the canvas.
+
+### Configure the Publish Kafka processor
+
+To finish the pipeline, let's configure the last processor to send the message to the `energy-monitoring.raw` topic.
+
+Double-click on the **PublishKafka** processor and configure the following properties:
+
+- **Kafka Connection Service**: click the three dots, select **+ Create new service**, choose **Kafka3ConnectionService**, and click **Add**. Click the three dots again and select **Go To Service**. In the service list click the three dots and select **Edit**, navigate to **Properties**, and set:
+  - **Bootstrap Servers**: `kafka-1:19092,kafka-2:19093`
+
+Click **Apply** and enable the service by right-clicking on the three dots and click **Enable**. Click **Back to Processor**. Continue editing the properties:
+
+- **Topic Name**: `energy-monitoring.raw`
+
+Click **Apply**. The **PublishKafka** should now be startable as well. Before we do that, let's create a `kcat` consumer to see the messages, as soon as we start the Kafka publisher:
+
+```bash
+docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring.raw -q
+```
+
+Now start the **PublishKafka** processor in Apache NiFi and immediately the messages should appear in the terminal where `kcat` runs.
+
+```json
+{"factory_id":"071","factory":"White, Torphy and Schiller","values":{"air_compressor_1":3.21,"air_compressor_2":4.18,"lighting":0.97,"cooling_equipment":21.38,"heating_equipment":41.44,"conveyor":11.33,"coating_equipment":5.54,"inspection_equipment":2.2,"welding_equipment":4.47,"packaging_equipment":7.57,"cutting_equipment":16.54},"timestamp":1781991318292}
+{"factory_id":"015","factory":"Predovic, Connelly and Batz","values":{"air_compressor_1":3.9,"air_compressor_2":3.39,"lighting":1.18,"cooling_equipment":24.37,"heating_equipment":46.58,"conveyor":13.45,"coating_equipment":3.94,"inspection_equipment":2.69,"welding_equipment":4.71,"packaging_equipment":6.65,"cutting_equipment":18.61},"timestamp":1781991318382}
+{"factory_id":"001","factory":"Okuneva - Schoen","values":{"air_compressor_1":3.75,"air_compressor_2":5.49,"lighting":1.09,"cooling_equipment":19.2,"heating_equipment":53.24,"conveyor":12.01,"coating_equipment":4.76,"inspection_equipment":2.36,"welding_equipment":3.92,"packaging_equipment":5.11,"cutting_equipment":15.17},"timestamp":1781991318398}
+{"factory_id":"021","factory":"Metz Group","values":{"air_compressor_1":2.8,"air_compressor_2":3.44,"lighting":1.36,"cooling_equipment":18.22,"heating_equipment":54.86,"conveyor":12.63,"coating_equipment":3.37,"inspection_equipment":2.73,"welding_equipment":4.2,"packaging_equipment":5.91,"cutting_equipment":16.69},"timestamp":1781991318404}
+{"factory_id":"079","factory":"Marquardt and Sons","values":{"air_compressor_1":2.84,"air_compressor_2":4.15,"lighting":1.05,"cooling_equipment":19.29,"heating_equipment":51.29,"conveyor":9.13,"coating_equipment":3.62,"inspection_equipment":1.71,"welding_equipment":5.07,"packaging_equipment":6.54,"cutting_equipment":13.97},"timestamp":1781991318404}
+...
+```
+
+> **What you should see:** the raw messages like we got them from the MQTT broker.
+
+Stop both processors, if you want to try out the 3rd and last option as well.
+
+### Using Apache MiNiFi C++ (optional)
+
+[Apache MiNiFi C++](https://nifi.apache.org/minifi/) is a lightweight data collection agent built on the NiFi processor model. Unlike the full NiFi server, MiNiFi has no web UI — it is configured entirely through a `config.yml` file and is designed to run close to the data source with a minimal footprint. In this workshop it runs as a Docker container alongside the rest of the platform and performs the same MQTT-to-Kafka bridge as the Kafka Connect connector, but without requiring Kafka Connect at all.
+
+The flow consists of two processors connected in sequence:
+
+- **`ConsumeMQTT`** — subscribes to the MQTT broker and receives messages as NiFi FlowFiles.
+- **`PublishKafka`** — forwards each FlowFile as a record to a Kafka topic.
+
+#### The `config.yml` flow file
+
+The MiNiFi agent reads its flow from `00-environment/docker-1/custom-conf/minifi/config.yml`, which is volume-mounted into the container at `/opt/minifi/minifi-current/conf/config.yml`. 
+
+Edit the file
+
+```bash
+cd $DATAPLATFORM_HOME
+nano ./custom-conf/minifi/config.yml
+```
+
+and copy the flow definition
+
+```yaml
+Flow Controller:
+  name: MQTT to Kafka Pipeline
+Processors:
+  - name: ConsumeMQTT
+    id: 2438e3c8-015a-1000-79ca-83af40ec1001
+    class: org.apache.nifi.minifi.processors.ConsumeMQTT
+    scheduling strategy: TIMER_DRIVEN
+    scheduling period: 0 sec
+    Properties:
+      Broker URI: tcp://mosquitto-1:1883
+      Client ID: minifi-edge-consumer
+      Topic: mqttx/simulate/IEM/+
+      Quality of Service: 2
+      Max Flow Segment Size: 1 MB
+      Session Expiry Interval: 0 seconds
+  - name: PublishKafka
+    id: 2438e3c8-015a-1000-79ca-83af40ec1002
+    class: org.apache.nifi.minifi.processors.PublishKafka
+    scheduling strategy: EVENT_DRIVEN
+    scheduling period: 0 sec
+    Properties:
+      Known Brokers: kafka-1:19092,kafka-2:19092,kafka-3:19092
+      Topic Name: energy-monitoring.raw
+      Client Name: minifi-kafka-producer
+      Batch Size: 10
+      Compress Codec: none
+      Request Timeout: 10 sec
+      Message Timeout: 30 sec
+Connections:
+  - name: ConsumeMQTT->PublishKafka
+    id: 2438e3c8-015a-1000-79ca-83af40ec1003
+    source id: 2438e3c8-015a-1000-79ca-83af40ec1001
+    source relationship name: success
+    destination id: 2438e3c8-015a-1000-79ca-83af40ec1002
+  - name: PublishKafka->failure
+    id: 2438e3c8-015a-1000-79ca-83af40ec1004
+    source id: 2438e3c8-015a-1000-79ca-83af40ec1002
+    source relationship name: failure
+    destination id: 2438e3c8-015a-1000-79ca-83af40ec1002
+Controller Services: ~
+Remote Processing Groups: []
+```
+
+**Key configuration decisions explained:**
+
+| Setting | Value | Why |
+|---|---|---|
+| `Broker URI` | `tcp://mosquitto-1:1883` | Connects to the Mosquitto container on the internal Docker network |
+| `Topic` | `mqttx/simulate/IEM/+` | The `+` single-level wildcard matches one factory segment per message (e.g., `mqttx/simulate/IEM/013`) |
+| `Quality of Service` | `2` | Exactly-once MQTT delivery — each message is acknowledged before MiNiFi moves on |
+| `scheduling period` | `0 sec` | `ConsumeMQTT` polls continuously with no sleep between checks |
+| `scheduling strategy` (PublishKafka) | `EVENT_DRIVEN` | `PublishKafka` triggers immediately when a FlowFile arrives, rather than on a timer |
+| `Batch Size` | `10` | Up to 10 messages are bundled into a single Kafka produce request for efficiency |
+| `PublishKafka:failure → PublishKafka` | self-loop | Failed Kafka publishes are re-queued back into the same processor for automatic retry |
+
+#### Start the MiNiFi agent
+
+The `minifi` container does not start automatically with Docker Compose, because it belongs to a separate docker compose profile. You can start it manually using:
+
+```bash
+cd $DATAPLATFORM_HOME
+docker compose --profile minifi_profile up -d
+```
+
+It reads `./custom-conf/minifi/config.yml` on boot. If you edit the config after the container is already running, restart it to pick up the changes:
+
+```bash
+docker restart minifi
+```
+
+#### Verify the flow is running
+
+Check the MiNiFi container logs to confirm the flow loaded and both processors started without errors:
+
+```bash
+docker logs minifi --tail 50
+```
+
+> **What you should see:** Log lines indicating the flow controller started, the `ConsumeMQTT` processor connected to the MQTT broker, and the `PublishKafka` processor connected to the Kafka cluster.
+
+Confirm messages are arriving in the Kafka topic using `kcat`:
+
+```bash
+docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring.raw -C -q -o end
+```
+
+> **What you should see:** A continuous stream of raw JSON messages appearing in the terminal, identical in content to the messages you observed earlier in the MQTT client — the MiNiFi agent is now forwarding them transparently from MQTT to Kafka.
+
+> **What just happened?** On start-up, MiNiFi C++ parsed `config.yml`, instantiated the two processors, and wired them together with the defined connections. `ConsumeMQTT` subscribes to `mqttx/simulate/IEM/+` and, for every received MQTT message, creates a NiFi FlowFile whose content is the raw JSON payload. Each FlowFile travels along the `success` connection into `PublishKafka`, which writes it as a Kafka record to the `energy-monitoring.raw` topic. If a Kafka write fails, the FlowFile loops back via the `failure` connection and is retried automatically.
+
+> **Note** before we continue, make sure that one of the 3 ways to bridge MQTT with Kafka is running!
+
+## Create Avro Schema for downstream processing
+
+The raw MQTT messages arriving in the `energy-monitoring.raw` Kafka topic contain a nested JSON structure — the sensor readings are grouped under a `values` object rather than being top-level fields. The next processing step (NiFi or Python) will **flatten** this structure: it pulls every sensor field out of `values` and promotes it to the top level alongside `factory_id`, `factory`, and `timestamp`. The Avro schema defined here represents that flattened message format — it has one field per sensor reading at the top level with no nesting.
+
+Before the NiFi or Python transformation step can serialize the data into Avro, the target schema must already exist in the Schema Registry. Pre-registering the schema decouples the schema definition from the producer code: the transformation pipeline can look the schema up by subject name at runtime rather than embedding the definition in the flow, and the Schema Registry enforces that every Avro record produced to `energy-monitoring.avro` conforms to the registered schema. It also means the same schema can be shared by multiple producers or consumers without each having to maintain their own copy.
+
+Pre-register the schema by POSTing it to the Schema Registry. Save the Avro schema to a file:
+
+```
+cat > energy-monitoring.avsc << 'EOF'
+{
+  "type": "record",
+  "name": "EnergyLog",
+  "namespace": "com.energy.monitoring",
+  "doc": "Flattened energy consumption record per factory",
+  "fields": [
+    {
+      "name": "factory_id",
+      "type": "string",
+      "doc": "Unique factory identifier"
+    },
+    {
+      "name": "factory",
+      "type": "string",
+      "doc": "Factory name"
+    },
+    {
+      "name": "timestamp",
+      "type": "long",
+      "doc": "Event time in milliseconds since epoch"
+    },
+    {
+      "name": "air_compressor_1",
+      "type": "double",
+      "doc": "Air compressor 1 energy consumption (kWh)"
+    },
+    {
+      "name": "air_compressor_2",
+      "type": "double",
+      "doc": "Air compressor 2 energy consumption (kWh)"
+    },
+    {
+      "name": "lighting",
+      "type": "double",
+      "doc": "Lighting energy consumption (kWh)"
+    },
+    {
+      "name": "cooling_equipment",
+      "type": "double",
+      "doc": "Cooling equipment energy consumption (kWh)"
+    },
+    {
+      "name": "heating_equipment",
+      "type": "double",
+      "doc": "Heating equipment energy consumption (kWh)"
+    },
+    {
+      "name": "conveyor",
+      "type": "double",
+      "doc": "Conveyor energy consumption (kWh)"
+    },
+    {
+      "name": "coating_equipment",
+      "type": "double",
+      "doc": "Coating equipment energy consumption (kWh)"
+    },
+    {
+      "name": "inspection_equipment",
+      "type": "double",
+      "doc": "Inspection equipment energy consumption (kWh)"
+    },
+    {
+      "name": "welding_equipment",
+      "type": "double",
+      "doc": "Welding equipment energy consumption (kWh)"
+    },
+    {
+      "name": "packaging_equipment",
+      "type": "double",
+      "doc": "Packaging equipment energy consumption (kWh)"
+    },
+    {
+      "name": "cutting_equipment",
+      "type": "double",
+      "doc": "Cutting equipment energy consumption (kWh)"
+    }
+  ]
+}
+EOF
+```
+
+Before registering the schema, set the compatibility level for the subject. The default is BACKWARD (new schema can read data written with the previous schema), but you can choose the level that fits your evolution strategy:
+
+```bash
+curl -s -X PUT http://dataplatform:8081/config/energy-monitoring.avro-value \
+    -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+    -d '{"compatibility": "BACKWARD"}'
+```
+
+Then register the schema using jq to produce the correctly escaped request body:
+
+```bash
+jq -n --arg schema "$(cat energy-monitoring.avsc)" '{"schema": $schema}' | \
+  curl -s -X POST http://dataplatform:8081/subjects/energy-monitoring.avro-value/versions \
+    -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+    -d @-
+```    
+
+## Transforming JSON using JOLT
+
+[JOLT](https://github.com/bazaarvoice/jolt) (JSON to JSON Transformation Library) is a Java library that transforms a JSON document into a new JSON structure using a declarative specification written in JSON itself. Instead of writing imperative code to map fields, you describe the desired output shape and JOLT figures out how to get there. The specification is made up of one or more transformation steps — the most commonly used are `shift` (picks fields from the input and places them at new paths in the output), `default` (adds fields with a constant value when they are absent), and `remove` (drops unwanted fields). 
+
+In our case the raw message coming from the `energy-monitoring.raw` topic has the sensor readings nested inside a `values` object:
+
+```json
+{
+  "factory_id": "094",
+  "factory": "Grady Inc",
+  "values": {
+    "air_compressor_1": 2.92,
+    "air_compressor_2": 4.59,
+    "lighting": 1.02,
+    "cooling_equipment": 26.49,
+    "heating_equipment": 44.12,
+    "conveyor": 10.04,
+    "coating_equipment": 5.13,
+    "inspection_equipment": 2.13,
+    "welding_equipment": 3.36,
+    "packaging_equipment": 8.26,
+    "cutting_equipment": 11.89
+  },
+  "timestamp": 1781291723724
+}
+```
+
+The JOLT `shift` spec below promotes every key inside `values` to the top level
+
+```json
+[
+  {
+    "operation": "shift",
+    "spec": {
+      "factory_id": "factory_id",
+      "factory": "factory",
+      "timestamp": "timestamp",
+      "values": {
+        "*": "&"
+      }
+    }
+  }
+]
+```
+
+producing a flat record that matches the Avro schema registered earlier:
+
+```json
+{
+  "factory_id" : "094",
+  "factory" : "Grady Inc",
+  "timestamp" : 1781291723724,
+  "air_compressor_1" : 2.92,
+  "air_compressor_2" : 4.59,
+  "lighting" : 1.02,
+  "cooling_equipment" : 26.49,
+  "heating_equipment" : 44.12,
+  "conveyor" : 10.04,
+  "coating_equipment" : 5.13,
+  "inspection_equipment" : 2.13,
+  "welding_equipment" : 3.36,
+  "packaging_equipment" : 8.26,
+  "cutting_equipment" : 11.89
+}
+```
+
+> **Tip — test your spec interactively:** Before pasting a JOLT spec into NiFi or any code, you can validate it in the browser using the [JOLT Transform Demo](https://jolt-demo.appspot.com/#inception). Paste the input JSON in the **Json Input** panel, the spec in the **Jolt Spec** panel, and click **Transform** to see the output in the **Output / Errors** panel. This is the fastest way to iterate on a spec and catch mistakes without restarting any services.
+
+![Alt Image Text](./images/jolt-transform.png "Flow Connected")
+
+## Stream Processing Pipeline for flattening JSON
+
+Now that the raw messages are in Kafka and the JOLT transformation spec is defined, the next step is to wire the flattening into a running stream processing pipeline. The pipeline consumes records from `energy-monitoring.raw`, applies the JOLT shift transformation to promote the nested sensor values to the top level, serialises the result as Avro against the Schema Registry, and writes the flattened records to the `energy-monitoring.avro` topic.
+
+Two alternative implementations are provided — pick the one that fits your environment best:
+
+| Approach | When to use |
+|----------|-------------|
+| **Apache NiFi** | Visual, low-code; easy to monitor throughput and back-pressure; no Python runtime needed |
+| **Python script** | Lightweight; easy to run anywhere Python is available; useful for scripting or CI pipelines |
+
+Both approaches produce identical Avro output to the same `energy-monitoring.avro` topic, so you can switch between them.
+
+### Using Apache NiFi to transform from raw to Avro message
+
+[Apache NiFi](https://nifi.apache.org) is a visual data flow tool designed for routing, transforming, and mediating data between systems. It is a natural fit here because flattening a nested JSON record — exactly what we need to do — is the kind of stateless per-message transformation NiFi handles without writing any code. NiFi also provides a live monitoring view of throughput and backpressure on every connection, which makes it easy to observe the data flow during the workshop.
+
+In a browser navigate to <https://dataplatform:18083/nifi>. NiFi uses a self-signed certificate, so confirm the browser security warning before proceeding.
+
+Enter `nifi` into the **User** field and `1234567890ACD` into the **Password** field and click **LOG IN**.
+
+> **What you should see:** The NiFi canvas — a workspace where you will build the data flow.
+
+> **Shortcut — import the pre-built flow:** Instead of building the pipeline manually step by step, you can import the complete process group directly. On the NiFi canvas, drag the **Process Group** icon from the toolbar, then click **Browse** in the dialog and select the file `nifi/energy-monitoring-pg.json` from this workshop folder. The fully configured pipeline — ConsumeKafka → JoltTransformRecord → PublishKafka — will appear on the canvas ready to start. To start it right-click on the process group and select **Enable All Controller Services** followed by another right-click and selecting **Start**. You can still follow the sections below to understand what each processor does.
+
+#### Add a Process Group first
+
+Drag the **Process Group** icon from the toolbar onto the canvas.
+
+![Alt Image Text](./images/nifi-drag-process-group-into-canvas.png "Add Processor")
+
+On the **Create Process Group** pop-up window, enter `energy-monitoring-pg` into the **Name** field and click **Add**. 
+
+Double click on the new **energy-monitoring-pg** process group to navigate into the group. 
+
+#### Adding a `ConsumeKafka` processor
+
+Drag the **Processor** icon from the toolbar onto the canvas.
+
+![Alt Image Text](./images/nifi-drag-processor-into-canvas.png "Add Processor")
+
+The processor chooser dialog opens. Type **ConsumeK** into the filter box and select **ConsumeKafka**, then click **Add**.
+
+![Alt Image Text](./images/nifi-add-processor.png "Select ConsumeKafka")
+
+> **What you should see:** A `ConsumeKafka` processor on the canvas with a yellow warning marker, indicating it is not yet configured.
+
+Double-click the processor and click the **Properties** tab. Configure the following properties:
+
+- **Kafka Connection Service**: click the three dots, select **+ Create new service**, choose **Kafka3ConnectionService**, and click **Add**. Click the three dots again and select **Go To Service**. In the service list click the three dots and select **Edit**, navigate to **Properties**, and set:
+  - **Bootstrap Servers**: `kafka-1:19092`
+
+  Click **Apply**, then enable the service by clicking the three dots and selecting **Enable**. Click **Close** and **Back to Processor**.
+- **Group ID**: `energy-monitoring.raw-cg`
+- **Topics**: `energy-monitoring.raw`
+- **Processing Strategy**: `RECORD`
+- **Record Reader**: click the three dots, select **+ Create new service**, choose **JsonTreeReader**, and click **Add**. Click the three dots again and select **Go To Service**. Enable the service via its three-dot menu. Click **Close** and **Back to Processor**.
+- **Record Writer**: click the three dots, select **+ Create new service**, choose **JsonRecordSetWriter**, and click **Add**. Click the three dots again and select **Go To Service**. In the service list click the three dots and select **Edit**, navigate to **Properties** and set:
+  - **Output Grouping**: `One Line per Object`
+
+  Click **Apply** and enable the service. Click **Close** and **Back to Processor**.
+
+The configured processor should look as shown below:
+
+![Alt Image Text](./images/nifi-consume-kafka-processor-properties-1.png "ConsumeKafka Properties")
+
+Click **Apply** to close the dialog.
+
+#### Flatten raw message using JOLT transformation
+
+In Apache NiFi the **JoltTransformRecord** (or **JoltTransformJSON**) processor applies a JOLT spec to every record that passes through it, making it straightforward to flatten, rename, or restructure JSON messages inline in the data flow without writing any custom code.
+
+The JOLT spec is already described in the [Transforming JSON using JOLT](#transforming-json-using-jolt) section above. We will use the same spec here.
+
+As we already get records from the **ConsumeKafka** processor, let's use a **JoltTransformRecord** to transform (flatten) the raw message. Drag a new processor to the canvas and search for the **JoltTransformRecord** processor. Double-click on the new processor to navigate to the **Properties** tab. 
+
+Configure the following properties:
+
+  - **Jolt Transform**: `Chain`
+  - **Jolt Specification**: copy the JOLT spec from above
+
+    ```json
+    [
+      {
+        "operation": "shift",
+        "spec": {
+          "factory_id": "factory_id",
+          "factory": "factory",
+          "timestamp": "timestamp",
+          "values": {
+            "*": "&"
+          }
+        }
+      }
+    ]
+    ```
+
+  - **Record Reader**: select the existing `JsonTreeReader` created before
+  - **Record Writer**: select the existing `JsonRecordSetWriter` created before
+
+Click **Apply** to close the dialog for the **JoltTransformRecord** processor.  
+
+#### Adding a `PublishKafka` processor
+
+Drag the **Processor** icon from the toolbar onto the canvas.
+
+Type **PublishK** into the filter box and select **PublishKafka**, then click **Add**.
+
+![Alt Image Text](./images/nifi-3-processors.png "3 Processors")
+
+> **What you should see:** A `PublishKafka` processor on the canvas together with the other two processors.
+
+Before we configure the **PublishKafka** processor, let's connect them so we can already run the first two to validate that the flattening works.
+
+#### Connecting the processors
+
+Let's wire up the processors **ConsumeKafka → JoltTransformRecord → PublishKafka** by dragging from the source processor's edge to the destination and select the appropriate relationship in the dialog and terminate unused relationships on each processor:
+
+- **ConsumeKafka**: link `success`, terminate `parse.failure` (by double-clicking **ConsumeKafka** and navigate to tab **Relationships**)
+- **JoltTransformRecord** (both): link `success`, terminate `failure` and `original`
+- **PublishKafka**: terminate `failure` and `success`
+
+The first two processors should no longer have a warning indicator — only the last one.
+
+#### Start the first two processors
+
+Select **ConsumeKafka** and **JoltTransformRecord**, right-click and select **Start**. Wait a few seconds, then stop only the **ConsumeKafka** processor (leave **JoltTransformRecord** running) to limit the number of records processed.
+
+![Alt Image Text](./images/nifi-run-first-2-processors.png "3 Processors")
+
+> **What you should see:** some messages should be queued on the **success** connection before the **PublishKafka** processor. 
+
+Right-click on the connection with the queued records and select **List Queue**. On the list of records, click on the 3 dots right to one of the messages and select **View content**
+
+![Alt Image Text](./images/nifi-list-queue.png "List queue")
+
+A window in a new browser tab showing the content of the message should appear:
+
+![Alt Image Text](./images/nifi-message-content.png "Message content")
+
+> **What you should see:** the message was successfully flattened by the Jolt transformation.
+
+Close the tab and on the list of records click on **Back to Connection** to navigate back to the canvas.
+
+#### Configure the Publish Kafka processor
+
+To finish the pipeline, let's configure the last processor to send the message to the `energy-monitoring.avro` topic.
+
+Double-click on the **PublishKafka** processor and configure the following properties:
+
+- **Kafka Connection Service**: select `Kafka3ConnectionService` from the drop-down
+- **Topic Name**: `energy-monitoring.avro`
+- **Compression Type**: `zstd`
+- **Record Reader**: select existing `JsonTreeReader`
+- **Record Writer**: click the three dots, select **+ Create new service**, choose **AvroRecordSetWriter**, and click **Add**. Click the three dots again and select **Go To Service**. In the service list click the three dots and select **Edit**, navigate to **Properties** and set:
+  - **Schema Write Strategy**: `Schema Reference Writer`
+  - **Schema Reference Writer**: click the three dots, select **+ Create new service**, choose **ConfluentEncodedSchemaReferenceWriter**, and click **Add**. Click the three dots again and select **Go To Service**. Click the three dots again and select **Enable** and click **Enable** and click **Back to Controller Service**.  
+  - **Schema Access Strategy**: `Use 'Schema Name' Property`
+  - **Schema Name**: `energy-monitoring.avro-value`
+  - **Schema Registry**: click the three dots, select **+ Create new service**, choose **ConfluentSchemaRegistry**, and click **Add**. Click the three dots again and select **Go To Service**. In the service list click the three dots and select **Edit**, navigate to **Properties** and set:
+    - **Schema Registry URLs**: `http://schema-registry-1:8081`
+
+    Click **Apply** and enable the service. Also enable the **AvroRecordSetWriter**. Click **Back to Controller Service** and click **Close**.
+
+The **PublishKafka** should now be startable as well and no longer show a warning indicator. Before we can actually start it, we have to create the Kafka topic. 
+
+```bash
+docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --if-not-exists --topic energy-monitoring.avro     --replication-factor 3 --partitions 8
+```
+
+Let's also create a `kcat` consumer to see the messages as soon as we start the Kafka publisher:
+
+```bash
+docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring.avro -q -s value=avro -r http://schema-registry-1:8081
+```
+
+Now start the **PublishKafka** processor in Apache NiFi and immediately the messages should appear in the terminal where `kcat` runs.
+
+```json
+{"factory_id": "058", "factory": "Hansen and Sons", "timestamp": 1781446704970, "air_compressor_1": 3.98, "air_compressor_2": 4.9800000000000004, "lighting": 1.0900000000000001, "cooling_equipment": 27.219999999999999, "heating_equipment": 50.530000000000001, "conveyor": 13.18, "coating_equipment": 3.5499999999999998, "inspection_equipment": 2.3799999999999999, "welding_equipment": 3.6499999999999999, "packaging_equipment": 5.3499999999999996, "cutting_equipment": 16.25}
+{"factory_id": "060", "factory": "Langworth Group", "timestamp": 1781446704967, "air_compressor_1": 3.2999999999999998, "air_compressor_2": 4.9000000000000004, "lighting": 1.0800000000000001, "cooling_equipment": 25.23, "heating_equipment": 40.560000000000002, "conveyor": 12.49, "coating_equipment": 3.6499999999999999, "inspection_equipment": 2.5800000000000001, "welding_equipment": 4.0800000000000001, "packaging_equipment": 5.2000000000000002, "cutting_equipment": 17.940000000000001}
+{"factory_id": "093", "factory": "Crist Inc", "timestamp": 1781446704970, "air_compressor_1": 3.77, "air_compressor_2": 4.1600000000000001, "lighting": 0.95999999999999996, "cooling_equipment": 27.77, "heating_equipment": 45.299999999999997, "conveyor": 10.32, "coating_equipment": 4.8399999999999999, "inspection_equipment": 2.3900000000000001, "welding_equipment": 5.4800000000000004, "packaging_equipment": 7.0700000000000003, "cutting_equipment": 19.09}
+{"factory_id": "049", "factory": "Littel - Kiehn", "timestamp": 1781446705074, "air_compressor_1": 4.1100000000000003, "air_compressor_2": 4.9800000000000004, "lighting": 1.03, "cooling_equipment": 19.059999999999999, "heating_equipment": 38.719999999999999, "conveyor": 12.42, "coating_equipment": 4.6299999999999999, "inspection_equipment": 2.25, "welding_equipment": 4.8499999999999996, "packaging_equipment": 5.6900000000000004, "cutting_equipment": 13.68}
+{"factory_id": "053", "factory": "Dooley - Kessler", "timestamp": 1781446705195, "air_compressor_1": 3.1800000000000002, "air_compressor_2": 3.77, "lighting": 0.98999999999999999, "cooling_equipment": 23.809999999999999, "heating_equipment": 43.200000000000003, "conveyor": 11.5, "coating_equipment": 4.5700000000000003, "inspection_equipment": 2.5099999999999998, "welding_equipment": 3.5, "packaging_equipment": 5.5300000000000002, "cutting_equipment": 18.07}
+{"factory_id": "075", "factory": "Metz, Stehr and Hyatt", "timestamp": 1781446705219, "air_compressor_1": 3.6200000000000001, "air_compressor_2": 4.5499999999999998, "lighting": 0.91000000000000003, "cooling_equipment": 24.870000000000001, "heating_equipment": 45.159999999999997, "conveyor": 9.2300000000000004, "coating_equipment": 4.6900000000000004, "inspection_equipment": 2.3900000000000001, "welding_equipment": 4.2300000000000004, "packaging_equipment": 7.1699999999999999, "cutting_equipment": 18.620000000000001}
+```
+
+> **What you should see:** the messages are shown as JSON even though they are transmitted as Avro. `kcat` deserialises them to JSON because we specified `-s value=avro -r http://schema-registry-1:8081`.
+
+### Using Python to transform from raw to Avro message
+
+As an alternative to the NiFi flow, you can run a lightweight Python script that reads raw JSON messages from `energy-monitoring.raw`, flattens them using plain Python dict manipulation, and produces Avro-serialised records to `energy-monitoring.avro`.
+
+> **Note:** JOLT is a Java library and there is no official Python port. Community packages that attempt to replicate JOLT in Python are incomplete and not production-ready. For the Python implementation we therefore apply the same transformation logic directly in code rather than interpreting a JOLT spec.
+
+#### Run the code in Jupyter
+
+The simplest way to run the Python code is from a Jupyter notebook. In a browser window, navigate to <http://dataplatform:28888> and use token `abc123!` to login. 
+
+Create a new notebook and install the only dependency needed:
+
+```bash
+pip install confluent-kafka[avro]==2.14.2
+```
+
+The script flattens the message with a single dict comprehension (see the `flatten` function in [`python/flatten_plain.py`](python/flatten_plain.py)):
+
+```python
+"""
+Reads raw JSON energy-monitoring messages from Kafka, flattens the nested
+'values' object using plain Python dict manipulation, and produces
+Avro-serialised records to the energy-monitoring topic via the Confluent
+Schema Registry.
+
+Usage:
+    pip install -r requirements.txt
+    python flatten_plain.py
+"""
+
+import json
+import os
+
+from confluent_kafka import Consumer, KafkaException, Producer
+from confluent_kafka.schema_registry import SchemaRegistryClient
+from confluent_kafka.schema_registry.avro import AvroSerializer
+from confluent_kafka.serialization import MessageField, SerializationContext
+
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+
+KAFKA_BROKER         = os.environ.get("KAFKA_BROKER",         "kafka-1:19092")
+SOURCE_TOPIC         = os.environ.get("SOURCE_TOPIC",         "energy-monitoring.raw")
+SINK_TOPIC           = os.environ.get("SINK_TOPIC",           "energy-monitoring.avro")
+SCHEMA_REGISTRY_URL  = os.environ.get("SCHEMA_REGISTRY_URL",  "http://schema-registry-1:8081")
+SCHEMA_SUBJECT       = os.environ.get("SCHEMA_SUBJECT",       "energy-monitoring.avro-value")
+CONSUMER_GROUP       = os.environ.get("CONSUMER_GROUP",       "energy-flatten-plain-cg")
+
+# ---------------------------------------------------------------------------
+# Transformation
+# ---------------------------------------------------------------------------
+
+def flatten(raw: dict) -> dict:
+    """Promote every key inside 'values' to the top level and drop the wrapper."""
+    result = {k: v for k, v in raw.items() if k != "values"}
+    result.update(raw.get("values", {}))
+    return result
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main() -> None:
+    schema_registry = SchemaRegistryClient({"url": SCHEMA_REGISTRY_URL})
+    schema_str = schema_registry.get_latest_version(SCHEMA_SUBJECT).schema.schema_str
+    print(f"Fetched schema '{SCHEMA_SUBJECT}' from registry.")
+    avro_serializer = AvroSerializer(schema_registry, schema_str)
+
+    consumer = Consumer({
+        "bootstrap.servers": KAFKA_BROKER,
+        "group.id": CONSUMER_GROUP,
+        "auto.offset.reset": "earliest",
+    })
+    consumer.subscribe([SOURCE_TOPIC])
+
+    producer = Producer({"bootstrap.servers": KAFKA_BROKER})
+
+    print(f"Consuming '{SOURCE_TOPIC}' → producing Avro to '{SINK_TOPIC}' ...")
+    print("Press Ctrl-C to stop.\n")
+
+    try:
+        while True:
+            msg = consumer.poll(timeout=1.0)
+            if msg is None:
+                continue
+            if msg.error():
+                raise KafkaException(msg.error())
+
+            raw = json.loads(msg.value())
+            flat = flatten(raw)
+
+            avro_bytes = avro_serializer(
+                flat,
+                SerializationContext(SINK_TOPIC, MessageField.VALUE),
+            )
+            producer.produce(
+                SINK_TOPIC,
+                key=str(flat.get("factory_id", "")),
+                value=avro_bytes,
+                on_delivery=lambda err, m: print(f"  ERROR: {err}") if err else None,
+            )
+            producer.poll(0)
+            #print(f"  factory_id={flat['factory_id']}  ts={flat['timestamp']}  "
+            #      f"heating={flat.get('heating_equipment')} kWh")
+
+    except KeyboardInterrupt:
+        print("\nStopping.")
+    finally:
+        consumer.close()
+        producer.flush()
+
+
+if __name__ == "__main__":
+    main()
+```
+
+Copy the code into a new cell in Jupyter. Before running it, make sure the output topic exists (create it if you skipped the NiFi path):
+
+```bash
+docker exec -ti kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --if-not-exists --topic energy-monitoring.avro --replication-factor 3 --partitions 8
+```
+
+Open a terminal and start a `kcat` consumer to verify that messages appear as soon as the script runs:
+
+```bash
+docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring.avro -q -s value=avro -r http://schema-registry-1:8081
+```
+
+Now execute the cell.
+
+> **What you should see:** flat JSON lines in the `kcat` output — one per factory record — with all sensor fields promoted to the top level alongside `factory_id`, `factory`, and `timestamp`.
+
+Stop execution of the Python script by selecting **Kernel** | **Interrupt Kernel** from the menu bar.
+
+#### Run the code as a Docker image (optional -> [skip it](#write-the-avro-formatted-messages-as-iceberg-tables-in-s3-optional---skip-it))
+
+Running the script in Jupyter is convenient during development, but it has a practical limitation: it only runs while the Jupyter session is open and stops the moment you close the notebook or interrupt the kernel. For anything that needs to run continuously alongside the rest of the platform — surviving terminal closures, restarting after crashes, and starting automatically when the stack comes up — the script needs to be packaged as a container.
+
+A `Dockerfile` is provided in the [`python/`](python/) folder for exactly this purpose. It bundles the script and its single dependency into a self-contained image based on `python:3.12-slim`. All runtime parameters (broker address, topic names, Schema Registry URL, consumer group) are baked in as `ENV` defaults and can be overridden at run time via `-e` flags or a Compose `environment:` block without rebuilding the image.
+
+```
+FROM python:3.12-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY flatten_plain.py .
+
+ENV KAFKA_BROKER=kafka-1:19092
+ENV SOURCE_TOPIC=energy-monitoring.raw
+ENV SINK_TOPIC=energy-monitoring.avro
+ENV SCHEMA_REGISTRY_URL=http://schema-registry-1:8081
+ENV SCHEMA_SUBJECT=energy-monitoring.avro-value
+ENV CONSUMER_GROUP=energy-flatten-plain-cg
+
+CMD ["python", "flatten_plain.py"]
+```
+
+**Build the image**
+
+From the workshop folder, build the image and tag it as `streaming-data-platform/energy-monitoring-flatten`:
+
+```bash
+docker build -t streaming-data-platform/energy-monitoring-flatten ./python
+```
+
+> **What you should see:** Docker pulls `python:3.12-slim`, installs `confluent-kafka[avro]`, copies `flatten_plain.py`, and reports `Successfully built ...`.
+
+**Test the container manually**
+
+Before wiring the container into the Compose stack, verify that it works by running it against the platform network directly:
+
+```bash
+docker run --rm \
+  --network streaming-data-platform \
+  streaming-data-platform/energy-monitoring-flatten
+```
+
+> **What you should see:** a startup message followed by Avro records being produced to `energy-monitoring.avro`, identical to what you observed when running the script in Jupyter. Press **Ctrl-C** to stop.
+
+You can override any of the default environment variables at run time without rebuilding the image. For example, to point at a different consumer group for testing:
+
+```bash
+docker run --rm \
+  --network streaming-data-platform \
+  -e CONSUMER_GROUP=energy-flatten-debug-cg \
+  streaming-data-platform/energy-monitoring-flatten
+```
+
+**Integrate into the platform stack with `docker-compose.override.yml`**
+
+Docker Compose supports an optional `docker-compose.override.yml` file that is automatically merged with `docker-compose.yml` when you run `docker compose up`. This is the standard way to extend the platform stack with custom services without modifying the generated `docker-compose.yml`. It also integrates with the docker compose network, so that we can directly refer to the service names, such as `kafka-1`.
+
+Create (or extend) the file `$DATAPLATFORM_HOME/docker-compose.override.yml` with the following service definition:
+
+```yaml
+services:
+  energy-monitoring-flatten:
+    image: streaming-data-platform/energy-monitoring-flatten
+    container_name: energy-monitoring-flatten
+    hostname: energy-monitoring-flatten
+    restart: unless-stopped
+    environment:
+      KAFKA_BROKER: kafka-1:19092
+      SOURCE_TOPIC: energy-monitoring.raw
+      SINK_TOPIC: energy-monitoring.avro
+      SCHEMA_REGISTRY_URL: http://schema-registry-1:8081
+      SCHEMA_SUBJECT: energy-monitoring.avro-value
+      CONSUMER_GROUP: energy-flatten-plain-cg
+    depends_on:
+      - kafka-1
+      - schema-registry-1
+```
+
+The key decisions in this definition are explained below:
+
+| Setting | Value | Why |
+|---|---|---|
+| `restart: unless-stopped` | automatic restart | The container recovers from transient Kafka connectivity issues or crashes without manual intervention |
+| `environment:` | explicit overrides | Even though these match the `ENV` defaults in the `Dockerfile`, making them explicit in Compose makes them easy to spot and change without rebuilding the image |
+| `depends_on:` | `kafka-1`, `schema-registry-1` | Compose starts the container only after the broker and registry containers are running |
+
+Start the service alongside the rest of the platform:
+
+```bash
+cd $DATAPLATFORM_HOME
+docker compose up -d energy-monitoring-flatten
+```
+
+Or bring up the full stack (the override file is merged automatically):
+
+```bash
+docker compose up -d
+```
+
+Confirm the container is running and producing records:
+
+```bash
+docker logs -f energy-monitoring-flatten
+```
+
+> **What you should see:** the same startup and producing output as in the manual run above, now running persistently in the background as part of the platform stack.
+
+Stop it individually without touching the rest of the stack:
+
+```bash
+docker compose stop energy-monitoring-flatten
+```
+
+> **Note:** before we continue, make sure that one of the flattening pipelines works!
+
+## Write the Avro formatted messages as Iceberg tables in S3 (optional -> [skip it](#write-the-avro-formatted-messages-to-timescaledb))
+
+[Apache Iceberg](https://iceberg.apache.org/) is an open table format designed for large analytic datasets stored in object storage such as S3. Unlike writing raw Parquet or ORC files directly, Iceberg adds a metadata layer that gives you ACID transactions, schema evolution, partition evolution, and time-travel queries on top of ordinary files. Every write is atomic and every historical snapshot is queryable, so you get data-warehouse semantics without a data warehouse.
+
+In this section you use the **Iceberg Kafka Connect Sink Connector** to stream records from the `energy-monitoring.avro` Kafka topic into an Iceberg table stored in an S3-compatible bucket (MinIO/RustFS). The connector reads each Avro message, converts it to Parquet, and commits it to the Iceberg table via a REST catalog backed by the Hive Metastore. The result is a durable, queryable table that can be read by any Iceberg-compatible engine such as Trino, Spark, or Flink.
+
+The steps below walk you through creating the catalog namespace, defining the table schema, creating the required control topic, and deploying the connector.
+
+### Create the Iceberg catalog namespace
+
+Create the `energy_db` namespace in the Iceberg REST catalog. A namespace groups related tables the same way a database schema does in a relational system:
+
+```bash
+curl -X POST http://localhost:9084/iceberg/v1/namespaces \
+  -H "Content-Type: application/json" \
+  -d '{"namespace": ["energy_db"]}'
+```
+
+### Create the Iceberg table
+
+Define the `energy_log` table inside the `energy_db` namespace. The schema mirrors the flattened Avro record produced by the previous step. The table is configured to write Parquet files with zstd compression, which gives a good balance of compression ratio and read performance for analytic workloads:
+
+```bash
+curl -v -X POST http://localhost:9084/iceberg/v1/namespaces/energy_db/tables \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "energy_log",
+    "schema": {
+      "type": "struct",
+      "schema-id": 0,
+      "fields": [
+        {"id": 1,  "name": "factory_id",           "type": "string",    "required": true,  "doc": "Unique factory identifier"},
+        {"id": 2,  "name": "factory",               "type": "string",    "required": true,  "doc": "Factory name"},
+        {"id": 3,  "name": "timestamp",             "type": "long",      "required": true,  "doc": "Event time in milliseconds since epoch"},
+        {"id": 4,  "name": "air_compressor_1",      "type": "double",    "required": true,  "doc": "Air compressor 1 energy consumption (kWh)"},
+        {"id": 5,  "name": "air_compressor_2",      "type": "double",    "required": true,  "doc": "Air compressor 2 energy consumption (kWh)"},
+        {"id": 6,  "name": "lighting",              "type": "double",    "required": true,  "doc": "Lighting energy consumption (kWh)"},
+        {"id": 7,  "name": "cooling_equipment",     "type": "double",    "required": true,  "doc": "Cooling equipment energy consumption (kWh)"},
+        {"id": 8,  "name": "heating_equipment",     "type": "double",    "required": true,  "doc": "Heating equipment energy consumption (kWh)"},
+        {"id": 9,  "name": "conveyor",              "type": "double",    "required": true,  "doc": "Conveyor energy consumption (kWh)"},
+        {"id": 10, "name": "coating_equipment",     "type": "double",    "required": true,  "doc": "Coating equipment energy consumption (kWh)"},
+        {"id": 11, "name": "inspection_equipment",  "type": "double",    "required": true,  "doc": "Inspection equipment energy consumption (kWh)"},
+        {"id": 12, "name": "welding_equipment",     "type": "double",    "required": true,  "doc": "Welding equipment energy consumption (kWh)"},
+        {"id": 13, "name": "packaging_equipment",   "type": "double",    "required": true,  "doc": "Packaging equipment energy consumption (kWh)"},
+        {"id": 14, "name": "cutting_equipment",     "type": "double",    "required": true,  "doc": "Cutting equipment energy consumption (kWh)"}
+      ]
+    },
+    "properties": {
+      "write.format.default":             "parquet",
+      "write.parquet.compression-codec":  "zstd",
+      "write.metadata.compression-codec": "gzip",
+      "commit.retry.num-retries":         "4"
+    }
+  }'
+``` 
+
+Verify that the table was created successfully:
+
+```bash
+curl http://localhost:9084/iceberg/v1/namespaces/energy_db/tables
+```
+
+> **What you should see:** A JSON response listing `energy_log` under the `energy_db` namespace.
+
+### Create the connector control topic
+
+The Iceberg Sink Connector uses an internal control topic to coordinate commits across connector tasks. Create it before deploying the connector:
+
+```bash
+docker exec -it kafka-1 kafka-topics --bootstrap-server kafka-1:19092 --create --topic control-iceberg --partitions 1 --replication-factor 3
+```
+
+### Deploy the Iceberg Sink Connector
+
+Create the Kafka Connect Iceberg Sink Connector. It reads Avro records from the `energy-monitoring.avro` topic, deserializes them using the Schema Registry, and writes Parquet data files into the `energy_db.energy_log` Iceberg table in S3. Commits are batched and flushed every 60 seconds (`iceberg.control.commit.interval-ms`):
+
+```bash
+curl -X PUT \
+  http://$DATAPLATFORM_IP:8083/connectors/pay-transaction-kafka-to-s3/config \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json' \
+  -d '{
+      "connector.class": "org.apache.iceberg.connect.IcebergSinkConnector",
+      "tasks.max": "1",
+      "topics": "energy-monitoring.avro",
+      "iceberg.tables": "energy_db.energy_log",
+      "iceberg.tables.dynamic-enabled": "false",
+      "write.upsert.enabled": "false",
+      "iceberg.control.commit.interval-ms": "60000",
+      "consumer.max.poll.records": "5000",
+      "iceberg.catalog.type": "rest",
+      "iceberg.catalog.uri": "http://hive-metastore:9084/iceberg",
+      "iceberg.catalog.warehouse": "s3a://iceberg-bucket/energy_db",      
+      "iceberg.catalog.client.region": "us-east-1",
+      "iceberg.catalog.s3.endpoint": "http://rustfs-1:9000",
+      "iceberg.catalog.s3.path-style-access": "true",
+      "iceberg.catalog.s3.access-key-id": "admin",
+      "iceberg.catalog.s3.secret-access-key": "abc123abc123!",
+      "value.converter": "io.confluent.connect.avro.AvroConverter",
+      "value.converter.schema.registry.url": "http://schema-registry-1:8081",
+      "key.converter": "org.apache.kafka.connect.storage.StringConverter"
+	}'
+```
+
+### Verify data arrival in S3 (RustFS)
+
+After the connector has been running for at least one commit interval (60 seconds by default), Iceberg data files start appearing in the `iceberg-bucket` in RustFS. You can verify this using either the RustFS web console or the `mc` CLI that ships with the Data Platform.
+
+#### RustFS Console
+
+Open the RustFS web console at <http://dataplatform:9014> and log in with:
+
+- **Username:** `admin`
+- **Password:** `abc123abc123!`
+
+Navigate to **Buckets** → **iceberg-bucket** → **energy_db** → **energy_log**. You should see subdirectories for Iceberg metadata (`metadata/`) and data files (`data/`). The data directory contains Parquet files named with a UUID, one file per committed batch.
+
+> **What you should see:** At least one `.parquet` file under `energy_db/energy_log/data/` and a corresponding `metadata/` directory containing `.json` and `.avro` snapshot and manifest files.
+
+#### `mc` CLI
+
+The Data Platform includes a `rustfs-mc` container pre-configured with the `rustfs-1` alias pointing at the RustFS S3 endpoint.
+
+List the top-level directories in the Iceberg warehouse:
+
+```bash
+docker exec -ti rustfs-mc mc ls rustfs-1/iceberg-bucket/energy_db/energy_log/
+```
+
+> **What you should see:** Two directories — `data/` and `metadata/`.
+
+List the Parquet data files written so far:
+
+```bash
+docker exec -ti rustfs-mc mc ls rustfs-1/iceberg-bucket/energy_db/energy_log/data/
+```
+
+> **What you should see:** One or more `.parquet` files. A new file is added with each commit (every 60 seconds while the Kafka topic has new records).
+
+Count the total number of files to track ingestion progress:
+
+```bash
+docker exec -ti rustfs-mc mc find rustfs-1/iceberg-bucket/energy_db/energy_log/data/ --name "*.parquet" | wc -l
+```
+
+To inspect Iceberg metadata snapshots:
+
+```bash
+docker exec -ti rustfs-mc mc ls rustfs-1/iceberg-bucket/energy_db/energy_log/metadata/
+```
+
+> **What just happened?** The Iceberg Sink Connector writes records into a staging area and commits them to the Iceberg table at the configured interval. Each commit produces a new Parquet data file and appends a snapshot entry to the Iceberg metadata. The REST catalog (Hive Metastore) tracks all snapshots, so Trino always reads a consistent view of the table regardless of concurrent writes.
+
+## Query the Iceberg table with Trino
+
+[Trino](https://trino.io/) is a distributed SQL query engine designed to query large datasets across heterogeneous data sources at interactive speed. Because Trino has a native Iceberg connector, it can read the Parquet files written by the Kafka Connect Iceberg Sink Connector directly from S3 without any ETL step — the Iceberg metadata layer tells Trino exactly which files to read and which to skip.
+
+In the Data Platform, Trino is pre-configured with an `iceberg_hive_rest` catalog that points to the same REST catalog and S3 bucket used by the connector. The Trino UI is available at <http://dataplatform:28082/ui/preview>.
+
+### Query using the Trino CLI
+
+The Data Platform ships a dedicated `trino-cli` container. Open an interactive Trino session connected to the `iceberg_hive_rest` catalog and the `energy_db` schema:
+
+```bash
+docker exec -ti trino-cli trino --server trino-1:8080 \
+    --catalog iceberg_hive_rest \
+    --schema energy_db
+```
+
+> **What you should see:** A `trino:energy_db>` prompt, confirming you are connected.
+
+Verify the table is visible:
+
+```sql
+SHOW TABLES;
+```
+
+> **What you should see:**
+>
+> ```
+>    Table
+> ------------
+>  energy_log
+> (1 row)
+> ```
+
+Inspect the schema:
+
+```sql
+DESCRIBE energy_log;
+```
+
+Query the most recent records across all factories:
+
+```sql
+SELECT factory, timestamp, air_compressor_1, heating_equipment, conveyor
+FROM energy_log
+ORDER BY timestamp DESC
+LIMIT 10;
+```
+
+Aggregate total energy consumption per factory:
+
+```sql
+SELECT
+    factory,
+    COUNT(*)                                               AS record_count,
+    ROUND(SUM(air_compressor_1 + air_compressor_2
+        + lighting + cooling_equipment + heating_equipment
+        + conveyor + coating_equipment + inspection_equipment
+        + welding_equipment + packaging_equipment + cutting_equipment), 2) AS total_kwh
+FROM energy_log
+GROUP BY factory
+ORDER BY total_kwh DESC;
+```
+
+Type `exit` or press **Ctrl-D** to leave the Trino CLI.
+
+### Query using DBeaver
+
+[DBeaver](https://dbeaver.io/) is an open-source database tool that supports Trino via a built-in driver. Use it to browse the Iceberg table structure and run SQL queries from a graphical interface.
+
+**Install the Trino driver** (first time only):
+
+1. Open DBeaver and select **Database** | **Driver Manager**.
+2. Search for **Trino** and click **Edit**. If it is not listed, click **New** and enter the Maven coordinates `io.trino:trino-jdbc:481` — DBeaver downloads the driver automatically.
+3. Click **OK** to close the Driver Manager.
+
+**Create a new connection:**
+
+1. Select **Database** | **New Database Connection**.
+2. Choose **Trino** and click **Next**.
+3. Fill in the connection details:
+   - **Host:** `dataplatform` (or the IP address of your Docker host)
+   - **Port:** `28082`
+   - **Username:** `admin` (Trino requires a non-empty username but no password)
+   - **Database/Catalog:** `iceberg_hive_rest`
+4. Click **Test Connection** to verify, then **Finish**.
+
+**Browse and query the table:**
+
+1. In the **Database Navigator**, expand **iceberg_hive_rest** → **energy_db** → **Tables** → **energy_log**.
+2. Double-click the table to open the data viewer, or right-click and select **View Data**.
+3. Open a new SQL editor (**SQL Editor** | **New SQL Script**) and run the same queries from the CLI section above.
+
+> **What you should see:** The query results displayed in the DBeaver results grid, with all sensor columns and timestamps populated from the Iceberg Parquet files in S3.
+
+## Write the Avro formatted messages to TimescaleDB
+
+[TimescaleDB](https://www.timescale.com) is an open-source time-series database built as a PostgreSQL extension. It adds automatic partitioning by time (hypertables), time-series specific functions, and compression on top of a standard PostgreSQL engine. Because it is a PostgreSQL extension rather than a separate database engine, you can connect to it with any PostgreSQL client, use standard SQL, and interact with it exactly as you would with a regular PostgreSQL database — including `psql`, JDBC/ODBC drivers, and tools like pgAdmin.
+
+### Connect to TimescaleDB
+
+Open a `psql` session inside the running TimescaleDB container:
+
+```bash
+docker exec -ti timescaledb psql -h timescaledb -p 5432 -U timescaledb
+```
+
+When prompted for a password enter `abc123!`.
+
+> **What you should see:** a `timescaledb=#` prompt, confirming you are connected to the database.
+
+### Create the target table and hypertable
+
+Once connected, run the following SQL to create the `energy_log` table and turn it into a TimescaleDB hypertable partitioned by time and factory:
+
+```sql
+DROP TABLE IF EXISTS energy_log;
+
+CREATE TABLE energy_log (
+  factory_id VARCHAR(20),
+  factory VARCHAR(255),
+  air_compressor_1 DECIMAL(10, 2),
+  air_compressor_2 DECIMAL(10, 2),
+  lighting DECIMAL(10, 2),
+  cooling_equipment DECIMAL(10, 2),
+  heating_equipment DECIMAL(10, 2),
+  conveyor DECIMAL(10, 2),
+  coating_equipment DECIMAL(10, 2),
+  inspection_equipment DECIMAL(10, 2),
+  welding_equipment DECIMAL(10, 2),
+  packaging_equipment DECIMAL(10, 2),
+  cutting_equipment DECIMAL(10, 2),
+  timestamp TIMESTAMPTZ
+);
+
+-- Indexes for common filter and join patterns
+CREATE INDEX idx_factory_id ON energy_log(factory_id);
+CREATE INDEX idx_timestamp ON energy_log(timestamp);
+
+-- Convert the table into a hypertable partitioned by timestamp with 4 space partitions on factory_id.
+-- This gives TimescaleDB efficient pruning for both time-range and per-factory queries.
+SELECT create_hypertable('energy_log', 'timestamp', 'factory_id', 4);
+```
+
+> **What you should see:** `CREATE TABLE`, two `CREATE INDEX` confirmations, and a `create_hypertable` result row indicating the hypertable was created successfully.
+
+Type `exit` to exit `psql`.
+
+### Configure the Kafka Connect JDBC Sink connector
+
+The Confluent JDBC Sink connector reads Avro records from the `energy-monitoring.avro` Kafka topic and inserts them into `energy_log`. Because the `timestamp` field arrives as a Unix millisecond integer, a `TimestampConverter` Single Message Transform (SMT) is applied to convert it to a proper SQL `TIMESTAMP` before writing.
+
+```bash
+curl -X DELETE "http://${DOCKER_HOST_IP}:8083/connectors/timescaledb-sink"
+```
+
+
+```bash
+curl -X PUT \
+  http://${DOCKER_HOST_IP}:8083/connectors/timescaledb-sink/config \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json' \
+  -d '{
+    "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+    "tasks.max": "2",
+    "connection.url": "jdbc:postgresql://timescaledb:5432/timescaledb",
+    "connection.user": "timescaledb",
+    "connection.password": "abc123!",
+    "topics": "energy-monitoring.avro",
+    "table.name.format": "energy_log",
+    "insert.mode": "insert",
+    "pk.mode": "none",
+    "auto.create": "false",
+    "auto.evolve": "false",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "batch.size": "1000",
+    "dialect.name": "PostgreSqlDatabaseDialect",
+    "transforms": "tsConvert",
+    "transforms.tsConvert.type": "org.apache.kafka.connect.transforms.TimestampConverter$Value",
+    "transforms.tsConvert.field": "timestamp",
+    "transforms.tsConvert.target.type": "Timestamp",
+    "transforms.tsConvert.unix.precision": "milliseconds"
+  }'
+```
+
+> **What you should see:** a JSON response from the Kafka Connect REST API confirming the connector was created with `"name": "timescaledb-sink"`.
+
+### Verify data is flowing into TimescaleDB
+
+Reconnect to `psql` and query the table to confirm records are arriving:
+
+```bash
+docker exec -ti timescaledb psql -h timescaledb -p 5432 -U timescaledb
+```
+
+```sql
+SELECT factory_id, factory, timestamp, lighting, heating_equipment
+FROM energy_log
+ORDER BY timestamp DESC
+LIMIT 10;
+```
+
+> **What you should see:** the ten most recent rows with sensor readings, confirming that the Kafka → TimescaleDB pipeline is working end-to-end.
+
+## Visualize the TimescaleDB data in Grafana
+
+[Grafana](https://grafana.com) is an open-source observability and dashboarding platform that can connect to a wide range of data sources — including PostgreSQL and TimescaleDB — and render time-series data as interactive charts, gauges, and tables. It runs as a web application and requires no client installation beyond a browser. In this workshop Grafana reads directly from TimescaleDB using standard SQL queries and displays the energy sensor readings as live time-series panels.
+
+### Open Grafana
+
+In a browser navigate to <http://dataplatform:3000>. Log in with:
+
+- **User**: `admin`
+- **Password**: `abc123!`
+
+> **What you should see:** the Grafana home screen after a successful login.
+
+### Check TimescaleDB data source
+
+TimescaleDB as a PostgreSQL data source is already registered in Grafana as part of the dataplatform. You can check it by clicking **Connections** → **Data sources** in the left side bar and you should see the **timescaledb** data source. Click on the datasource and at the bottom of the page click **Save & test**. 
+
+> **What you should see:** a green **Database Connection OK** banner confirming Grafana can reach TimescaleDB.
+
+### Import the Energy Monitoring dashboard
+
+A pre-built dashboard is provided in the `grafana/` folder of this workshop.
+
+1. In the left sidebar click **Dashboards** → **New** → **Import**.
+2. Click **Upload dashboard JSON file** and select the file `grafana/energy-monitoring.json` from this workshop folder.
+3. Click **Import**.
+
+![Alt Image Text](./images/grafana-dashboard.png "Grafana Dashboard")
+
+> **What you should see:** the **Energy Monitoring** dashboard opens with time-series panels showing sensor readings (heating, lighting, cooling, etc.) per factory, updating as new messages flow through the pipeline. Use the **Factory** drop-down at the top of the dashboard to filter the panels to a specific factory.
