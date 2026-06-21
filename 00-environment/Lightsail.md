@@ -90,7 +90,8 @@ sudo echo "export PUBLIC_IP=$PUBLIC_IP" | sudo tee -a /etc/profile.d/platys-plat
 sudo echo "export DOCKER_HOST_IP=$DOCKER_HOST_IP" | sudo tee -a /etc/profile.d/platys-platform-env.sh
 sudo echo "export DATAPLATFORM_HOME=$PWD" | sudo tee -a /etc/profile.d/platys-platform-env.sh
 
-# Startup Environment
+# Startup Environment (we also pull the minifi-profile, but start stack without it)
+sudo -E docker compose --profile minifi_profile pull
 sudo -E docker compose up -d
 ```
 

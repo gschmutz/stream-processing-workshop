@@ -527,7 +527,14 @@ Remote Processing Groups: []
 
 #### Start the MiNiFi agent
 
-The `minifi` container starts automatically with Docker Compose and reads `config.yml` on boot. If you edit the config after the container is already running, restart it to pick up the changes:
+The `minifi` container does not start automatically with Docker Compose, because it belongs to a separate docker compose profile. You can start it manually using:
+
+```bash
+cd $DATAPLATFORM_HOME
+docker compose --profile minifi_profile up -d
+```
+
+It reads `./custom-conf/minifi/config.yml` on boot. If you edit the config after the container is already running, restart it to pick up the changes:
 
 ```bash
 docker restart minifi
