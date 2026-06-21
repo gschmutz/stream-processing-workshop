@@ -1,47 +1,41 @@
 Flow Controller:
   name: MQTT to Kafka Pipeline
-
 Processors:
   - name: ConsumeMQTT
     id: 2438e3c8-015a-1000-79ca-83af40ec1001
     class: org.apache.nifi.minifi.processors.ConsumeMQTT
-    scheduling strategy: EVENT_DRIVEN
+    scheduling strategy: TIMER_DRIVEN
     scheduling period: 0 sec
     Properties:
-      Broker URI: tcp://mosquitto:1883
+      Broker URI: tcp://mosquitto-1:1883
       Client ID: minifi-edge-consumer
       Topic: mqttx/simulate/IEM/+
       Quality of Service: 2
       Max Flow Segment Size: 1 MB
       Session Expiry Interval: 0 seconds
-
   - name: PublishKafka
     id: 2438e3c8-015a-1000-79ca-83af40ec1002
     class: org.apache.nifi.minifi.processors.PublishKafka
     scheduling strategy: EVENT_DRIVEN
     scheduling period: 0 sec
     Properties:
-      Kafka Brokers: kafka-1:19092,kafka-2:19092,kafka-3:19092
-      Topic Name: iot.sensor.raw
+      Known Brokers: kafka-1:19092,kafka-2:19092,kafka-3:19092
+      Topic Name: energy-monitoring.raw
       Client Name: minifi-kafka-producer
       Batch Size: 10
       Compress Codec: none
       Request Timeout: 10 sec
       Message Timeout: 30 sec
-
 Connections:
   - name: ConsumeMQTT->PublishKafka
     id: 2438e3c8-015a-1000-79ca-83af40ec1003
     source id: 2438e3c8-015a-1000-79ca-83af40ec1001
     source relationship name: success
     destination id: 2438e3c8-015a-1000-79ca-83af40ec1002
-
   - name: PublishKafka->failure
     id: 2438e3c8-015a-1000-79ca-83af40ec1004
     source id: 2438e3c8-015a-1000-79ca-83af40ec1002
     source relationship name: failure
-    destination id: 2438e3c8-015a-1000-79ca-83af40ec1002  # auto-retry on failure
-
-Controller Services:
-
+    destination id: 2438e3c8-015a-1000-79ca-83af40ec1002
+Controller Services: ~
 Remote Processing Groups: []

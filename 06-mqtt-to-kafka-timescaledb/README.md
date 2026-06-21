@@ -560,7 +560,13 @@ docker exec -ti kcat kcat -b kafka-1:19092 -t energy-monitoring.raw -C -q -o end
 
 > **What just happened?** On start-up, MiNiFi C++ parsed `config.yml`, instantiated the two processors, and wired them together with the defined connections. `ConsumeMQTT` subscribes to `mqttx/simulate/IEM/+` and, for every received MQTT message, creates a NiFi FlowFile whose content is the raw JSON payload. Each FlowFile travels along the `success` connection into `PublishKafka`, which writes it as a Kafka record to the `energy-monitoring.raw` topic. If a Kafka write fails, the FlowFile loops back via the `failure` connection and is retried automatically.
 
+> **Note** before we continue, make sure that one of the 3 ways to bridge MQTT with Kafka is running!
+
 ## Create Avro Schema for downstream processing
+
+The raw MQTT messages arriving in the `energy-monitoring.raw` Kafka topic contain a nested JSON structure — the sensor readings are grouped under a `values` object rather than being top-level fields. The next processing step (NiFi or Python) will **flatten** this structure: it pulls every sensor field out of `values` and promotes it to the top level alongside `factory_id`, `factory`, and `timestamp`. The Avro schema defined here represents that flattened message format — it has one field per sensor reading at the top level with no nesting.
+
+Before the NiFi or Python transformation step can serialize the data into Avro, the target schema must already exist in the Schema Registry. Pre-registering the schema decouples the schema definition from the producer code: the transformation pipeline can look the schema up by subject name at runtime rather than embedding the definition in the flow, and the Schema Registry enforces that every Avro record produced to `energy-monitoring.avro` conforms to the registered schema. It also means the same schema can be shared by multiple producers or consumers without each having to maintain their own copy.
 
 Pre-register the schema by POSTing it to the Schema Registry. Save the Avro schema to a file:
 
@@ -691,7 +697,7 @@ In our case the raw message coming from the `energy-monitoring.raw` topic has th
 }
 ```
 
-The JOLT `shift` spec below promotes every key inside `values` to the top level, producing a flat record that matches the Avro schema registered earlier:
+The JOLT `shift` spec below promotes every key inside `values` to the top level
 
 ```json
 [
@@ -709,7 +715,28 @@ The JOLT `shift` spec below promotes every key inside `values` to the top level,
 ]
 ```
 
-> **Tip — test your spec interactively:** Before pasting a JOLT spec into NiFi or any code, you can validate it in the browser using the [JOLT Transform Demo](https://jolt-demo.appspot.com/#inception). Paste the input JSON in the **Json Input** panel, the spec in the **Jolt Spec** panel, and click **Transform** to see the output immediately. This is the fastest way to iterate on a spec and catch mistakes without restarting any services.
+producing a flat record that matches the Avro schema registered earlier:
+
+```json
+{
+  "factory_id" : "094",
+  "factory" : "Grady Inc",
+  "timestamp" : 1781291723724,
+  "air_compressor_1" : 2.92,
+  "air_compressor_2" : 4.59,
+  "lighting" : 1.02,
+  "cooling_equipment" : 26.49,
+  "heating_equipment" : 44.12,
+  "conveyor" : 10.04,
+  "coating_equipment" : 5.13,
+  "inspection_equipment" : 2.13,
+  "welding_equipment" : 3.36,
+  "packaging_equipment" : 8.26,
+  "cutting_equipment" : 11.89
+}
+```
+
+> **Tip — test your spec interactively:** Before pasting a JOLT spec into NiFi or any code, you can validate it in the browser using the [JOLT Transform Demo](https://jolt-demo.appspot.com/#inception). Paste the input JSON in the **Json Input** panel, the spec in the **Jolt Spec** panel, and click **Transform** to see the output in the **Output / Errors** panel. This is the fastest way to iterate on a spec and catch mistakes without restarting any services.
 
 ![Alt Image Text](./images/jolt-transform.png "Flow Connected")
 
