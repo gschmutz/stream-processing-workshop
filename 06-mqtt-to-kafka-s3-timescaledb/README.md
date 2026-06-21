@@ -929,7 +929,6 @@ Now start the **PublishKafka** processor in Apache NiFi and immediately the mess
 
 > **What you should see:** the messages are shown as JSON even though they are transmitted as Avro. `kcat` deserialises them to JSON because we specified `-s value=avro -r http://schema-registry-1:8081`.
 
-
 ## Using Python to transform from raw to Avro message
 
 As an alternative to the NiFi flow, you can run a lightweight Python script that reads raw JSON messages from `energy-monitoring.raw`, flattens them using plain Python dict manipulation, and produces Avro-serialised records to `energy-monitoring.avro`.
