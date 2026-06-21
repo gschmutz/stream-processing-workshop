@@ -540,10 +540,18 @@ jq -n --arg schema "$(cat person.avsc)" '{"schema": $schema}' | \
     -d @-
 ```
 
-> **What you should see:** The schema ID assigned by the registry:
+Check that the registration was successful by listing the subjects of the schema registry
+
+```bash
+curl http://localhost:8081/subjects | jq
+```
+
+> **What you should see:** an array with the new subject
 
 ```json
-{"id":1}
+[
+  "test-python-avro-topic-value"
+]
 ```
 
 > **What just happened?** The Schema Registry validated the schema against the configured compatibility level, stored it under the subject `test-python-avro-topic-value`, and assigned it a globally unique schema ID. Any producer or consumer that references this ID in the Confluent wire format header can use this exact definition to serialize or deserialize messages — even before the first message has been produced to the topic.
