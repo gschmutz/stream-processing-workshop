@@ -16,7 +16,7 @@ The data originates from the [MQTTX CLI](https://mqttx.app/docs/cli) `IEM` simul
 - [Create Avro Schema for downstream processing](#create-avro-schema-for-downstream-processing)
 - [Transforming JSON using JOLT](#transforming-json-using-jolt)
 - [Stream Processing Pipeline for flattening JSON](#stream-processing-pipeline-for-flattening-json)
-- [Write the Avro formatted messages as Iceberg tables in S3 (optional)](#write-the-avro-formatted-messages-as-iceberg-tables-in-s3-optional---skip-it)
+- [Write the Avro formatted messages as Iceberg tables in S3](#write-the-avro-formatted-messages-as-iceberg-tables-in-s3)
 - [Query the Iceberg table with Trino](#query-the-iceberg-table-with-trino)
 - [Write the Avro formatted messages to TimescaleDB](#write-the-avro-formatted-messages-to-timescaledb)
 - [Visualize the TimescaleDB data in Grafana](#visualize-the-timescaledb-data-in-grafana)
@@ -328,7 +328,7 @@ curl -X DELETE "http://dataplatform:8083/connectors/mqtt-source"
 
 ### Using Apache NiFi 
 
-> optional -> [skip it](#using-apache-minifi-c)
+[optional -> skip it](#using-apache-minifi-c)
 
 [Apache NiFi](https://nifi.apache.org) is a visual data flow tool designed for routing, transforming, and mediating data between systems. It is a natural fit here because flattening a nested JSON record — exactly what we need to do — is the kind of stateless per-message transformation NiFi handles without writing any code. NiFi also provides a live monitoring view of throughput and backpressure on every connection, which makes it easy to observe the data flow during the workshop.
 
