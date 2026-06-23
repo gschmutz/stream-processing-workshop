@@ -326,7 +326,9 @@ Remove the connector if you want to try out the other options.
 curl -X DELETE "http://dataplatform:8083/connectors/mqtt-source"
 ```
 
-### Using Apache NiFi (optional)
+### Using Apache NiFi 
+
+> optional -> [skip it](#using-apache-minifi-c)
 
 [Apache NiFi](https://nifi.apache.org) is a visual data flow tool designed for routing, transforming, and mediating data between systems. It is a natural fit here because flattening a nested JSON record — exactly what we need to do — is the kind of stateless per-message transformation NiFi handles without writing any code. NiFi also provides a live monitoring view of throughput and backpressure on every connection, which makes it easy to observe the data flow during the workshop.
 
@@ -445,7 +447,9 @@ Now start the **PublishKafka** processor in Apache NiFi and immediately the mess
 
 Stop both processors, if you want to try out the 3rd and last option as well.
 
-### Using Apache MiNiFi C++ (optional)
+### Using Apache MiNiFi C++
+
+[optional -> skip it](#create-avro-schema-for-downstream-processing)
 
 [Apache MiNiFi C++](https://nifi.apache.org/minifi/) is a lightweight data collection agent built on the NiFi processor model. Unlike the full NiFi server, MiNiFi has no web UI — it is configured entirely through a `config.yml` file and is designed to run close to the data source with a minimal footprint. In this workshop it runs as a Docker container alongside the rest of the platform and performs the same MQTT-to-Kafka bridge as the Kafka Connect connector, but without requiring Kafka Connect at all.
 
@@ -1062,7 +1066,9 @@ Now execute the cell.
 
 Stop execution of the Python script by selecting **Kernel** | **Interrupt Kernel** from the menu bar.
 
-#### Run the code as a Docker image (optional -> [skip it](#write-the-avro-formatted-messages-as-iceberg-tables-in-s3-optional---skip-it))
+#### Run the code as a Docker image
+
+[optional -> skip it](#write-the-avro-formatted-messages-as-iceberg-tables-in-s3-optional)
 
 Running the script in Jupyter is convenient during development, but it has a practical limitation: it only runs while the Jupyter session is open and stops the moment you close the notebook or interrupt the kernel. For anything that needs to run continuously alongside the rest of the platform — surviving terminal closures, restarting after crashes, and starting automatically when the stack comes up — the script needs to be packaged as a container.
 
@@ -1181,7 +1187,9 @@ docker compose stop energy-monitoring-flatten
 
 > **Note:** before we continue, make sure that one of the flattening pipelines works!
 
-## Write the Avro formatted messages as Iceberg tables in S3 (optional -> [skip it](#write-the-avro-formatted-messages-to-timescaledb))
+## Write the Avro formatted messages as Iceberg tables in S3
+
+[optional -> skip it](#write-the-avro-formatted-messages-to-timescaledb)
 
 [Apache Iceberg](https://iceberg.apache.org/) is an open table format designed for large analytic datasets stored in object storage such as S3. Unlike writing raw Parquet or ORC files directly, Iceberg adds a metadata layer that gives you ACID transactions, schema evolution, partition evolution, and time-travel queries on top of ordinary files. Every write is atomic and every historical snapshot is queryable, so you get data-warehouse semantics without a data warehouse.
 
