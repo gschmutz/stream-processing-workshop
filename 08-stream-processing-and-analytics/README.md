@@ -9,7 +9,9 @@ In this workshop you will build a streaming fraud detection pipeline for credit 
 - [Additional Services](#additional-services)
 - [Kafka Topic Setup with Jikkou](#kafka-topic-setup-with-jikkou)
 - [Simulator Setup](#simulator-setup)
-- [Stream Processing with Flink SQL](#stream-processing-with-flink-sql)
+- [Exploring Streams with the Default In-Memory Catalog](#exploring-streams-with-the-default-in-memory-catalog)
+- [Making Definitions Durable with the Hive Metastore Catalog](#making-definitions-durable-with-the-hive-metastore-catalog)
+- [Fraud Detection: Blacklist Flagging and Merchant Enrichment](#fraud-detection-blacklist-flagging-and-merchant-enrichment)
 - [Advanced Fraud Detection Patterns](#advanced-fraud-detection-patterns)
 - [Persisting to Iceberg with Kafka Connect](#persisting-to-iceberg-with-kafka-connect)
 - [Validating and Querying with Spark SQL](#validating-and-querying-with-spark-sql)
@@ -298,110 +300,61 @@ docker exec -ti kcat kcat -b kafka-1:19092 -t priv.pay.transaction.delta.v1 -C -
 
 > **What just happened?** ShadowTraffic read `card-fraud.json`, registered the Avro schemas with the Schema Registry, and entered stage 1 — producing all merchant records to `pub.ref.merchant.state.v1` (bounded at 200 records) and all cardholder records (bounded at 300). Once stage 1 is complete it entered stage 2 and began the open-ended transaction loop, looking up existing card numbers and merchant IDs to produce referentially consistent transaction records.
 
-## Stream Processing with Flink SQL
+## Exploring Streams usnig Flink SQL with the Default In-Memory Catalog
 
-[Apache Flink](https://flink.apache.org/) is a distributed stream-processing engine. Its SQL interface lets you write standard SQL queries that run continuously over unbounded data streams — producing new records to output topics as input records arrive — without writing any Java or Python code. In Flink SQL, **every object is a `TABLE`**; whether it behaves as an append-only stream or a keyed lookup depends on the connector and the presence of a primary key:
+[Apache Flink](https://flink.apache.org/) is a distributed stream-processing engine. Its SQL interface lets you write standard SQL queries that run continuously over unbounded data streams. In Flink SQL, **every object is a `TABLE`**; whether it behaves as an append-only stream or a keyed lookup depends on the connector and the presence of a primary key:
 
 - **Kafka connector** (`connector = 'kafka'`) — append-only source or sink; models an unbounded event stream
 - **Upsert-Kafka connector** (`connector = 'upsert-kafka'`) — changelog source or sink; holds the latest value per key and is suitable for lookups
 
-Connect to the Flink SQL CLI:
+Connect to the Flink SQL CLI and set a clean display mode:
 
 ```bash
 docker exec -it flink-sql-client sql-client.sh
 ```
 
-Set the result display mode to `tableau` for a cleaner streaming output:
-
 ```sql
 SET 'sql-client.execution.result-mode' = 'tableau';
 ```
 
-### Create the raw transaction table
+Out of the box, Flink uses the **`default_catalog`** — an in-memory catalog that is session-scoped. Table definitions stored here are available immediately but exist only for the lifetime of the current SQL client session. This makes the default catalog ideal for ad-hoc exploration.
 
-Create a Flink SQL table over the raw transaction topic. Transactions are serialized as Avro and the schema is managed by the Schema Registry.
+Create a table over the raw transaction topic and run a few exploratory queries:
 
 ```sql
-CREATE TABLE IF NOT EXISTS pay_transaction_s (
+CREATE TABLE pay_transaction_s (
     transaction_id   STRING,
     card_number      STRING,
     merchant_id      STRING,
     amount           DOUBLE,
     currency         STRING,
     channel          STRING,
-    transaction_date TIMESTAMP(3),
+    transaction_date TIMESTAMP_LTZ(3),
     WATERMARK FOR transaction_date AS transaction_date - INTERVAL '5' SECOND
 ) WITH (
-    'connector'                     = 'kafka',
-    'topic'                         = 'priv.pay.transaction.delta.v1',
-    'properties.bootstrap.servers'  = 'kafka-1:19092',
-    'properties.group.id'           = 'flink-pay-transaction',
-    'scan.startup.mode'             = 'earliest-offset',
-    'value.format'                  = 'avro-confluent',
-    'value.avro-confluent.url'      = 'http://schema-registry-1:8081'
+    'connector'                    = 'kafka',
+    'topic'                        = 'priv.pay.transaction.delta.v1',
+    'properties.bootstrap.servers' = 'kafka-1:19092',
+    'properties.group.id'          = 'flink-pay-transaction',
+    'scan.startup.mode'            = 'earliest-offset',
+    'value.format'                 = 'avro-confluent',
+    'value.avro-confluent.url'     = 'http://schema-registry-1:8081'
 );
 ```
 
-Query the table to see live records arriving:
+Confirm the table appears in the catalog:
+
+```sql
+SHOW TABLES;
+```
+
+Query it to see live records arriving:
 
 ```sql
 SELECT * FROM pay_transaction_s;
 ```
 
-Out of the box, Flink is pre-configured with an in-memory catalog. That means that when you create a table, it stores it and you can see it when you list the available tables.
-
-```sql
-SHOW TABLES;
-```
-
-However, by virtue of it being in-memory, if we restart the session:
-
-```bash
-exit;
-
-docker exec -it flink-sql-client sql-client.sh
-````
-
-the catalog contents are now empty
-
-```sql
-SHOW TABLES;
-```
-
-Let's familiarize ourselves with a few more SQL commands before we go much further.
-
-  - `SHOW` can be used to list various types of object, including TABLES, DATABASES, and CATALOGS. The default catalog in Flink is the default_catalog:
-
-```sql
-SHOW CATALOGS;
-```
-
-The Flink project includes [three types of catalog](https://nightlies.apache.org/flink/flink-docs-release-1.18/docs/dev/table/catalogs/#catalog-types), but confusingly they're all a bit different.
-
-  * **In-memory** we've covered already. You can create and use new objects, but there's no persistence.
-  * **Hive** enables you to define and store objects, using the **Hive Metastore** which is backed by a relational database.
-  * **JDBC** is a bit different, since it exposes query access to existing objects in a database connected to by JDBC. However, it doesn't support storing new objects.
-
-#### Hive Catalog
-
-```sql
- CREATE CATALOG c_hive WITH (
-            'type' = 'hive',
-            'hive-conf-dir' = '/opt/hive-conf');
-```
-
-USE CATALOG c_hive;
-
-SHOW DATABASES;
-
-CREATE DATABASE new_db;
-
-USE new_db;
-
-SHOW CURRENT CATALOG; 
-
-SHOW CURRENT DATABASE;
-
+Press **Q** or **Ctrl-C** to stop any running query.
 
 Count transactions per card number:
 
@@ -426,7 +379,7 @@ FROM TABLE(
 GROUP BY window_start, window_end, card_number;
 ```
 
-Add a `HAVING` clause to surface only cards with more than one transaction per minute:
+Narrow to cards with more than one transaction per minute:
 
 ```sql
 SELECT
@@ -442,13 +395,94 @@ GROUP BY window_start, window_end, card_number
 HAVING COUNT(*) > 1;
 ```
 
-Press **Ctrl-C** to stop any running query before moving on.
-
-### Create the blacklist table and flag suspicious transactions
-
-The blacklist is a Flink SQL table backed by the compacted topic `priv.pay.blacklist.state.v1`. The `upsert-kafka` connector holds the latest value per key, making it ideal for point-in-time lookups during stream-table joins.
+Press **Ctrl-C** to stop any running query. Now demonstrate what in-memory actually means — exit the session and immediately reconnect:
 
 ```sql
+EXIT;
+```
+
+```bash
+docker exec -it flink-sql-client sql-client.sh
+```
+
+```sql
+SHOW TABLES;
+```
+
+> **What you should see:** An empty result — no tables. The `pay_transaction_s` definition is gone. The in-memory catalog is session-scoped: every new SQL client session starts with a blank `default_catalog`. The underlying Kafka topic and its data are completely untouched, but Flink has no record of how to read them.
+
+This is a fundamental limitation of the default catalog for anything beyond one-off exploration. Flink ships with [three catalog types](https://nightlies.apache.org/flink/flink-docs-stable/docs/dev/table/catalogs/#catalog-types):
+
+| Catalog type | Persistence | Can create new objects? | Best for |
+|---|---|---|---|
+| **In-memory** (`default_catalog`) | Session only | Yes | Ad-hoc exploration |
+| **Hive Metastore** | Permanent — stored in the Metastore DB | Yes | Production pipelines |
+| **JDBC** | Permanent — but read-only view of an existing DB | No | Querying existing tables |
+
+## Making Definitions Durable with the Hive Metastore Catalog
+
+The Hive Metastore stores table DDL — schema, connector properties, partition metadata — in a relational database (PostgreSQL in this platform). Any Flink SQL client that connects to the same Metastore sees the same catalog, so a table defined in one session is immediately available in a fresh session, after a cluster restart, or from a different machine entirely.
+
+Connect and register the Hive catalog:
+
+```bash
+docker exec -it flink-sql-client sql-client.sh
+```
+
+```sql
+CREATE CATALOG c_hive WITH (
+    'type'          = 'hive',
+    'hive-conf-dir' = '/opt/hive-conf'
+);
+```
+
+Switch to it and create a dedicated database for this workshop:
+
+```sql
+USE CATALOG c_hive;
+
+SHOW DATABASES;
+
+CREATE DATABASE IF NOT EXISTS fraud_detection;
+
+USE fraud_detection;
+```
+
+Verify the active context:
+
+```sql
+SHOW CURRENT CATALOG;
+SHOW CURRENT DATABASE;
+```
+
+> **What you should see:** `c_hive` and `fraud_detection`.
+
+### Register all source and sink tables
+
+With the Hive catalog active, every `CREATE TABLE` statement is written to the Metastore and survives session restarts. Define all five tables the pipeline needs:
+
+```sql
+-- Raw transaction stream (Kafka source, append-only)
+CREATE TABLE IF NOT EXISTS pay_transaction_s (
+    transaction_id   STRING,
+    card_number      STRING,
+    merchant_id      STRING,
+    amount           DOUBLE,
+    currency         STRING,
+    channel          STRING,
+    transaction_date TIMESTAMP_LTZ(3),
+    WATERMARK FOR transaction_date AS transaction_date - INTERVAL '5' SECOND
+) WITH (
+    'connector'                    = 'kafka',
+    'topic'                        = 'priv.pay.transaction.delta.v1',
+    'properties.bootstrap.servers' = 'kafka-1:19092',
+    'properties.group.id'          = 'flink-pay-transaction',
+    'scan.startup.mode'            = 'earliest-offset',
+    'value.format'                 = 'avro-confluent',
+    'value.avro-confluent.url'     = 'http://schema-registry-1:8081'
+);
+
+-- Merchant blacklist (upsert-kafka: latest value per key)
 CREATE TABLE IF NOT EXISTS pay_blacklist_t (
     `key`       STRING,
     merchant_id STRING,
@@ -462,97 +496,8 @@ CREATE TABLE IF NOT EXISTS pay_blacklist_t (
     'value.format'                 = 'avro-confluent',
     'value.avro-confluent.url'     = 'http://schema-registry-1:8081'
 );
-```
 
-Join the transaction table with the blacklist to see which transactions involve blacklisted merchants:
-
-```sql
-SELECT t.*
-     , CASE WHEN bl.`key` IS NOT NULL THEN 1 ELSE 0 END        AS is_flagged
-     , CASE WHEN bl.`key` IS NOT NULL THEN 'blacklist' ELSE '' END AS flagged_reason
-FROM pay_transaction_s t
-LEFT JOIN pay_blacklist_t bl ON t.merchant_id = bl.`key`;
-```
-
-Because the blacklist is currently empty, no transaction is flagged. Open a second terminal and add a merchant to the blacklist using a second Flink SQL client session:
-
-```bash
-docker exec -ti flink-sql-cli sql-client.sh
-```
-
-```sql
-INSERT INTO pay_blacklist_t VALUES ('merchant-199', 'merchant-199');
-```
-
-> **What you should see:** Transactions from `merchant-199` now appear with `is_flagged=1` and `flagged_reason='blacklist'` in the first terminal window.
-
-Stop the ad-hoc query and materialize the join into a persistent Flink job that writes to a new Kafka topic. First define the sink table, then start the continuous insert:
-
-```sql
-CREATE TABLE IF NOT EXISTS pay_transaction_flagged_s (
-    transaction_id   STRING,
-    card_number      STRING,
-    currency         STRING,
-    amount           DOUBLE,
-    merchant_id      STRING,
-    channel          STRING,
-    transaction_date TIMESTAMP(3),
-    is_flagged       INT,
-    flagged_reason   STRING,
-    PRIMARY KEY (transaction_id) NOT ENFORCED
-) WITH (
-    'connector'                    = 'upsert-kafka',
-    'topic'                        = 'priv.pay.transaction-flagged.delta.v1',
-    'properties.bootstrap.servers' = 'kafka-1:19092',
-    'key.format'                   = 'avro-confluent',
-    'key.avro-confluent.url'       = 'http://schema-registry-1:8081',
-    'value.format'                 = 'avro-confluent',
-    'value.avro-confluent.url'     = 'http://schema-registry-1:8081'
-);
-```
-
-```yml
-  - metadata:
-      name: 'priv.pay.transaction-flagged.delta.v1'
-    spec:
-      partitions: 3
-      replicas: 3
-      configs:
-        cleanup.policy: compact
-        segment.ms: 100
-        delete.retention.ms: 100
-        min.cleanable.dirty.ratio: 0.001
-```
-
-```sql
-INSERT INTO pay_transaction_flagged_s
-SELECT
-    t.transaction_id
-  , t.card_number
-  , t.currency
-  , t.amount
-  , t.merchant_id
-  , t.channel
-  , t.transaction_date
-  , CASE WHEN bl.`key` IS NOT NULL THEN 1 ELSE 0 END        AS is_flagged
-  , CASE WHEN bl.`key` IS NOT NULL THEN 'blacklist' ELSE '' END AS flagged_reason
-FROM pay_transaction_s t
-LEFT JOIN pay_blacklist_t bl ON t.merchant_id = bl.`key`;
-```
-
-Verify that flagged transactions are flowing:
-
-```sql
-SELECT * FROM pay_transaction_flagged_s WHERE is_flagged = 1;
-```
-
-> **What just happened?** Flink submitted a persistent streaming job that runs in the background on the cluster. Every new record on `priv.pay.transaction.delta.v1` is joined against the current state of the blacklist table and the result is appended to `priv.pay.transaction-flagged.delta.v1`. Because `pay_blacklist_t` is backed by the upsert-kafka connector, Flink maintains an in-memory state of the latest value per merchant key — if a merchant is added to the blacklist after the job starts, subsequent transactions involving that merchant are immediately flagged.
-
-### Enrich flagged transactions with merchant details
-
-The merchant reference data flowing through `pub.ref.merchant.state.v1` contains name, city, country, and category for each merchant. Create a table over this topic and join it to the flagged stream.
-
-```sql
+-- Merchant reference data (upsert-kafka: latest value per key)
 CREATE TABLE IF NOT EXISTS ref_merchant_t (
     `key`         STRING,
     name          STRING,
@@ -569,30 +514,37 @@ CREATE TABLE IF NOT EXISTS ref_merchant_t (
     'value.format'                 = 'avro-confluent',
     'value.avro-confluent.url'     = 'http://schema-registry-1:8081'
 );
-```
 
-Preview the enriched join:
+-- Sink: blacklist-flagged transactions (upsert-kafka: keyed by transaction_id)
+CREATE TABLE IF NOT EXISTS pay_transaction_flagged_s (
+    transaction_id   STRING,
+    card_number      STRING,
+    currency         STRING,
+    amount           DOUBLE,
+    merchant_id      STRING,
+    channel          STRING,
+    transaction_date TIMESTAMP_LTZ(3),
+    is_flagged       INT,
+    flagged_reason   STRING,
+    PRIMARY KEY (transaction_id) NOT ENFORCED
+) WITH (
+    'connector'                    = 'upsert-kafka',
+    'topic'                        = 'priv.pay.transaction-flagged.delta.v1',
+    'properties.bootstrap.servers' = 'kafka-1:19092',
+    'key.format'                   = 'avro-confluent',
+    'key.avro-confluent.url'       = 'http://schema-registry-1:8081',
+    'value.format'                 = 'avro-confluent',
+    'value.avro-confluent.url'     = 'http://schema-registry-1:8081'
+);
 
-```sql
-SELECT t.*
-     , m.name          AS merchant_name
-     , m.country
-     , m.city
-     , m.category_name
-FROM pay_transaction_flagged_s t
-LEFT JOIN ref_merchant_t m ON t.merchant_id = m.merchant_id;
-```
-
-Materialize it into a new Kafka topic:
-
-```sql
+-- Sink: flagged transactions enriched with merchant details (upsert-kafka)
 CREATE TABLE IF NOT EXISTS pay_transaction_flagged_enriched_s (
     transaction_id   STRING,
     card_number      STRING,
     currency         STRING,
     amount           DOUBLE,
     channel          STRING,
-    transaction_date TIMESTAMP(3),
+    transaction_date TIMESTAMP_LTZ(3),
     is_flagged       INT,
     flagged_reason   STRING,
     merchant_id      STRING,
@@ -610,7 +562,112 @@ CREATE TABLE IF NOT EXISTS pay_transaction_flagged_enriched_s (
     'value.format'                 = 'avro-confluent',
     'value.avro-confluent.url'     = 'http://schema-registry-1:8081'
 );
+```
 
+Verify all five tables are registered:
+
+```sql
+SHOW TABLES;
+```
+
+Now prove the definitions persist across sessions:
+
+```sql
+EXIT;
+```
+
+```bash
+docker exec -it flink-sql-client sql-client.sh
+```
+
+```sql
+USE CATALOG hive_catalog;
+USE fraud_detection;
+SHOW TABLES;
+```
+
+> **What you should see:** All five table names — no `CREATE TABLE` statements needed. The Hive Metastore preserved the DDL across the session restart. From this point on, every SQL statement in this workshop assumes the Hive catalog and `fraud_detection` database are active.
+
+---
+
+## Fraud Detection: Blacklist Flagging and Merchant Enrichment
+
+With all table definitions persisted in the Hive catalog, we can now build the two-stage pipeline. Make sure your SQL client session has the Hive catalog active:
+
+```sql
+USE CATALOG hive_catalog;
+USE fraud_detection;
+```
+
+### Flag transactions against the merchant blacklist
+
+Join the transaction stream with the blacklist table to see which transactions involve blacklisted merchants:
+
+```sql
+SELECT t.*
+     , CASE WHEN bl.`key` IS NOT NULL THEN 1 ELSE 0 END           AS is_flagged
+     , CASE WHEN bl.`key` IS NOT NULL THEN 'blacklist' ELSE '' END AS flagged_reason
+FROM pay_transaction_s t
+LEFT JOIN pay_blacklist_t bl ON t.merchant_id = bl.`key`;
+```
+
+Because the blacklist is currently empty, no transaction is flagged. Open a second terminal, connect a second SQL client session, and add a merchant:
+
+```bash
+docker exec -it flink-sql-client sql-client.sh
+```
+
+```sql
+USE CATALOG hive_catalog;
+USE fraud_detection;
+INSERT INTO pay_blacklist_t VALUES ('merchant-199', 'merchant-199');
+```
+
+> **What you should see:** Transactions from `merchant-199` now appear with `is_flagged=1` and `flagged_reason='blacklist'` in the first terminal window.
+
+Stop the ad-hoc query (**Ctrl-C**) and materialize the join as a persistent Flink job:
+
+```sql
+INSERT INTO pay_transaction_flagged_s
+SELECT
+    t.transaction_id
+  , t.card_number
+  , t.currency
+  , t.amount
+  , t.merchant_id
+  , t.channel
+  , t.transaction_date
+  , CASE WHEN bl.`key` IS NOT NULL THEN 1 ELSE 0 END           AS is_flagged
+  , CASE WHEN bl.`key` IS NOT NULL THEN 'blacklist' ELSE '' END AS flagged_reason
+FROM pay_transaction_s t
+LEFT JOIN pay_blacklist_t bl ON t.merchant_id = bl.`key`;
+```
+
+Verify flagged transactions are flowing:
+
+```sql
+SELECT * FROM pay_transaction_flagged_s WHERE is_flagged = 1;
+```
+
+> **What just happened?** Flink submitted a persistent streaming job that runs on the cluster independently of the SQL client session. Every new record on `priv.pay.transaction.delta.v1` is joined against the current blacklist state and the result is written to `priv.pay.transaction-flagged.delta.v1`. Because `pay_blacklist_t` uses the upsert-kafka connector, Flink maintains an in-memory state of the latest value per merchant key — adding a merchant to the blacklist after the job starts immediately affects subsequent transactions.
+
+### Enrich flagged transactions with merchant details
+
+The merchant reference topic contains name, city, country, and category for each merchant. Preview the join:
+
+```sql
+SELECT t.*
+     , m.name          AS merchant_name
+     , m.country
+     , m.city
+     , m.category_name
+FROM pay_transaction_flagged_s t
+LEFT JOIN ref_merchant_t m ON t.merchant_id = m.`key`;
+```
+
+Materialize as a second persistent job:
+
+```sql
 INSERT INTO pay_transaction_flagged_enriched_s
 SELECT
     t.transaction_id
@@ -627,7 +684,7 @@ SELECT
   , m.city
   , m.category_name
 FROM pay_transaction_flagged_s t
-LEFT JOIN ref_merchant_t m ON t.merchant_id = m.merchant_id;
+LEFT JOIN ref_merchant_t m ON t.merchant_id = m.`key`;
 ```
 
 Query the enriched flagged transactions:
@@ -636,9 +693,7 @@ Query the enriched flagged transactions:
 SELECT * FROM pay_transaction_flagged_enriched_s WHERE is_flagged = 1;
 ```
 
-> **What just happened?** Flink now runs two persistent streaming jobs: the first joins raw transactions against the blacklist and writes to `priv.pay.transaction-flagged.delta.v1`; the second reads that topic, joins against the merchant reference table, and writes to `priv.pay.transaction-flagged-enriched.delta.v1`. Each job maintains its join state independently, forming a pipeline of enriched, continuously growing datasets. New merchant records appearing in `pub.ref.merchant.state.v1` are automatically picked up by the upsert-kafka state and applied to subsequent joins.
-
-
+> **What just happened?** Two persistent streaming jobs now run on the Flink cluster in sequence. The first joins raw transactions against the blacklist; the second reads that output and joins with the merchant reference table. Each job writes to its own Kafka topic, forming a pipeline. New merchant records appearing in `pub.ref.merchant.state.v1` are automatically picked up by the upsert-kafka state and applied to subsequent joins.
 
 ---
 
@@ -652,7 +707,14 @@ The blacklist join in the previous section flags known-bad merchants. This secti
 | Amount anomaly — spike above card's own rolling average | `OVER` window aggregation | **Yes — reads back 24 h of history per card** |
 | Card-testing sequence — small probe followed by large transaction | `MATCH_RECOGNIZE` | **Yes — scans across rows of same card** |
 
-First add the three output topics to the Jikkou spec and apply:
+Make sure the Hive catalog and database are active in your SQL client session:
+
+```sql
+USE CATALOG hive_catalog;
+USE fraud_detection;
+```
+
+First add the two new output topics to the Jikkou spec and apply:
 
 ```yaml
 # append to card-topic-specs.yml
@@ -1190,65 +1252,3 @@ LIMIT 20;
 Type `exit` to leave the Spark SQL shell.
 
 > **What just happened?** Spark executed a distributed join across two Iceberg tables stored as Parquet files in S3, applied the filter and aggregation, and wrote the result back as a new Iceberg table — also partitioned by hour so future queries can prune efficiently. Because all three tables are managed by the same Iceberg catalog, the result table is immediately visible to any other catalog-aware engine (Trino, Flink, another Spark session) without any additional registration step.
-
-
-
-### Transactional Outbox Pattern using Debezium and Kafka Connect
-
-The transactional outbox pattern is used by the `lhbank-cardholder` Spring Boot service. When a cardholder is onboarded, the service writes to both the business tables and an `outbox` table in the same database transaction — guaranteeing atomicity without a distributed transaction. Debezium then captures the outbox inserts via CDC and routes events to Kafka topics based on the `event_type` column using the `EventRouter` Single Message Transform. This is the recommended approach for the main cardholder integration.
-
-![](./images/transactional-outbox.png)
-
-First start the `lhbank-cardholder` service (or use the Docker Compose override), then register the connector:
-
-```
-curl -X PUT \
-  "http://$DATAPLATFORM_IP:8083/connectors/cardHolder.dbzsrc.outbox/config" \
-  -H 'Content-Type: application/json' \
-  -H 'Accept: application/json' \
-  -d '{
-  "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
-  "tasks.max": "1",
-  "slot.name":"dbzoutbox",  
-  "database.server.name": "postgresql",
-  "database.port": "5432",
-  "database.user": "customer",
-  "database.password": "abc123!",
-  "database.dbname": "customer_db",
-  "topic.prefix": "cardHolder",
-  "schema.include.list": "public",
-  "table.include.list": "public.outbox",
-  "plugin.name": "pgoutput",
-  "publication.name":"dbzoutbox",
-  "slot.name":"debezium",
-  "tombstones.on.delete": "false",
-  "database.hostname": "postgresql",
-  "transforms": "outbox",
-  "transforms.outbox.type": "io.debezium.transforms.outbox.EventRouter",
-  "transforms.outbox.table.field.event.id": "id",
-  "transforms.outbox.table.field.event.key": "event_key",
-  "transforms.outbox.table.field.event.payload": "payload_avro",
-  "transforms.outbox.route.by.field": "event_type",
-  "transforms.outbox.route.topic.replacement": "pub.cus.${routedByValue}.state.v1",
-  "value.converter": "io.debezium.converters.BinaryDataConverter",
-  "topic.creation.default.replication.factor": 3,
-  "topic.creation.default.partitions": 8,
-  "key.converter": "org.apache.kafka.connect.storage.StringConverter"
-}'
-```
-
-```
-kcat -b localhost -t pub.cus.cardHolder.state.v1 -r http://localhost:8081 -s value=avro -o end -q
-```
-
-### Why not sending directly to Kafka?
-
-Writing to both the database and Kafka directly (dual write) is not safe: if the Kafka write succeeds but the database write fails (or vice versa), the two systems become inconsistent. The transactional outbox pattern avoids this by making the outbox write part of the same database transaction as the business write.
-
-![](./images/beaware-of-dual-write.png)
-
-### Virtual Outbox using View and database object-relational/json features
-
-An alternative to a physical outbox table is a virtual outbox implemented as a database view that projects the business tables into the same event structure. This avoids the overhead of writing to an extra table but still relies on log-based CDC to capture changes.
-
-![](./images/virtual-outbox.png)
