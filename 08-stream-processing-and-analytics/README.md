@@ -300,7 +300,7 @@ docker exec -ti kcat kcat -b kafka-1:19092 -t priv.pay.transaction.delta.v1 -C -
 
 > **What just happened?** ShadowTraffic read `card-fraud.json`, registered the Avro schemas with the Schema Registry, and entered stage 1 — producing all merchant records to `pub.ref.merchant.state.v1` (bounded at 200 records) and all cardholder records (bounded at 300). Once stage 1 is complete it entered stage 2 and began the open-ended transaction loop, looking up existing card numbers and merchant IDs to produce referentially consistent transaction records.
 
-## Exploring Streams usnig Flink SQL with the Default In-Memory Catalog
+## Exploring Streams using Flink SQL with the Default In-Memory Catalog
 
 [Apache Flink](https://flink.apache.org/) is a distributed stream-processing engine. Its SQL interface lets you write standard SQL queries that run continuously over unbounded data streams. In Flink SQL, **every object is a `TABLE`**; whether it behaves as an append-only stream or a keyed lookup depends on the connector and the presence of a primary key:
 
@@ -430,16 +430,18 @@ docker exec -it flink-sql-client sql-client.sh
 ```
 
 ```sql
-CREATE CATALOG c_hive WITH (
+CREATE CATALOG hive_catalog WITH (
     'type'          = 'hive',
     'hive-conf-dir' = '/opt/hive-conf'
 );
 ```
 
+> **Note on catalog persistence:** This platform is configured with `table.catalog-store.kind: file` (stored in `./conf/catalogs`). When you run `CREATE CATALOG`, Flink writes the catalog definition to that directory, so the catalog registration itself survives session restarts — you only need to run `CREATE CATALOG hive_catalog ...` **once**. On reconnect, Flink loads the definition automatically and the catalog is immediately available. The TABLE definitions inside the catalog are separately stored in the Hive Metastore database, which is also permanent. Both layers of metadata persist independently of the SQL client session.
+
 Switch to it and create a dedicated database for this workshop:
 
 ```sql
-USE CATALOG c_hive;
+USE CATALOG hive_catalog;
 
 SHOW DATABASES;
 
@@ -455,7 +457,7 @@ SHOW CURRENT CATALOG;
 SHOW CURRENT DATABASE;
 ```
 
-> **What you should see:** `c_hive` and `fraud_detection`.
+> **What you should see:** `hive_catalog` and `fraud_detection`.
 
 ### Register all source and sink tables
 
@@ -586,7 +588,7 @@ USE fraud_detection;
 SHOW TABLES;
 ```
 
-> **What you should see:** All five table names — no `CREATE TABLE` statements needed. The Hive Metastore preserved the DDL across the session restart. From this point on, every SQL statement in this workshop assumes the Hive catalog and `fraud_detection` database are active.
+> **What you should see:** All five table names — no `CREATE TABLE` statements needed, and no `CREATE CATALOG` either. Because this platform uses a file-based catalog store, both the catalog registration and the table DDL survived the session restart intact. From this point on, every SQL statement in this workshop assumes the Hive catalog and `fraud_detection` database are active.
 
 ---
 
