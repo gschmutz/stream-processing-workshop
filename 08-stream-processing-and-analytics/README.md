@@ -1,4 +1,4 @@
-# Stream Processing and Analytics with Flink SQL, Iceberg, and Spark
+# Stream Processing and Analytics with Flink SQL
 
 In this workshop you will build a streaming fraud detection pipeline for credit card transactions. Synthetic transaction and cardholder data flows through Apache Kafka, where Apache Flink SQL performs real-time stream processing — joining against a merchant blacklist, enriching with reference data, and flagging suspicious transactions. The flagged records are then persisted as Apache Iceberg tables in S3-compatible object storage via Kafka Connect, and the resulting tables are curated and queried analytically using Apache Spark SQL.
 
@@ -41,19 +41,27 @@ In this workshop you will build a streaming fraud detection pipeline for credit 
 
 The base Platys platform covers the core infrastructure (Kafka, Schema Registry, Flink, etc.). This workshop adds two more service definitions in `docker-compose.override.yml` that Docker Compose automatically merges with the base stack when you run `docker compose up`.
 
+You can copy the `docker-compose.override.yml` from the workshop folder into `$DATAPLAFORM_HOME`.
+
+```bash
+cp docker-compose.override.yml $DATAPLATFORM_HOME
+```
+
+It provides one new service, the `lhbank-cardholder-app` application:
+
 ### lhbank-cardholder-app
 
 ```yaml
-lhbank-cardholder-app:
-  image: ghcr.io/gschmutz/lhbank-cardholder:main
-  environment:
-    SERVER_PORT: 8082
-    SPRING_DATASOURCE_URL: jdbc:postgresql://postgresql:5432/customer_db
-    SPRING_DATASOURCE_USERNAME: customer
-    SPRING_DATASOURCE_PASSWORD: abc123!
-    SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry-1:8081
-  ports:
-    - "29000:8082"
+  lhbank-cardholder-app:
+    image: ghcr.io/gschmutz/lhbank-cardholder:main
+    environment:
+      SERVER_PORT: 8082
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgresql:5432/customer_db
+      SPRING_DATASOURCE_USERNAME: customer
+      SPRING_DATASOURCE_PASSWORD: abc123!
+      SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry-1:8081
+    ports:
+      - "29000:8082"
 ```
 
 This is a Spring Boot microservice that implements the **transactional outbox pattern** for cardholder data. ShadowTraffic does not write cardholders directly to Kafka — instead it calls this service's REST endpoint (acting as a webhook target). The service then:
@@ -62,18 +70,6 @@ This is a Spring Boot microservice that implements the **transactional outbox pa
 2. Publishes the same record to the `pub.cus.cardHolder.state.v1` Kafka topic as an Avro event, using the Schema Registry for schema management
 
 Writing to the database and publishing to Kafka inside the same transactional boundary ensures cardholder state in PostgreSQL and in Kafka is always consistent. The service waits for both PostgreSQL and Schema Registry to be healthy before starting (`depends_on` with health checks).
-
-### trino-1 (override)
-
-```yaml
-trino-1:
-  environment:
-    POSTGRESQL_DATABASE: customer_db
-    POSTGRESQL_USER: customer
-    POSTGRESQL_PASSWORD: abc123!
-```
-
-This is not a new container — it extends the `trino-1` service already defined by Platys, injecting the credentials for the `customer_db` database into Trino's PostgreSQL connector. This makes the cardholder reference data queryable from Trino without modifying the base platform config.
 
 ### Start the extended stack
 
@@ -98,11 +94,11 @@ docker logs lhbank-cardholder-app --tail 20
 
 [Jikkou](https://www.jikkou.io/) is a GitOps-style command-line tool for managing Kafka resources — topics, ACLs, schema subjects, consumer groups — as versioned, declarative YAML files. Instead of running `kafka-topics.sh` commands by hand, you describe the desired state once in a spec file and let Jikkou reconcile the cluster to match it. Jikkou only changes what differs from the spec, so re-applying the same file is always safe (idempotent).
 
-In this platform Kafka is configured with `auto.create.topics.enable = false`, which means every topic the ShadowTraffic simulator writes to must exist before the simulator starts. Jikkou is the right tool for this: it lets you keep the topic definitions in source control alongside the rest of the workshop and recreate them reliably in any environment.
+In this platform Kafka is configured with `auto.create.topics.enable = false`, which means every topic we product to must exist before the simulator starts. Jikkou is the right tool for this: it lets you keep the topic definitions in source control alongside the rest of the workshop and recreate them reliably in any environment.
 
 ### The topic spec file
 
-The file `card-topic-specs.yml` in this workshop directory defines all five topics needed by the pipeline as a single `KafkaTopicList` resource:
+The file `card-topic-specs.yml` in this workshop directory defines the first five topics needed by the pipeline as a single `KafkaTopicList` resource. We will later add to that file when more topics are needed:
 
 ```yaml
 apiVersion: "kafka.jikkou.io/v1beta2"
@@ -186,7 +182,7 @@ cp card-topic-specs.yml $DATAPLATFORM_HOME/scripts/jikkou
 Use `jikkou diff` to see exactly what Jikkou would create or modify without touching the cluster:
 
 ```bash
-docker compose run jikkou diff --files=/jikkou/card-topic-specs.yml
+docker compose run --rm jikkou diff --files=/jikkou/card-topic-specs.yml
 ```
 
 > **What you should see:** Five entries, each marked `+` (create), because the topics do not exist yet. After the first apply, running `diff` again will show no changes — confirming that the cluster already matches the spec.
@@ -194,18 +190,22 @@ docker compose run jikkou diff --files=/jikkou/card-topic-specs.yml
 ### Apply the spec
 
 ```bash
-docker compose run jikkou apply --files=/jikkou/card-topic-specs.yml
+docker compose run --rm jikkou apply --files=/jikkou/card-topic-specs.yml
 ```
 
 Jikkou reads the spec, compares it to the live cluster, creates the missing topics, and prints a summary of what was changed.
 
 ### Verify the topics exist
 
+You can also use Jikkou to describe the state of all resources of type 'KafkaTopic'.
+
 ```bash
-docker exec jikkou jikkou get kafkatopics --default-configs=false --navigation=false
+docker compose run --rm jikkou get kafkatopics --default-configs=false
 ```
 
-You should see all five topic names in the output. Alternatively, use kcat:
+You should see all five topic names in the output together with the internal topics such as `_scheams`. 
+
+Alternatively, use kcat:
 
 ```bash
 docker exec -ti kcat kcat -b kafka-1:19092 -L | grep "priv\.\|pub\."
@@ -219,7 +219,7 @@ This workshop uses [ShadowTraffic](https://shadowtraffic.io/) to generate realis
 
 ### How the simulator works
 
-The configuration file `scripts/shadowtraffic/card-fraud.json` (from the [demo repository](https://github.com/gschmutz/credit-card-fraud-detection-demo)) defines three generators that run in two sequential stages:
+The configuration file `scripts/shadowtraffic/card-fraud.json` (from the [demo repository](https://github.com/gschmutz/credit-card-fraud-detection-demo)) defines four generators that run in two sequential stages:
 
 **Stage 1 — seed reference data (runs once at startup):**
 
@@ -228,11 +228,12 @@ The configuration file `scripts/shadowtraffic/card-fraud.json` (from the [demo r
 | `genMerchants` | `pub.ref.merchant.state.v1` | Up to 200 merchants, each with a sequential `merchant-NNN` ID, company name, country code, city, and retail category |
 | `genCardHolders` | *(via webhook)* | 300 cardholder records sent to the `lhbank-cardholder` service, which writes them to Kafka via the transactional outbox pattern |
 
-**Stage 2 — continuous transaction stream (runs indefinitely after stage 1):**
+**Stage 2 — continuous streams (run indefinitely after stage 1):**
 
 | Generator | Output topic | What it produces |
 |---|---|---|
 | `genCardTransactions` | `priv.pay.transaction.delta.v1` | One transaction every 50–500 ms (random), each referencing an existing card number and a randomly picked merchant |
+| `genCardHolders` | *(via webhook)* | New cardholder records at a lower frequency, simulating ongoing customer onboarding after the initial seed |
 
 Each transaction record contains:
 
@@ -248,7 +249,7 @@ Each transaction record contains:
 }
 ```
 
-The amount distribution is intentionally skewed: 95 % of transactions fall in the 1–300 range and 5 % are high-value outliers (mean ~3 000). This means a simple high-amount threshold will produce a low false-positive rate — which makes the blacklist-based and cardholder-average-based flagging in ksqlDB more interesting to observe.
+The amount distribution is intentionally skewed: 95 % of transactions fall in the 1–300 range and 5 % are high-value outliers (mean ~3 000). This means a simple high-amount threshold will produce a low false-positive rate — which makes the blacklist-based and cardholder-average-based flagging in Flink SQL more interesting to observe.
 
 All records are serialized as Avro and the schemas are registered automatically in the Confluent Schema Registry on first produce.
 
@@ -280,7 +281,10 @@ docker compose --profile test up -d
 docker logs shadowtraffic --tail 20
 ```
 
-You should see lines indicating that merchants and cardholders were seeded in stage 1, followed by continuous transaction output in stage 2.
+You should see lines indicating that 4 streams of data are being generated.
+
+```bash
+```
 
 ### Verify data is arriving in Kafka
 
@@ -293,7 +297,7 @@ docker exec -ti kcat kcat -b kafka-1:19092 -t pub.ref.merchant.state.v1 -C -e -q
 Confirm transactions are arriving continuously:
 
 ```bash
-docker exec -ti kcat kcat -b kafka-1:19092 -t priv.pay.transaction.delta.v1 -C -q -o end
+docker exec -ti kcat kcat -b kafka-1:19092 -t priv.pay.transaction.delta.v1 -s value=avro -r http://schema-registry-1:8081 -q -o end
 ```
 
 > **What you should see:** A stream of single-line JSON records appearing every fraction of a second, each representing one credit card transaction. Press **Ctrl-C** to stop.
