@@ -1,0 +1,23 @@
+services:
+  lhbank-cardholder-app:
+    image: ghcr.io/gschmutz/lhbank-cardholder:main
+    container_name: lhbank-cardholder-app
+    hostname: lhbank-cardholder-app
+    labels:
+      com.platys.name: none
+      com.platys.description: CardHolder Spring Boot Application
+      com.platys.restapi.title: Spark UI
+      com.platys.restapi.url: http://dataplatform:29000    
+    depends_on:
+      postgresql:
+       condition: service_healthy
+      schema-registry-1:
+       condition: service_healthy
+    environment:
+      SERVER_PORT: 8082
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgresql:5432/customer_db
+      SPRING_DATASOURCE_USERNAME: customer
+      SPRING_DATASOURCE_PASSWORD: abc123!
+      SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry-1:8081
+    ports:
+      - "29000:8082"
