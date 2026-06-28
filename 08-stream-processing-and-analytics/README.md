@@ -34,7 +34,7 @@ In this workshop you will build a streaming fraud detection pipeline for credit 
 
 ## Prerequisites
 
-- The **Data Platform** described in [00-environment](../00-environment) is running and accessible, with Kafka (KRaft, 3 brokers), Schema Registry, Flink (JobManager + TaskManager + SQL Client), Kafka Connect, Spark, Hive Metastore, and S3-compatible object storage (RustFS/MinIO) all healthy
+- The **Data Platform** (`docker-2`) described in [00-environment](../00-environment) is running and accessible, with Kafka (KRaft, 3 brokers), Schema Registry, Flink (JobManager + TaskManager + SQL Client), Kafka Connect, Spark, Hive Metastore, and S3-compatible object storage (RustFS/MinIO) all healthy
 - A [ShadowTraffic](https://shadowtraffic.io/) license — a free trial is available on their website
 - Basic familiarity with SQL
 
