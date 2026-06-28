@@ -12,6 +12,7 @@ In this workshop you will build a streaming fraud detection pipeline for credit 
 - [Exploring Streams with the Default In-Memory Catalog](#exploring-streams-with-the-default-in-memory-catalog)
 - [Making Definitions Durable with the Hive Metastore Catalog](#making-definitions-durable-with-the-hive-metastore-catalog)
 - [Fraud Detection: Blacklist Flagging and Merchant Enrichment](#fraud-detection-blacklist-flagging-and-merchant-enrichment)
+- [Enrich Transactions with Cardholder Data](#enrich-transactions-with-cardholder-data)
 - [Advanced Fraud Detection Patterns](#advanced-fraud-detection-patterns)
 - [Persisting to Iceberg with Kafka Connect](#persisting-to-iceberg-with-kafka-connect)
 - [Validating and Querying with Spark SQL](#validating-and-querying-with-spark-sql)
@@ -41,7 +42,7 @@ In this workshop you will build a streaming fraud detection pipeline for credit 
 
 The base Platys platform covers the core infrastructure (Kafka, Schema Registry, Flink, etc.). This workshop adds two more service definitions in `docker-compose.override.yml` that Docker Compose automatically merges with the base stack when you run `docker compose up`.
 
-You can copy the `docker-compose.override.yml` from the workshop folder into `$DATAPLAFORM_HOME`.
+You can copy the `docker-compose.override.yml` from the workshop folder into `$DATAPLATFORM_HOME`.
 
 ```bash
 cp docker-compose.override.yml $DATAPLATFORM_HOME
@@ -94,7 +95,7 @@ docker logs lhbank-cardholder-app --tail 20
 
 [Jikkou](https://www.jikkou.io/) is a GitOps-style command-line tool for managing Kafka resources — topics, ACLs, schema subjects, consumer groups — as versioned, declarative YAML files. Instead of running `kafka-topics.sh` commands by hand, you describe the desired state once in a spec file and let Jikkou reconcile the cluster to match it. Jikkou only changes what differs from the spec, so re-applying the same file is always safe (idempotent).
 
-In this platform Kafka is configured with `auto.create.topics.enable = false`, which means every topic we product to must exist before the simulator starts. Jikkou is the right tool for this: it lets you keep the topic definitions in source control alongside the rest of the workshop and recreate them reliably in any environment.
+In this platform Kafka is configured with `auto.create.topics.enable = false`, which means every topic we produce to must exist before the simulator starts. Jikkou is the right tool for this: it lets you keep the topic definitions in source control alongside the rest of the workshop and recreate them reliably in any environment.
 
 ### The topic spec file
 
@@ -193,7 +194,7 @@ You can also use Jikkou to describe the state of all resources of type 'KafkaTop
 docker compose run --rm jikkou get kafkatopics --default-configs=false
 ```
 
-You should see all five topic names in the output together with the internal topics such as `_scheams`. 
+You should see all five topic names in the output together with the internal topics such as `_schemas`.
 
 Alternatively, use kcat:
 
@@ -201,14 +202,14 @@ Alternatively, use kcat:
 docker exec -ti kcat kcat -b kafka-1:19092 -L | grep "priv\.\|pub\."
 ```
 
-and you should get:
-
-```bash
-  topic "pub.cus.cardHolder.state.v1" with 2 partitions:
-  topic "priv.pay.blacklist.state.v1" with 2 partitions:
-  topic "pub.ref.merchant.state.v1" with 2 partitions:
-  topic "priv.pay.transaction.delta.v1" with 2 partitions:
-```
+> **What you should see:** The four workshop topics listed alongside any internal topics:
+>
+> ```
+>   topic "pub.cus.cardHolder.state.v1" with 2 partitions:
+>   topic "priv.pay.blacklist.state.v1" with 2 partitions:
+>   topic "pub.ref.merchant.state.v1" with 2 partitions:
+>   topic "priv.pay.transaction.delta.v1" with 2 partitions:
+> ```
 
 > **What just happened?** Jikkou connected to the Kafka cluster, compared the `KafkaTopicList` spec to the current topic inventory, and created each topic with the exact partition count, replication factor, and configuration properties specified. Because the spec file is checked in alongside the workshop code, anyone starting this workshop from scratch can recreate the identical topic layout with a single command — no tribal knowledge of `kafka-topics.sh` flags required.
 
@@ -406,7 +407,7 @@ Press **Q** or **Ctrl-C** to stop the query.
 Set the result display mode to `tableau` so streaming output renders as a continuously updating table in the terminal:
 
 ```sql
-SET 'sql-client.execution.result-mode' = 'table';
+SET 'sql-client.execution.result-mode' = 'tableau';
 ```
 
 And re-execute the same SELECT:
@@ -523,7 +524,7 @@ Set the catalog to the active one:
 USE CATALOG hive_catalog;
 ```
 
-list all databases withing the hive catalog
+List all databases within the Hive catalog:
 
 ```sql
 SHOW DATABASES;
@@ -584,7 +585,7 @@ Flink SQL> SHOW CURRENT DATABASE;
 
 > **What you should see:** `hive_catalog` and `fraud_detection`.
 
-## Re-Register the raw transaction source table
+### Re-register the raw transaction source table
 
 With the Hive catalog active, every `CREATE TABLE` statement is written to the Metastore and survives session restarts. Start by registering the raw transaction stream — this is the primary source table used throughout the pipeline:
 
@@ -677,11 +678,11 @@ LEFT JOIN pay_blacklist_t bl
   ON t.merchant_id = bl.`key`;
 ```
 
-And you should see an output similar to the one below
+> **What you should see:** An output similar to the screenshot below — every transaction has `is_flagged=0` and an empty `flagged_reason` because the blacklist topic is currently empty.
 
 ![](./images/flink-sql-result-with-blacklist-empty.png)
 
-Because the blacklist is currently empty (there are no messages in the topic `priv.pay.blacklist.state.v1`), no transaction is flagged. 
+Because the blacklist is currently empty (there are no messages in the topic `priv.pay.blacklist.state.v1`), no transaction is flagged.
 
 We can either publish some messages directly into the topic or use the Flink SQL `INSERT` statement to add a merchant to the `pay_blacklist_t` table. Let's use the 2nd option: 
 
@@ -729,19 +730,19 @@ But before registering the sink table, we have to create the backing topic by ad
         min.cleanable.dirty.ratio: 0.001
 ```
 
-and run the apply which restarting the `jikkou` service:
+and apply by restarting the `jikkou` service:
 
 ```bash
 docker compose up -d jikkou
 ```
 
-and check that the topic is infact created
+and check that the topic is in fact created:
 
 ```bash
 docker exec -ti kcat kcat -b kafka-1:19092 -L | grep "priv\.\|pub\."
 ```
 
-Now we can finally create the table
+Now create the sink table:
 
 ```sql
 CREATE TABLE IF NOT EXISTS pay_transaction_flagged_s (
@@ -826,8 +827,9 @@ FROM pay_transaction_flagged_s t
 LEFT JOIN ref_merchant_t m ON t.merchant_id = m.merchant_id;
 ```
 
-Use the cursor keys to scroll to the right to see the merchant columns to the right. We can confirm that we now also have the details of each merchant in the result. 
-Let's create another sink table where we can persist that result to.
+> **What you should see:** Transactions with merchant details (`merchant_name`, `country`, `city`, `category_name`) appended. Use the cursor keys to scroll right to see the new columns. Blacklisted merchants still show `is_flagged=1`.
+
+Let's create a sink table to persist this enriched result.
 
 First add the backing topic to the Jikkou spec and apply it:
 
@@ -905,7 +907,7 @@ SELECT * FROM pay_transaction_flagged_enriched_s WHERE is_flagged = 1;
 
 > **What just happened?** Two persistent streaming jobs now run on the Flink cluster in sequence. The first joins raw transactions against the blacklist; the second reads that output and joins with the merchant reference table. Each job writes to its own Kafka topic, forming a pipeline. New merchant records appearing in `pub.ref.merchant.state.v1` are automatically picked up by the upsert-kafka state and applied to subsequent joins.
 
-## Enrich with Credit Card Holder
+## Enrich Transactions with Cardholder Data
 
 The blacklist join flags known-bad merchants. A complementary signal is **personalized amount scoring**: instead of a fixed dollar threshold, compare each transaction against that specific cardholder's own average spend. A transaction that is large relative to that card's own history is suspicious — regardless of the absolute amount. This requires joining the enriched flagged stream with cardholder data, held by the `lhbank-cardholder` Spring Boot service in its PostgreSQL database. But joining from Flink with the operational database is not a good idea, it's much better provide them as a Kafka topic, by which it can be efficiently dealt with in Flink. Thankfully the `lhbank-cardholder` service is build using the Transactional Outbox Pattern, so all we have to do is integrate the outbox with our solution. We have already seen the transactional outbox pattern in action in workshop [07 - Working with Kafka Connect and Change Data Capture (CDC)](../07-kafka-connect-and-cdc).
 
@@ -953,11 +955,13 @@ curl -X PUT \
 }'
 ```
 
-if registered successfully, we should immediately see data arriving in the Kafka topic. 
+Verify the connector registered successfully and data is arriving in the Kafka topic:
 
 ```bash
 docker exec -ti kcat kcat -b kafka-1:19092  -t pub.cus.cardHolder.state.v1 -r http://schema-registry-1:8081 -s value=avro -q
 ```
+
+> **What you should see:** A stream of JSON cardholder records printed to the terminal. If the topic is empty, wait a few seconds — Debezium reads the existing outbox rows and publishes them on first startup.
 
 ### Why not sending directly to Kafka?
 
@@ -965,7 +969,7 @@ Writing to both the database and Kafka directly (dual write) is not safe: if the
 
 ![](./images/beaware-of-dual-write.png)
 
-### Create the sink topic for holding the transactions enchriched with card holder data
+### Create the sink topic for the cardholder-enriched transactions
 
 As before, we have to first create the new topic. Add the following definition to the Jikkou spec file:
 
@@ -990,7 +994,7 @@ cd $DATAPLATFORM_HOME
 docker compose run --rm jikkou apply --files=/jikkou/card-topic-specs.yml
 ```
 
-You should see that a new topic has been created.
+> **What you should see:** Jikkou output confirming one new topic was created: `priv.pay.transaction-flagged2-enriched.delta.v1`.
 
 ### Register the cardholder lookup table
 
@@ -1042,6 +1046,8 @@ CREATE TABLE cus_cardholder_t (
     'value.fields-include'         = 'EXCEPT_KEY'
 );
 ```
+
+> **What just happened?** Flink registered the cardholder topic as an upsert-kafka table. The `id` column (top-level primary key) maps to the Kafka message key; the nested `card_holder` ROW maps to the Avro value. `value.fields-include = 'EXCEPT_KEY'` tells Flink not to include `id` in the Avro value reader schema, matching the actual `CardHolderState` schema in the Schema Registry. Flink maintains in-memory state of the latest cardholder record per `id`, ready for stream-table joins.
 
 Preview the join — for each transaction you can see the card's personal average alongside the transaction amount:
 
@@ -1126,7 +1132,7 @@ WHERE flagged_reason LIKE '%high-amount%';
 
 ## Advanced Fraud Detection Patterns
 
-This section adds three complementary fraud signals that do not require an external reference list — they derive suspicion entirely from patterns within the transaction stream itself. Each pattern uses a different Flink SQL capability.
+This section adds a complementary fraud signal that does not require an external reference list — it derives suspicion entirely from patterns within the transaction stream itself using `MATCH_RECOGNIZE`.
 
 ### Card-testing sequence (`MATCH_RECOGNIZE`)
 
@@ -1173,7 +1179,7 @@ You can tighten or relax the pattern by adjusting the thresholds in `DEFINE` or 
 
 ### Enrich the flagged transaction stream with the card-testing signal
 
-To propagate the card-testing flag into the unified enriched stream, add a third enrichment stage. The key is `ALL ROWS PER MATCH`: instead of one summary row per matched pair, Flink emits one row **per participating input row** — so both the TEST and BIG transaction IDs appear as separate rows that can be joined back against the existing enriched stream.
+To propagate the card-testing flag into the unified enriched stream, add a third enrichment stage. `MATCH_RECOGNIZE` with `ONE ROW PER MATCH` emits one row per completed match. `MEASURES BIG.transaction_id` extracts the ID of the large follow-up transaction — which is the one that gets flagged. That matched ID is then joined against `pay_transaction_flagged2_enriched_s` to retrieve the full enriched record and write it back with `'card-testing'` appended to `flagged_reason`.
 
 First add the new topic to the Jikkou spec and apply it:
 
@@ -1274,13 +1280,17 @@ FROM pay_transaction_flagged3_enriched_s
 WHERE flagged_reason LIKE '%card-testing%';
 ```
 
-> **What just happened?** `ALL ROWS PER MATCH` causes Flink to emit one row for every transaction that participated in a completed match — both the small probe (TEST) and the large follow-up (BIG). Each row carries only its own `transaction_id`, which is then joined against `pay_transaction_flagged2_enriched_s` to retrieve the full enriched record. The `is_flagged` counter is incremented and `'card-testing'` is appended to `flagged_reason`, which may already contain `'blacklist'` or `'high-amount'` from earlier stages, producing composite flags like `'blacklist,card-testing'`.
+> **What just happened?** When `MATCH_RECOGNIZE` detects a completed TEST→BIG pattern, it emits one row containing `BIG.transaction_id` as `large_tx_id`. That ID is joined against `pay_transaction_flagged2_enriched_s` to retrieve the full enriched record for the large transaction. The `is_flagged` counter is incremented and `'card-testing'` is appended to `flagged_reason` — which may already contain `'blacklist'` or `'high-amount'` from earlier stages, producing composite flags like `'high-amount,card-testing'`. Only the large follow-up transaction is flagged; the small probe is left as-is.
 
 > **`MATCH_RECOGNIZE` vs `OVER` window:** `OVER` aggregates a metric over a time range and emits one output per input row. `MATCH_RECOGNIZE` looks for a specific multi-row sequence of event types and emits one output per completed match. Use `OVER` when you want a continuously updated statistic; use `MATCH_RECOGNIZE` when you want to detect a specific temporal narrative.
 
 
+To see all transactions that carry at least one fraud signal — from any stage:
+
 ```sql
-SELECT *
+SELECT transaction_id, card_number, amount, is_flagged, flagged_reason
 FROM pay_transaction_flagged3_enriched_s
 WHERE is_flagged > 0;
 ```
+
+> **What you should see:** Transactions flagged with one or more reasons: `'blacklist'` (merchant on the blacklist), `'high-amount'` (amount exceeded cardholder's personal average), `'card-testing'` (large transaction preceded by a small probe on the same card), or any combination such as `'blacklist,high-amount'`.

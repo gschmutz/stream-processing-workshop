@@ -317,8 +317,7 @@
             {
                 "generators": [
                     "genCardHolders",
-                    "genCardTransactions",
-                    "genBlacklistedMerchants"
+                    "genCardTransactions"
                 ]
             }
         ]
