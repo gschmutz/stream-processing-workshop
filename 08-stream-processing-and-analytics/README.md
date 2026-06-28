@@ -987,7 +987,7 @@ and apply it against the Kafka cluster:
 
 ```bash
 cd $DATAPLATFORM_HOME
-docker compose run jikkou apply --files=/jikkou/card-topic-specs.yml
+docker compose run --rm jikkou apply --files=/jikkou/card-topic-specs.yml
 ```
 
 You should see that a new topic has been created.
@@ -1128,218 +1128,7 @@ WHERE flagged_reason LIKE '%high-amount%';
 
 This section adds three complementary fraud signals that do not require an external reference list — they derive suspicion entirely from patterns within the transaction stream itself. Each pattern uses a different Flink SQL capability.
 
-| Pattern | Flink SQL feature | Requires previous records? |
-|---|---|---|
-| Velocity — too many transactions per window | `TUMBLE` window + `HAVING` | No (aggregated per window) |
-| Amount anomaly — spike above card's own rolling average | `OVER` window aggregation | **Yes — reads back 24 h of history per card** |
-| Card-testing sequence — small probe followed by large transaction | `MATCH_RECOGNIZE` | **Yes — scans across rows of same card** |
-
-Make sure the Hive catalog and database are active in your SQL client session:
-
-```sql
-USE CATALOG hive_catalog;
-USE fraud_detection;
-```
-
-First add the two new output topics to the Jikkou spec and apply:
-
-```yaml
-# append to card-topic-specs.yml
-  - metadata:
-      name: 'priv.pay.fraud.velocity.delta.v1'
-    spec:
-      partitions: 2
-      replicas: 3
-      configs:
-        cleanup.policy: delete
-        segment.bytes: 104857600
-
-  - metadata:
-      name: 'priv.pay.fraud.amount-anomaly.delta.v1'
-    spec:
-      partitions: 2
-      replicas: 3
-      configs:
-        cleanup.policy: delete
-        segment.bytes: 104857600
-```
-
-```bash
-docker cp card-topic-specs.yml jikkou:/tmp/card-topic-specs.yml
-docker exec jikkou jikkou apply --files /tmp/card-topic-specs.yml
-```
-
----
-
-### Pattern 1 — Velocity detection
-
-**Signal:** A legitimate cardholder rarely makes more than a handful of purchases within a few minutes. A burst of transactions in a short window is a strong indicator of card abuse or automated fraud.
-
-**How it works:** Group transactions into 10-minute tumbling windows per card. Emit a fraud alert row for every window where the count exceeds the threshold.
-
-Explore first:
-
-```sql
-SELECT
-    window_start,
-    window_end,
-    card_number,
-    COUNT(*)    AS tx_count,
-    SUM(amount) AS total_amount
-FROM TABLE(
-    TUMBLE(TABLE pay_transaction_t, DESCRIPTOR(transaction_date), INTERVAL '10' MINUTE)
-)
-GROUP BY window_start, window_end, card_number
-HAVING COUNT(*) > 3;
-```
-
-Materialize as a persistent fraud alert stream:
-
-```sql
-CREATE TABLE IF NOT EXISTS pay_fraud_velocity_s (
-    window_start  TIMESTAMP(3),
-    window_end    TIMESTAMP(3),
-    card_number   STRING,
-    tx_count      BIGINT,
-    total_amount  DOUBLE,
-    flagged_reason STRING
-) WITH (
-    'connector'                    = 'kafka',
-    'topic'                        = 'priv.pay.fraud.velocity.delta.v1',
-    'properties.bootstrap.servers' = 'kafka-1:19092',
-    'value.format'                 = 'avro-confluent',
-    'value.avro-confluent.url'     = 'http://schema-registry-1:8081'
-);
-
-INSERT INTO pay_fraud_velocity_s
-SELECT
-    window_start,
-    window_end,
-    card_number,
-    COUNT(*)    AS tx_count,
-    SUM(amount) AS total_amount,
-    'velocity'  AS flagged_reason
-FROM TABLE(
-    TUMBLE(TABLE pay_transaction_t, DESCRIPTOR(transaction_date), INTERVAL '10' MINUTE)
-)
-GROUP BY window_start, window_end, card_number
-HAVING COUNT(*) > 3;
-```
-
-> **What you should see:** Because ShadowTraffic generates one transaction per card every ~50–500 ms of simulated time, most cards will breach the threshold quickly. This demonstrates the pattern; in production you would tune the window size and threshold to your expected legitimate traffic volume.
-
----
-
-### Pattern 2 — Amount anomaly (OVER window)
-
-**Signal:** Each cardholder has their own spending profile. A transaction that is three or more times larger than that card's own recent average — not an absolute dollar threshold — is suspicious regardless of the amount. This avoids the false positive problem of a flat global threshold: a $2 000 transaction is normal for a corporate card but alarming for a card that averages $20.
-
-**Why this requires previous records:** The comparison baseline is the card's own rolling 24-hour average. Flink must keep the history of all amounts seen for each card within the last 24 hours in memory (`OVER` window state) to compute that average for each new incoming transaction.
-
-Explore first — the inner subquery computes the rolling stats, the outer query applies the flag:
-
-```sql
-SELECT
-    transaction_id,
-    card_number,
-    merchant_id,
-    amount,
-    transaction_date,
-    ROUND(rolling_avg_24h, 2)               AS rolling_avg_24h,
-    ROUND(amount / rolling_avg_24h, 1)      AS amount_ratio,
-    tx_count_24h,
-    CASE
-        WHEN tx_count_24h >= 3
-         AND amount > 3.0 * rolling_avg_24h THEN 1
-        ELSE 0
-    END AS is_flagged
-FROM (
-    SELECT
-        transaction_id,
-        card_number,
-        merchant_id,
-        amount,
-        transaction_date,
-        AVG(amount) OVER (
-            PARTITION BY card_number
-            ORDER BY transaction_date
-            RANGE BETWEEN INTERVAL '24' HOUR PRECEDING AND CURRENT ROW
-        ) AS rolling_avg_24h,
-        COUNT(*) OVER (
-            PARTITION BY card_number
-            ORDER BY transaction_date
-            RANGE BETWEEN INTERVAL '24' HOUR PRECEDING AND CURRENT ROW
-        ) AS tx_count_24h
-    FROM pay_transaction_t
-);
-```
-
-The `tx_count_24h >= 3` guard prevents the first one or two transactions on a card — where there is not yet enough history to establish a baseline — from being flagged spuriously.
-
-Materialize only the flagged rows as a persistent alert stream:
-
-```sql
-CREATE TABLE IF NOT EXISTS pay_fraud_amount_anomaly_s (
-    transaction_id  STRING,
-    card_number     STRING,
-    merchant_id     STRING,
-    amount          DOUBLE,
-    transaction_date TIMESTAMP(3),
-    rolling_avg_24h DOUBLE,
-    amount_ratio    DOUBLE,
-    flagged_reason  STRING
-) WITH (
-    'connector'                    = 'kafka',
-    'topic'                        = 'priv.pay.fraud.amount-anomaly.delta.v1',
-    'properties.bootstrap.servers' = 'kafka-1:19092',
-    'value.format'                 = 'avro-confluent',
-    'value.avro-confluent.url'     = 'http://schema-registry-1:8081'
-);
-
-INSERT INTO pay_fraud_amount_anomaly_s
-SELECT
-    transaction_id,
-    card_number,
-    merchant_id,
-    amount,
-    transaction_date,
-    ROUND(rolling_avg_24h, 2)          AS rolling_avg_24h,
-    ROUND(amount / rolling_avg_24h, 1) AS amount_ratio,
-    'amount_anomaly'                   AS flagged_reason
-FROM (
-    SELECT
-        transaction_id,
-        card_number,
-        merchant_id,
-        amount,
-        transaction_date,
-        AVG(amount) OVER (
-            PARTITION BY card_number
-            ORDER BY transaction_date
-            RANGE BETWEEN INTERVAL '24' HOUR PRECEDING AND CURRENT ROW
-        ) AS rolling_avg_24h,
-        COUNT(*) OVER (
-            PARTITION BY card_number
-            ORDER BY transaction_date
-            RANGE BETWEEN INTERVAL '24' HOUR PRECEDING AND CURRENT ROW
-        ) AS tx_count_24h
-    FROM pay_transaction_t
-)
-WHERE tx_count_24h >= 3
-  AND amount > 3.0 * rolling_avg_24h;
-```
-
-Query the anomalies as they arrive:
-
-```sql
-SELECT * FROM pay_fraud_amount_anomaly_s;
-```
-
-> **What just happened?** Flink maintains per-card state for every transaction seen in the last 24 hours. For each new transaction it recomputes the rolling average and count over that state, then emits a row only if the threshold is exceeded. The `OVER` window is evaluated row-by-row in event-time order, so the comparison is always against the card's history **up to the moment that transaction occurred** — not including future transactions.
-
----
-
-### Pattern 3 — Card-testing sequence (`MATCH_RECOGNIZE`)
+### Card-testing sequence (`MATCH_RECOGNIZE`)
 
 **Signal:** A common attack pattern is to first make a tiny "probe" transaction (under $5) to verify a stolen card is still active, then immediately follow up with a large purchase (over $200) on the same card. The two events are consecutive on the same card and happen within minutes of each other.
 
@@ -1382,4 +1171,116 @@ MATCH_RECOGNIZE (
 
 You can tighten or relax the pattern by adjusting the thresholds in `DEFINE` or the `WITHIN` interval. You can also extend the pattern — for example `(TEST+ BIG)` would match one or more probe transactions before the large one.
 
+### Enrich the flagged transaction stream with the card-testing signal
+
+To propagate the card-testing flag into the unified enriched stream, add a third enrichment stage. The key is `ALL ROWS PER MATCH`: instead of one summary row per matched pair, Flink emits one row **per participating input row** — so both the TEST and BIG transaction IDs appear as separate rows that can be joined back against the existing enriched stream.
+
+First add the new topic to the Jikkou spec and apply it:
+
+```yaml
+# append to card-topic-specs.yml
+  - metadata:
+      name: 'priv.pay.transaction-flagged3-enriched.delta.v1'
+    spec:
+      partitions: 2
+      replicas: 3
+      configs:
+        cleanup.policy: compact
+        segment.ms: 100
+        delete.retention.ms: 100
+        min.cleanable.dirty.ratio: 0.001
+```
+
+```bash
+cd $DATAPLATFORM_HOME
+docker compose run --rm jikkou apply --files=/jikkou/card-topic-specs.yml
+```
+
+Register the sink table:
+
+```sql
+CREATE TABLE IF NOT EXISTS pay_transaction_flagged3_enriched_s (
+    transaction_id         STRING,
+    card_number            STRING,
+    currency               STRING,
+    amount                 DOUBLE,
+    channel                STRING,
+    transaction_date       TIMESTAMP(3),
+    is_flagged             INT,
+    flagged_reason         STRING,
+    merchant_id            STRING,
+    merchant_name          STRING,
+    country                STRING,
+    city                   STRING,
+    category_name          STRING,
+    avg_transaction_amount DOUBLE,
+    PRIMARY KEY (transaction_id) NOT ENFORCED
+) WITH (
+    'connector'                    = 'upsert-kafka',
+    'topic'                        = 'priv.pay.transaction-flagged3-enriched.delta.v1',
+    'properties.bootstrap.servers' = 'kafka-1:19092',
+    'key.format'                   = 'raw',
+    'value.format'                 = 'avro-confluent',
+    'value.avro-confluent.url'     = 'http://schema-registry-1:8081'
+);
+```
+
+Start the persistent enrichment job:
+
+```sql
+INSERT INTO pay_transaction_flagged3_enriched_s
+SELECT
+    f.transaction_id,
+    f.card_number,
+    f.currency,
+    f.amount,
+    f.channel,
+    f.transaction_date,
+    f.is_flagged + 1 AS is_flagged,
+    CASE WHEN f.flagged_reason <> ''
+         THEN CONCAT(f.flagged_reason, ',card-testing')
+         ELSE 'card-testing'
+    END AS flagged_reason,
+    f.merchant_id,
+    f.merchant_name,
+    f.country,
+    f.city,
+    f.category_name,
+    f.avg_transaction_amount
+FROM pay_transaction_t
+MATCH_RECOGNIZE (
+    PARTITION BY card_number
+    ORDER BY transaction_date
+    MEASURES
+        BIG.transaction_id     AS large_tx_id,
+        BIG.amount             AS large_amount
+    ONE ROW PER MATCH
+    AFTER MATCH SKIP TO NEXT ROW
+    PATTERN (TEST BIG)
+    WITHIN INTERVAL '5' MINUTE
+    DEFINE
+        TEST AS amount < 5.0,
+        BIG  AS amount > 200.0
+) AS m
+INNER JOIN pay_transaction_flagged2_enriched_s f
+    ON f.transaction_id = m.large_tx_id;
+```
+
+Query the card-testing flagged transactions as they arrive:
+
+```sql
+SELECT transaction_id, card_number, amount, is_flagged, flagged_reason
+FROM pay_transaction_flagged3_enriched_s
+WHERE flagged_reason LIKE '%card-testing%';
+```
+
+> **What just happened?** `ALL ROWS PER MATCH` causes Flink to emit one row for every transaction that participated in a completed match — both the small probe (TEST) and the large follow-up (BIG). Each row carries only its own `transaction_id`, which is then joined against `pay_transaction_flagged2_enriched_s` to retrieve the full enriched record. The `is_flagged` counter is incremented and `'card-testing'` is appended to `flagged_reason`, which may already contain `'blacklist'` or `'high-amount'` from earlier stages, producing composite flags like `'blacklist,card-testing'`.
+
 > **`MATCH_RECOGNIZE` vs `OVER` window:** `OVER` aggregates a metric over a time range and emits one output per input row. `MATCH_RECOGNIZE` looks for a specific multi-row sequence of event types and emits one output per completed match. Use `OVER` when you want a continuously updated statistic; use `MATCH_RECOGNIZE` when you want to detect a specific temporal narrative.
+
+
+```sql
+SELECT *
+FROM pay_transaction_flagged3_enriched_s
+WHERE is_flagged > 0;
+```
