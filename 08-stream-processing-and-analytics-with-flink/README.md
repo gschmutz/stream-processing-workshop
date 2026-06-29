@@ -17,6 +17,7 @@ In this workshop you will build a streaming fraud detection pipeline for credit 
 - [Persisting to Iceberg with Kafka Connect](#persisting-to-iceberg-with-kafka-connect)
 - [Validating and Querying with Spark SQL](#validating-and-querying-with-spark-sql)
 - [Curating Data with Spark](#curating-data-with-spark)
+- [Implementing the Pipeline with PyFlink and the Table API](#implementing-the-pipeline-with-pyflink-and-the-table-api)
 
 ## What you will learn
 
@@ -329,6 +330,16 @@ docker exec -ti kcat kcat -b kafka-1:19092 -t priv.pay.transaction.delta.v1 -s v
 [Apache Flink](https://flink.apache.org/) is an open-source distributed stream-processing framework designed for stateful computations over bounded and unbounded data streams. Unlike batch systems that process a fixed dataset and exit, Flink runs continuously — ingesting events as they arrive, maintaining state across them, and emitting results with low latency. It is fault-tolerant (via distributed checkpointing), horizontally scalable, and capable of exactly-once processing semantics.
 
 Flink exposes several APIs at different levels of abstraction; in this workshop we use **Flink SQL**, the highest-level interface. Flink SQL lets you write standard ANSI SQL queries — `SELECT`, `JOIN`, `GROUP BY`, window functions, pattern matching — that run as persistent streaming jobs on the cluster. You do not need to write Java or Python code.
+
+Before opening the SQL client, confirm the Flink version running on the cluster:
+
+```bash
+docker exec flink-sql-cli flink --version
+```
+
+```
+Version: 1.20.5, Commit ID: 0980485
+```
 
 Connect to the Flink SQL CLI:
 
@@ -1294,3 +1305,170 @@ WHERE is_flagged > 0;
 ```
 
 > **What you should see:** Transactions flagged with one or more reasons: `'blacklist'` (merchant on the blacklist), `'high-amount'` (amount exceeded cardholder's personal average), `'card-testing'` (large transaction preceded by a small probe on the same card), or any combination such as `'blacklist,high-amount'`.
+
+## Implementing the Pipeline with PyFlink and the Table API
+
+So far every step has been driven by Flink SQL statements issued interactively from the SQL Client. The same pipeline can also be expressed in Python using **PyFlink's Table API** — a programmatic DSL that lets you build streaming jobs as Python code, with IDE support, testability, and version control.
+
+This section reimplements the first enrichment stage (`pay_transaction_flagged_enriched_s` — blacklist flagging + merchant enrichment) as a self-contained Python script using the Table API.
+
+### What the Table API gives you vs. Flink SQL
+
+| | Flink SQL | PyFlink Table API |
+|---|---|---|
+| Interface | SQL strings in a CLI session | Python expressions and method calls |
+| Type checking | At submit time | Can be verified by IDE and tests |
+| Reusability | Copy-paste between sessions | Regular Python modules, imports, functions |
+| Connector config | Same DDL syntax in both | `CREATE TABLE` DDL still required — no programmatic connector API |
+
+The connectors (`upsert-kafka`, `avro-confluent`) are configured via `CREATE TABLE` DDL regardless of whether you use SQL or the Table API. The transformation logic — joins, conditionals, column projections — is where the Table API DSL replaces SQL strings.
+
+### The script
+
+The full script is [`cardholder_enrichment.py`](../00-environment/docker-2/data-transfer/cardholder_enrichment.py). The key sections are explained below.
+
+#### Catalog setup
+
+```python
+from pyflink.table.catalog import HiveCatalog
+
+catalog = HiveCatalog("hive_catalog", "fraud_detection", "/opt/hive-conf")
+t_env.register_catalog("hive_catalog", catalog)
+t_env.use_catalog("hive_catalog")
+t_env.use_database("fraud_detection")
+```
+
+This connects to the same Hive Metastore used by the SQL Client, so any tables already registered there are immediately visible and any `CREATE TABLE IF NOT EXISTS` statements write into the same persistent catalog.
+
+#### Table registration (DDL)
+
+```python
+t_env.execute_sql("""
+    CREATE TABLE IF NOT EXISTS pay_transaction_t ( ... ) WITH ( ... )
+""")
+```
+
+This is the same DDL you would run in the SQL Client. If the table already exists in the Hive Metastore the statement is a no-op.
+
+For the input we re-use the same topics as above in the Flink SQL solution. But for the sink we use a dedicated topic called `priv.pay.transaction-flagged-enriched-py.delta.v1`. As it is only temporary for this step, let's create it using the `kafka-topics` command:
+
+```bash
+docker exec -it kafka-1 kafka-topics \
+  --bootstrap-server kafka-1:19092 \
+  --create --topic priv.pay.transaction-flagged-enriched-py.delta.v1 \
+  --partitions 3 --replication-factor 3
+```
+
+#### Transformation logic (Table API DSL)
+
+Pre-project the lookup tables to eliminate column-name conflicts before joining:
+
+```python
+blacklist = (
+    t_env.from_path("pay_blacklist_t")
+    .select(col("key").alias("bl_key"))
+)
+
+merchants = (
+    t_env.from_path("ref_merchant_t")
+    .select(
+        col("merchant_id").alias("ref_merchant_id"),
+        col("name").alias("merchant_name"),
+        col("country"),
+        col("city"),
+        col("category_name"),
+    )
+)
+```
+
+> **Why pre-project?** After a `left_outer_join`, both sides' columns are present in the result. If both sides have a column called `merchant_id`, subsequent `col("merchant_id")` references are ambiguous. Renaming the lookup column before the join avoids this without needing table-qualified names.
+
+Step 1 — join with blacklist and compute `is_flagged` / `flagged_reason`:
+
+```python
+flagged = (
+    transactions
+    .left_outer_join(blacklist, col("merchant_id") == col("bl_key"))
+    .select(
+        col("transaction_id"),
+        col("card_number"),
+        col("currency"),
+        col("amount"),
+        col("channel"),
+        col("transaction_date"),
+        col("merchant_id"),
+        if_then_else(col("bl_key").is_not_null, lit(1), lit(0))
+            .alias("is_flagged"),
+        if_then_else(col("bl_key").is_not_null, lit("blacklist"), lit(""))
+            .alias("flagged_reason"),
+    )
+)
+```
+
+Step 2 — join with merchant reference and add name / location / category:
+
+```python
+result = (
+    flagged
+    .left_outer_join(merchants, col("merchant_id") == col("ref_merchant_id"))
+    .select(
+        col("transaction_id"),
+        col("card_number"),
+        col("currency"),
+        col("amount"),
+        col("channel"),
+        col("transaction_date"),
+        col("is_flagged"),
+        col("flagged_reason"),
+        col("merchant_id"),
+        col("merchant_name"),
+        col("country"),
+        col("city"),
+        col("category_name"),
+    )
+)
+
+result.execute_insert("pay_transaction_flagged_enriched_py_t").wait()
+```
+
+### Running the script
+
+First, confirm PyFlink is available in the container:
+
+```bash
+docker exec flink-sql-cli pip3 show apache-flink
+```
+
+The script targets the Flink cluster running inside Docker. Copy it into the `data-transfer` folder so that it is available in the container:
+
+```bash
+cp $DATAPLATFORM_HOME/../../08-stream-processing-and-analytics-with-flink/cardholder_enrichment.py $DATAPLATFORM_HOME/data-transfer
+```
+
+Now submit it with `flink run -py`:
+
+# Submit the job
+docker exec flink-sql-cli flink run \
+                        -py /data-transfer/cardholder_enrichment.py \
+                        -D python.client.executable=python3 \
+                        -D python.executable=python3
+```
+
+> **What you should see:** Flink prints a job ID and the job appears in the Flink Web UI (`http://dataplatform:28237`) with status `RUNNING`. Records start appearing in the `priv.pay.transaction-flagged-enriched.delta.v1` topic — exactly the same output as the SQL `INSERT INTO` job from the earlier section.
+
+Verify output from the SQL Client side:
+
+```sql
+USE CATALOG hive_catalog;
+USE fraud_detection;
+SELECT * FROM pay_transaction_flagged_enriched_py_t WHERE is_flagged = 1;
+```
+
+To stop the job:
+
+```bash
+docker exec flink-sql-cli flink list
+docker exec flink-sql-cli flink cancel <job-id>
+```
+
+> **What just happened?** The PyFlink script registered the Hive catalog, declared the three source tables and the sink table (or reused existing definitions from the Metastore), then built the two-step join pipeline using the Table API DSL. Flink compiled the pipeline into a streaming DAG and submitted it to the cluster — the same execution path as a Flink SQL `INSERT INTO` job, but expressed entirely in Python.

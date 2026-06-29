@@ -16,6 +16,7 @@ Run inside the Flink cluster:
 
 from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.table import StreamTableEnvironment, EnvironmentSettings
+from pyflink.table.catalog import HiveCatalog
 from pyflink.table.expressions import col, lit, if_then_else
 
 
@@ -37,13 +38,15 @@ def register_tables(t_env: StreamTableEnvironment) -> None:
             transaction_date TIMESTAMP(3),
             WATERMARK FOR transaction_date AS transaction_date - INTERVAL '5' SECOND
         ) WITH (
-            'connector'                    = 'kafka',
-            'topic'                        = 'priv.pay.transaction.delta.v1',
-            'properties.bootstrap.servers' = '{BOOTSTRAP_SERVERS}',
-            'properties.group.id'          = 'flink-pay-transaction',
-            'scan.startup.mode'            = 'earliest-offset',
-            'value.format'                 = 'avro-confluent',
-            'value.avro-confluent.url'     = '{SCHEMA_REGISTRY_URL}'
+            'connector'                                = 'kafka',
+            'topic'                                    = 'priv.pay.transaction.delta.v1',
+            'properties.bootstrap.servers'             = '{BOOTSTRAP_SERVERS}',
+            'properties.group.id'                      = 'flink-pay-transaction',
+            'scan.startup.mode'                        = 'earliest-offset',
+            'properties.fetch.max.bytes'               = '1048576',
+            'properties.max.partition.fetch.bytes'     = '1048576',
+            'value.format'                             = 'avro-confluent',
+            'value.avro-confluent.url'                 = '{SCHEMA_REGISTRY_URL}'
         )
     """)
 
@@ -99,7 +102,7 @@ def register_tables(t_env: StreamTableEnvironment) -> None:
             PRIMARY KEY (transaction_id) NOT ENFORCED
         ) WITH (
             'connector'                    = 'upsert-kafka',
-            'topic'                        = 'priv.pay.transaction-flagged-enriched.delta.v1',
+            'topic'                        = 'priv.pay.transaction-flagged-enriched-py.delta.v1',
             'properties.bootstrap.servers' = '{BOOTSTRAP_SERVERS}',
             'key.format'                   = 'avro-confluent',
             'key.avro-confluent.url'       = '{SCHEMA_REGISTRY_URL}',
@@ -173,12 +176,22 @@ def build_pipeline(t_env: StreamTableEnvironment) -> None:
     result.execute_insert("pay_transaction_flagged_enriched_py_t").wait()
 
 
+HIVE_CONF_DIR = "/opt/hive-conf"
+CATALOG_NAME  = "hive_catalog"
+DATABASE_NAME = "fraud_detection"
+
+
 def main() -> None:
     env = StreamExecutionEnvironment.get_execution_environment()
     t_env = StreamTableEnvironment.create(
         env,
         EnvironmentSettings.in_streaming_mode(),
     )
+
+    catalog = HiveCatalog(CATALOG_NAME, DATABASE_NAME, HIVE_CONF_DIR)
+    t_env.register_catalog(CATALOG_NAME, catalog)
+    t_env.use_catalog(CATALOG_NAME)
+    t_env.use_database(DATABASE_NAME)
 
     register_tables(t_env)
     build_pipeline(t_env)
