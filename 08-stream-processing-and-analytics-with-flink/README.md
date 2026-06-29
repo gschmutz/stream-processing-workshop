@@ -21,15 +21,18 @@ In this workshop you will build a streaming fraud detection pipeline for credit 
 
 - How to declare Kafka topics as code using Jikkou's `KafkaTopicList` resource and apply them idempotently with a single command
 - How to configure and start the ShadowTraffic simulator to generate synthetic credit card transaction data
-- How to create Flink SQL tables over Kafka topics using the Kafka and upsert-kafka connectors
-- How to join a transaction stream against a blacklist table to flag suspicious transactions
+- How to explore a live Kafka stream interactively using the Flink SQL CLI with the in-memory catalog
+- Why the Hive Metastore catalog makes table definitions durable across sessions and cluster restarts
+- How to create Flink SQL tables over Kafka topics using the `kafka` and `upsert-kafka` connectors with Avro-Confluent serialization
+- How to join a transaction stream against a compacted blacklist topic to flag suspicious merchants in real time
 - How to enrich a Kafka stream with merchant reference data using a stream-table join
-- How to materialize enriched Flink SQL queries into new Kafka topics with `INSERT INTO`
-- How to use tumbling window aggregations in Flink SQL to detect unusual transaction patterns
-- How to deploy the Iceberg Sink Connector to persist Avro records as Parquet files in S3
-- How to create Iceberg tables using Spark SQL
-- How to validate data arrival by querying Iceberg tables with Spark SQL
-- How to curate raw data by joining Iceberg tables in Spark and writing the result back as a new Iceberg table
+- How to materialize enriched Flink SQL queries into new Kafka topics with persistent `INSERT INTO` jobs
+- How to use tumbling window aggregations in Flink SQL to detect unusual transaction velocity per card
+- How to use `MATCH_RECOGNIZE` to detect multi-event fraud patterns such as card-testing sequences
+- How to ingest cardholder reference data via the transactional outbox pattern and Debezium CDC
+- How to implement personalized fraud scoring by comparing a transaction amount against a cardholder's own historical average
+- How to implement the same enrichment pipeline programmatically using PyFlink's Table API DSL
+- How to implement stream-table joins manually using the DataStream API Broadcast State Pattern
 
 ## Prerequisites
 
@@ -44,7 +47,7 @@ The base Platys platform covers the core infrastructure (Kafka, Schema Registry,
 You can copy the `docker-compose.override.yml` from the workshop folder into `$DATAPLATFORM_HOME`.
 
 ```bash
-cp docker-compose.override.yml $DATAPLATFORM_HOME
+cp $DATAPLATFORM_HOME/../../08-stream-processing-and-analytics-with-flink/docker-compose.override.yml $DATAPLATFORM_HOME
 ```
 
 It provides one new service, the `lhbank-cardholder-app` application:
@@ -255,7 +258,7 @@ All records are serialized as Avro and the schemas are registered automatically 
 Copy the [`card-fraud.json`](./card-fraud.json) file to `$DATAPLATFORM_HOME/scripts/shadowtraffic/card-fraud.json` to make it available in the `dataplatform`.
 
 ```bash
-cp card-fraud.json $DATAPLATFORM_HOME/scripts/shadowtraffic/card-fraud.json
+cp $DATAPLATFORM_HOME/../../08-stream-processing-and-analytics-with-flink/card-fraud.json $DATAPLATFORM_HOME/scripts/shadowtraffic/
 ```
 
 ### Configure the ShadowTraffic license
@@ -601,7 +604,9 @@ With the Hive catalog active, every `CREATE TABLE` statement is written to the M
 ```sql
 USE CATALOG hive_catalog;
 USE fraud_detection;
+```
 
+```
 CREATE TABLE IF NOT EXISTS pay_transaction_t (
     transaction_id   STRING,
     card_number      STRING,
