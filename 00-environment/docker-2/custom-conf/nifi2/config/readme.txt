@@ -1,1 +1,0 @@
-Place nifi.properties file here to configure NiFi v2.

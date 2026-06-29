@@ -377,7 +377,7 @@ services:
       JIKKOU_DEFAULT_SCHEMA_REGISTRY_URL: http://schema-registry-1:8081
       JIKKOU_KAFKA_BROKERS_WAIT_FOR_MIN_AVAILABLE: 3
       JIKKOU_KAFKA_BROKERS_WAIT_FOR_ENABLED: 'true'
-      JIKKOU_KAFKA_BROKERS_WAIT_FOR_RETRY_BACKOFF_MS: 1000
+      JIKKOU_KAFKA_BROKERS_WAIT_FOR_RETRY_BACKOFF_MS: 10000
       JIKKOU_KAFKA_BROKERS_WAIT_FOR_TIMEOUT_MS: 120000
       VALIDATION_DEFAULT_TOPIC_NAME_REGEX: '[a-zA-Z0-9\._\-]+'
       VALIDATION_DEFAULT_TOPIC_MIN_NUM_PARTITIONS: 1
@@ -524,9 +524,52 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+  #  ================================== ShadowTraffic ========================================== #
+  shadowtraffic:
+    image: shadowtraffic/shadowtraffic:latest
+    container_name: shadowtraffic
+    hostname: shadowtraffic
+    profiles: [test]
+    labels:
+      com.platys.name: shadowtraffic
+      com.platys.description: Simulate production traffic to your backend.
+    depends_on:
+      schema-registry-1:
+        condition: service_started
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    environment:
+      - LICENSE_ID=${PLATYS_SHADOW_TRAFFIC_LICENSE_ID:-None}
+      - LICENSE_EMAIL=${PLATYS_SHADOW_TRAFFIC_LICENSE_EMAIL:-None}
+      - LICENSE_ORGANIZATION=${PLATYS_SHADOW_TRAFFIC_LICENSE_ORGANIZATION:-None}
+      - LICENSE_EDITION=${PLATYS_SHADOW_TRAFFIC_LICENSE_EDITION:-None}
+      - LICENSE_EXPIRATION=${PLATYS_SHADOW_TRAFFIC_LICENSE_EXPIRATION:-None}
+      - LICENSE_SIGNATURE=${PLATYS_SHADOW_TRAFFIC_LICENSE_SIGNATURE:-None}
+      - KAFKA_BOOTSTRAP_SERVERS=kafka-1:19092,kafka-2:19093,kafka-3:19094
+      - KAFKA_SCHEMA_REGISTRY_URL=http://schema-registry-1:8081
+      - POSTGRESQL_HOST=postgresql
+      - POSTGRESQL_PORT=5432
+      - POSTGRESQL_DATABASE=postgres
+      - POSTGRESQL_USER=postgres
+      - POSTGRESQL_PASSWORD=abc123!
+      - S3_ENDPOINT=http://rustfs-1:9000
+      - S3_PATH_STYLE_ACCESS='true'
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=${PLATYS_AWS_ACCESS_KEY:-admin}
+      - AWS_SECRET_ACCESS_KEY=${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}
+    volumes:
+      - ./data-transfer:/data-transfer
+      - ./scripts/shadowtraffic:/data
+    command: |
+      --config /data/card-fraud.json
+      --metrics-port 9400
+      --reload completion
+      --watch
+      --seed 757928231
+    restart: unless-stopped
   #  ================================== Apache Flink ========================================== #
   flink-jobmanager:
-    image: flink:1.20.3-java17
+    image: ghcr.io/trivadispf/flink:1.20.5-scala_2.12-java17
     container_name: flink-jobmanager
     hostname: flink-jobmanager
     labels:
@@ -534,6 +577,8 @@ services:
       com.platys.description: Flink Job Manager
       com.platys.webui.title: Flink JobManager UI
       com.platys.webui.url: http://dataplatform:28237/
+      com.platys.restapi.title: Flink JobManager UI
+      com.platys.restapi.url: http://dataplatform:28237/overview
     ports:
       - 28237:8081
     environment:
@@ -567,7 +612,7 @@ services:
       - s3.fs.impl=org.apache.hadoop.fs.s3a.S3AFileSystem
       - s3.endpoint=http://rustfs-1:9000'
       - s3.path.style.access='true'
-      - FLINK_INSTALL_MAVEN_DEP=org.apache.flink:flink-sql-connector-kafka:3.3.0-1.19,org.apache.flink:flink-json:1.19.2,org.apache.flink:flink-avro:1.19.2,org.apache.flink:flink-avro-confluent-registry:1.19.2,org.apache.iceberg:iceberg-flink-runtime-1.20:1.10.1
+      - FLINK_INSTALL_MAVEN_DEP=,org.apache.iceberg:iceberg-flink-runtime-1.20:1.10.1
       - HIVE_SITE_CONF_hive_metastore_local=false
       - HIVE_SITE_CONF_hive_metastore_uris=thrift://hive-metastore:9083
       - HIVE_SITE_CONF_fs_defaultFS=s3a://admin-bucket
@@ -582,14 +627,19 @@ services:
       - ./data-transfer:/data-transfer
       - ./scripts/docker/:/platys-scripts/
       - ./init/flink/docker-entrypoint-override.sh:/docker-entrypoint-override.sh
-      - ./plugins/flink/udf_example-1.0.jar:/opt/flink/lib/udf_example-1.0.jar
       # the conf files are mapped to hive-conf.default folder, they are copied into conf upon start of container (in the docker-entrypoint-override.sh script)   
       - ./conf/hive-metastore/hive-site.xml:/opt/hive-conf.default/hive-site.xml
     entrypoint: /docker-entrypoint-override.sh
     command: jobmanager
     restart: unless-stopped
+    healthcheck:
+      test: [CMD, curl, -f, http://localhost:8081/]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
   flink-taskmanager-1:
-    image: flink:1.20.3-java17
+    image: ghcr.io/trivadispf/flink:1.20.5-scala_2.12-java17
     container_name: flink-taskmanager-1
     hostname: flink-taskmanager-1
     labels:
@@ -600,7 +650,7 @@ services:
         FLINK_PROPERTIES=
         jobmanager.rpc.address: flink-jobmanager        
         taskmanager.numberOfTaskSlots: 10
-        taskmanager.memory.process.size: 1728m
+        taskmanager.memory.process.size: 3072m
         parallelism.default: 2
         execution.checkpointing.interval: 5000
         execution.checkpointing.mode: EXACTLY_ONCE
@@ -625,7 +675,7 @@ services:
       - s3.fs.impl=org.apache.hadoop.fs.s3a.S3AFileSystem
       - s3.endpoint=http://rustfs-1:9000'
       - s3.path.style.access='true'
-      - FLINK_INSTALL_MAVEN_DEP=org.apache.flink:flink-sql-connector-kafka:3.3.0-1.19,org.apache.flink:flink-json:1.19.2,org.apache.flink:flink-avro:1.19.2,org.apache.flink:flink-avro-confluent-registry:1.19.2,org.apache.iceberg:iceberg-flink-runtime-1.20:1.10.1
+      - FLINK_INSTALL_MAVEN_DEP=,org.apache.iceberg:iceberg-flink-runtime-1.20:1.10.1
       - HIVE_SITE_CONF_hive_metastore_local=false
       - HIVE_SITE_CONF_hive_metastore_uris=thrift://hive-metastore:9083
       - HIVE_SITE_CONF_fs_defaultFS=s3a://admin-bucket
@@ -640,13 +690,12 @@ services:
       - ./data-transfer:/data-transfer
       - ./scripts/docker/:/platys-scripts/
       - ./init/flink/docker-entrypoint-override.sh:/docker-entrypoint-override.sh
-      - ./plugins/flink/udf_example-1.0.jar:/opt/flink/lib/udf_example-1.0.jar
       - ./conf/hive-metastore/hive-site.xml:/opt/hive-conf.default/hive-site.xml
     entrypoint: /docker-entrypoint-override.sh
     command: taskmanager
     restart: unless-stopped
   flink-sql-cli:
-    image: flink:1.20.3-java17
+    image: ghcr.io/trivadispf/flink:1.20.5-scala_2.12-java17
     container_name: flink-sql-cli
     hostname: flink-sql-cli
     labels:
@@ -659,7 +708,8 @@ services:
         rest.address: flink-jobmanager
         table.catalog-store.kind: file
         table.catalog-store.file.path: ./conf/catalogs
-      - FLINK_INSTALL_MAVEN_DEP=org.apache.flink:flink-sql-connector-kafka:3.3.0-1.19,org.apache.flink:flink-json:1.19.2,org.apache.flink:flink-avro:1.19.2,org.apache.flink:flink-avro-confluent-registry:1.19.2,org.apache.iceberg:iceberg-flink-runtime-1.20:1.10.1
+      - FLINK_INSTALL_MAVEN_DEP=,org.apache.iceberg:iceberg-flink-runtime-1.20:1.10.1
+      - FLINK_ENV_JAVA_OPTS=--add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.io=ALL-UNNAMED
       - HIVE_SITE_CONF_hive_metastore_local=false
       - HIVE_SITE_CONF_hive_metastore_uris=thrift://hive-metastore:9083
       - HIVE_SITE_CONF_fs_defaultFS=s3a://admin-bucket
@@ -675,7 +725,6 @@ services:
       - ./scripts/docker/:/platys-scripts/
       - ./init/flink/docker-entrypoint-override.sh:/docker-entrypoint-override.sh
 #      - ./init/flink:/opt/sql-client/init
-      - ./plugins/flink/udf_example-1.0.jar:/opt/flink/lib/udf_example-1.0.jar
       - ./conf/hive-metastore/hive-site.xml:/opt/hive-conf.default/hive-site.xml
     entrypoint: /docker-entrypoint-override.sh
     command: sleep infinity
@@ -697,9 +746,11 @@ services:
       - 9084:9084
     environment:
       HIVE_VER: 4.2.0
+      JAVA_TOOL_OPTIONS: -Dhive.log.level=INFO
       # configure iceberg catalog service (if HMS >= 4.1.0)
       HIVE_SITE_CONF_metastore_catalog_servlet_port: 9084
       HIVE_SITE_CONF_metastore_catalog_servlet_auth: none
+      HIVE_SITE_CONF_metastore_warehouse_tenant_colocation: false
       CORE_CONF_fs_defaultFS: file:///tmp
       HIVE_SITE_CONF_fs_defaultFS: file:///tmp
       HIVE_SITE_CONF_fs_s3a_endpoint: http://rustfs-1:9000
@@ -749,123 +800,9 @@ services:
     restart: unless-stopped
     healthcheck:
       test: [CMD, psql, -U, hive, metastore_db]
-  #  ================================== NiFi 2 ========================================== #
-  nifi2-1:
-    image: apache/nifi:2.9.0
-    container_name: nifi2-1
-    hostname: nifi2-1
-    labels:
-      com.platys.name: nifi2
-      com.platys.description: NiFi Data Integration Engine (V2)
-      com.platys.webui.title: Apache NiFi UI
-      com.platys.webui.url: https://dataplatform:18083/nifi
-      com.platys.restapi.title: Apche NiFi REST API
-      com.platys.restapi.url: https://dataplatform:18083/nifi-api
-      com.platys.password.envvars: PLATYS_NIFI2_PASSWORD
-    ports:
-      # HTTP
-      - 18083:18083
-      # Remote Input Socket
-      - 10015:10015/tcp
-      # Prometheus Port
-      - 1273:1234
-    environment:
-      NIFI_WEB_HTTPS_PORT: '18083'
-      NIFI_WEB_HTTPS_HOST: 0.0.0.0
-      NIFI_WEB_PROXY_HOST: ${PUBLIC_IP:-127.0.0.1}:18083,${DOCKER_HOST_IP:-localhost}:18083
-      NIFI_SECURITY_USER_AUTHORIZER: single-user-authorizer
-      NIFI_SECURITY_USER_LOGIN_IDENTITY_PROVIDER: single-user-provider
-      S3_ENDPOINT: http://rustfs-1:9000
-      S3_PATH_STYLE_ACCESS: 'true'
-      S3_REGION: us-east-1
-      # these two env variables are also needed for the s3-credentials.properties file gen to work! 
-      AWS_ACCESS_KEY: ${PLATYS_AWS_ACCESS_KEY:-admin}
-      AWS_SECRET_ACCESS_KEY: ${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}
-      NIFI_REMOTE_INPUT_SOCKET_PORT: '10015'
-      NIFI_REMOTE_INPUT_HOST: nifi-1
-      NIFI_SENSITIVE_PROPS_KEY: 12345678901234567890A
-      SINGLE_USER_CREDENTIALS_USERNAME: nifi
-      SINGLE_USER_CREDENTIALS_PASSWORD: ${PLATYS_NIFI2_PASSWORD:-1234567890ACD}
-      INITIAL_ADMIN_IDENTITY: nifi
-      # these config settings are custom ones and treated by the pre-start.sh script before the standard start.sh script of the NiFi docker image
-    volumes:
-      - ./data-transfer:/data-transfer
-      - ./init/nifi2/pre-start.sh:/tmp/pre-start.sh
-      - ./plugins/nifi2/nar_extensions/:/opt/nifi/nifi-current/nar_extensions/
-      - ./plugins/nifi2/python_extensions/:/opt/nifi/nifi-current/python_extensions/
-      - aws-credentials-vol:/opt/nifi/nifi-current/.aws:RO
-      - nifi-config-vol:/opt/nifi/nifi-current/conf
-    entrypoint:
-      # We override the entrypoint from the docker image and therefore have to run ../scripts/start.sh from the NiFi docker image
-      - bash
-      - -c
-      - |
-        grep -q 'nifi.security.user.login.identity.provider.expiration' /opt/nifi/nifi-current/conf/nifi.properties \
-          && sed -i 's/nifi.security.user.login.identity.provider.expiration=.*/nifi.security.user.login.identity.provider.expiration=30 days/' /opt/nifi/nifi-current/conf/nifi.properties \
-          || echo 'nifi.security.user.login.identity.provider.expiration=30 days' >> /opt/nifi/nifi-current/conf/nifi.properties  
-           /tmp/pre-start.sh        
-        ../scripts/start.sh
-    restart: unless-stopped
-  #  ================================== Jupyter ========================================== #
-  jupyter:
-    image: quay.io/jupyter/all-spark-notebook:spark-4.1.1
-    container_name: jupyter
-    hostname: jupyter
-    labels:
-      com.platys.name: jupyter
-      com.platys.description: Web-based interactive development environment for notebooks, code, and data
-      com.platys.webui.title: Jupyter UI
-      com.platys.webui.url: http://dataplatform:28888
-      com.platys.password.envvars: PLATYS_JUPYTER_TOKEN,PLATYS_AWS_SECRET_ACCESS_KEY
-    ports:
-      - 28888:8888
-      - 28376-28380:4040-4044
-    user: root
-    extra_hosts:
-      - host.docker.internal:host-gateway
-    environment:
-      JUPYTER_ENABLE_LAB: "'yes'"
-      GRANT_SUDO: "'yes'"
-      JUPYTER_TOKEN: ${PLATYS_JUPYTER_TOKEN:-abc123!}
-      DOCKER_STACKS_JUPYTER_CMD: lab
-      MAVEN_DOWNLOAD_JARS: com.amazonaws:aws-java-sdk-bundle:1.12.262,org.apache.hadoop:hadoop-aws:3.3.4,com.google.guava:guava:27.1-jre,software.amazon.awssdk:bundle:2.27.1
-      # remove some JARS if they are conflicting with the ones installed above
-      REMOVE_JARS: guava-14.0.1.jar
-      # for awscli & s3cmd
-      AWS_ACCESS_KEY_ID: ${PLATYS_AWS_ACCESS_KEY:-admin}
-      AWS_SECRET_ACCESS_KEY: ${PLATYS_AWS_SECRET_ACCESS_KEY:-${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}}
-      AWS_ENDPOINT: http://rustfs-1:9000
-      AWS_REGION: us-east-1
-      AWS_DEFAULT_REGION: us-east-1
-      #PYSPARK_PYTHON: /opt/bitnami/python/bin/python3.12
-      #PYSPARK_DRIVER_PYTHON: /usr/bin/python3.12   
-    volumes:
-      - ./data-transfer:/data-transfer
-      - ./init/jupyter/on-startup-jupyter/:/usr/local/bin/start-notebook.d/
-      - ./init/jupyter/on-startup-jupyter-finished/:/usr/local/bin/before-notebook.d/
-      - ./init/jupyter/on-startup-notebook-kernel:/home/jovyan/.ipython/profile_default/startup/
-      - ./scripts/docker/maven-download.sh:/maven-download.sh
-    command:
-      # In the command section, $ are replaced with $$ to avoid the error 'Invalid interpolation format for "command" option'
-      - bash
-      - -c
-      - |
-        conda create -y --name py312 python=3.12.8
-        source /opt/conda/etc/profile.d/conda.sh
-        conda activate py312
-        pip install ipykernel    
-        python -m ipykernel install --user --name py312 --display-name "Python 3.12.8 (ipykernel)"
-        start-notebook.sh
-    restart: unless-stopped
-    healthcheck:
-      test: [CMD, wget, -qO-, http://localhost:8888/api]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
   #  ================================== PostgreSQL ========================================== #
   postgresql:
-    image: postgres:18
+    image: postgres:17
     container_name: postgresql
     hostname: postgresql
     labels:
@@ -879,8 +816,8 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_DB=postgres
 #      - POSTGRES_INITDB_ARGS=--encoding=UTF8 --data-checksums      
-      - POSTGRES_MULTIPLE_DATABASES=demodb
-      - POSTGRES_MULTIPLE_USERS=demo
+      - POSTGRES_MULTIPLE_DATABASES=customer_db
+      - POSTGRES_MULTIPLE_USERS=customer
       - POSTGRES_MULTIPLE_PASSWORDS=${PLATYS_POSTGRESQL_MULTIPLE_PASSWORD:-abc123!}
       - POSTGRES_MULTIPLE_ADDL_ROLES=
       - PGDATA=/var/lib/postgresql/data/pgdata
@@ -970,6 +907,46 @@ services:
         #
         while [ 1 -eq 1 ];do sleep 60;done
     restart: unless-stopped
+  #  ================================== Grafana ========================================== #
+  grafana:
+    image: grafana/grafana:12.4.0-20977568970-ubuntu
+    hostname: grafana
+    container_name: grafana
+    labels:
+      com.platys.name: grafana
+      com.platys.description: Data visualization and dashboarding
+      com.platys.webui.title: Grafana UI
+      com.platys.webui.url: http://dataplatform:3000
+      com.platys.restapi.title: Grafana API
+      com.platys.restapi.url: http://dataplatform:3000/api/org
+    expose:
+      - 3000
+    ports:
+      - 3000:3000
+    environment:
+      - GF_SERVER_HTTP_ADDR=0.0.0.0
+      - GF_SERVER_HTTP_PORT=3000
+      - GF_AUTH_ANONYMOUS_ENABLED=False
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=abc123!
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - RISINGWAVE_USER=root
+      - RISINGWAVE_PASSWORD=
+      - RISINGWAVE_DB=dev
+    volumes:
+      - ./data-transfer:/data-transfer
+      - ./scripts/grafana/dashboards/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml
+      - ./scripts/grafana/dashboards/docker/monitor_services.json:/etc/grafana/provisioning/dashboards/docker/monitor_services.json
+      - ./scripts/grafana/datasources/risingwave.yml:/etc/grafana/provisioning/datasources/risingwave.yml
+#        restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - bash -c 'printf \"GET / HTTP/1.1\n\n\" > /dev/tcp/127.0.0.1/3000; exit $$?;'
+      interval: 1s
+      timeout: 5s
+      retries: 5
   #  ================================== Wetty ========================================== #
   wetty:
     image: wettyoss/wetty:2
@@ -1058,16 +1035,11 @@ services:
       RUSTFS_ACCESS_KEY_ID: ${PLATYS_AWS_ACCESS_KEY:-admin}
       RUSTFS_SECRET_ACCESS_KEY: ${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}
       RUSTFS_URL: http://rustfs-1:9000
-      NIFI2_URL: https://nifi2-1:18083
-      NIFI2_VERSION: 2.0.0
-      NIFI2_USERNAME: nifi
-      NIFI2_PASSWORD: ${PLATYS_NIFI2_PASSWORD:-1234567890ACD}
     volumes:
       - ./data-transfer:/data-transfer
       - ./init/platys-mdp-init:/docker-entrypoint-init.d/
       - ./security/platys-mdp-init/credentials:/tmp/credentials.templ
       - aws-credentials-vol:/tmp/.aws:RO
-      - nifi-config-vol:/opt/nifi/conf/
     init: true
     command:
       - /bin/sh
@@ -1081,4 +1053,3 @@ volumes:
   data-transfer-vol:
     name: data_transfer_vol
   aws-credentials-vol:
-  nifi-config-vol:
