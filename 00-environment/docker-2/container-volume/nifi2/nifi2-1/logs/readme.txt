@@ -1,1 +1,0 @@
-Contains the logs folder of nifi v2 service, if flag NIFI2_volume_map_logs is set to true.
