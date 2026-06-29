@@ -606,7 +606,7 @@ USE CATALOG hive_catalog;
 USE fraud_detection;
 ```
 
-```
+```sql
 CREATE TABLE IF NOT EXISTS pay_transaction_t (
     transaction_id   STRING,
     card_number      STRING,
@@ -866,7 +866,7 @@ cd $DATAPLATFORM_HOME
 docker compose run --rm jikkou apply --files=/jikkou/card-topic-specs.yml
 ```
 
-Then register the enriched sink table and materialize as a second persistent job:
+Then register the enriched sink table:
 
 ```sql
 CREATE TABLE IF NOT EXISTS pay_transaction_flagged_enriched_t (
@@ -893,7 +893,11 @@ CREATE TABLE IF NOT EXISTS pay_transaction_flagged_enriched_t (
     'value.format'                 = 'avro-confluent',
     'value.avro-confluent.url'     = 'http://schema-registry-1:8081'
 );
+```
 
+and materialize as a second persistent job:
+
+```sql
 INSERT INTO pay_transaction_flagged_enriched_t
 SELECT
     t.transaction_id
@@ -1063,7 +1067,19 @@ CREATE TABLE cus_cardholder_t (
 
 > **What just happened?** Flink registered the cardholder topic as an upsert-kafka table. The `id` column (top-level primary key) maps to the Kafka message key; the nested `card_holder` ROW maps to the Avro value. `value.fields-include = 'EXCEPT_KEY'` tells Flink not to include `id` in the Avro value reader schema, matching the actual `CardHolderState` schema in the Schema Registry. Flink maintains in-memory state of the latest cardholder record per `id`, ready for stream-table joins.
 
-Preview the join — for each transaction you can see the card's personal average alongside the transaction amount:
+We can validate it by executing the following query
+
+```sql
+SELECT ch.id
+, ch.card_holder.first_name AS first_name
+, ch.card_holder.last_name AS last_name
+, ch.card.number AS card_number
+, ch.card.type AS card_type
+, ch.card.expiry_date AS card_exp_date
+FROM cus_cardholder_t ch;
+```
+
+Now let's use that table to join with the flagged transactions — for each transaction you can see the card's personal average alongside the transaction amount:
 
 ```sql
 SELECT
@@ -1078,7 +1094,7 @@ LEFT JOIN cus_cardholder_t ch ON t.card_number = ch.card_holder.card.number;
 
 ### Materialize as a persistent job
 
-Register the sink table and start the continuous insert. The `is_flagged` counter is incremented and `flagged_reason` is appended when the amount exceeds the cardholder's average:
+Register the sink table: 
 
 ```sql
 CREATE TABLE IF NOT EXISTS pay_transaction_flagged2_enriched_t (
@@ -1105,7 +1121,11 @@ CREATE TABLE IF NOT EXISTS pay_transaction_flagged2_enriched_t (
     'value.format'                 = 'avro-confluent',
     'value.avro-confluent.url'     = 'http://schema-registry-1:8081'
 );
+```
 
+And start the continuous insert. The `is_flagged` counter is incremented and `flagged_reason` is appended when the amount exceeds the cardholder's average:
+
+```sql
 INSERT INTO pay_transaction_flagged2_enriched_t
 SELECT
     t.transaction_id
@@ -1143,6 +1163,14 @@ WHERE flagged_reason LIKE '%high-amount%';
 ```
 
 > **What just happened?** Flink joins each incoming enriched transaction against the latest cardholder record (maintained in upsert-kafka state). When a transaction's amount exceeds that card's `avg_transaction_amount`, the `is_flagged` counter is incremented and `'high-amount'` is appended to `flagged_reason` — which may already contain `'blacklist'` from the previous stage, producing composite flags like `'blacklist,high-amount'`.
+
+Of course we can also just query all the flagged transactions
+
+```sql
+SELECT transaction_id, card_number, amount, avg_transaction_amount, flagged_reason
+FROM pay_transaction_flagged2_enriched_t
+WHERE is_flagged > 0;
+```
 
 ## Advanced Fraud Detection Patterns
 
