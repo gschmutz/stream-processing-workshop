@@ -263,12 +263,12 @@ cp card-fraud.json $DATAPLATFORM_HOME/scripts/shadowtraffic/card-fraud.json
 ShadowTraffic requires a license to run. Export the license fields as environment variables before starting the simulator. You receive all six values when you sign up for the free trial at [shadowtraffic.io](https://shadowtraffic.io/).
 
 ```bash
-export PLATYS_SHADOW_TRAFFIC_LICENSE_ID="02d79a76-6830-4e08-b700-5487eced158b"
-export PLATYS_SHADOW_TRAFFIC_LICENSE_EMAIL="michael+examples@shadowtraffic.io"
-export PLATYS_SHADOW_TRAFFIC_LICENSE_ORGANIZATION="ShadowTraffic"
-export PLATYS_SHADOW_TRAFFIC_LICENSE_EDITION="ShadowTraffic Free Trial"
-export PLATYS_SHADOW_TRAFFIC_LICENSE_EXPIRATION="2026-07-22"
-export PLATYS_SHADOW_TRAFFIC_LICENSE_SIGNATURE="KjPD4Ox+rAuLmvANNXT/ZTYgcWpyddXaicZ3rNLDgdZ5/rpBD/Rj9x+3FCDrxAh5FtIs4yegxBM3WM08+RT4AkAf54HQYfLV/vs4//A0cs4/+wmTRndpIzQ1GQ4ETbTw7sDoMt6mmI2/7MDF6NikKmzlYqhizivuiFbhcWZ3Rg4efZLGa9aQqTuEuAsW6KSIQJxTzObVEwI9+I/c3ofGAXT+muJ1Ew7Q9C6S2CUdhNKTCSBx27oy1vwvg+ABkCirOP91RAZxqT6CdVUgXI+zUUpJiSnw2Jz7C7xIIpsjCDwbXIcAd3Qcy1xrBQt/2VzyUWVYzPBs3ATPFTKhlhB4aw=="
+export PLATYS_SHADOW_TRAFFIC_LICENSE_ID=
+export PLATYS_SHADOW_TRAFFIC_LICENSE_EMAIL=
+export PLATYS_SHADOW_TRAFFIC_LICENSE_ORGANIZATION=
+export PLATYS_SHADOW_TRAFFIC_LICENSE_EDITION=
+export PLATYS_SHADOW_TRAFFIC_LICENSE_EXPIRATION=
+export PLATYS_SHADOW_TRAFFIC_LICENSE_SIGNATURE=
 ```
 
 ### Start the simulator
