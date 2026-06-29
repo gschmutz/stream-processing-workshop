@@ -7,11 +7,8 @@ Reads from:
   - ref_merchant_t       (compacted merchant reference data)
 
 Writes to:
-  - pay_transaction_flagged_enriched_s  (blacklist flag + merchant name/country/city/category)
+  - pay_transaction_flagged_enriched_t  (blacklist flag + merchant name/country/city/category)
 
-Run inside the Flink cluster:
-  docker cp cardholder_enrichment.py flink-sql-cli:/tmp/
-  docker exec flink-sql-cli flink run -py /tmp/cardholder_enrichment.py
 """
 
 from pyflink.datastream import StreamExecutionEnvironment

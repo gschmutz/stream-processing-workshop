@@ -9,15 +9,13 @@ In this workshop you will build a streaming fraud detection pipeline for credit 
 - [Additional Services](#additional-services)
 - [Kafka Topic Setup with Jikkou](#kafka-topic-setup-with-jikkou)
 - [Simulator Setup](#simulator-setup)
-- [Exploring Streams with the Default In-Memory Catalog](#exploring-streams-with-the-default-in-memory-catalog)
+- [Exploring Streams using Flink SQL with the Default In-Memory Catalog](#exploring-streams-using-flink-sql-with-the-default-in-memory-catalog)
 - [Making Definitions Durable with the Hive Metastore Catalog](#making-definitions-durable-with-the-hive-metastore-catalog)
 - [Fraud Detection: Blacklist Flagging and Merchant Enrichment](#fraud-detection-blacklist-flagging-and-merchant-enrichment)
 - [Enrich Transactions with Cardholder Data](#enrich-transactions-with-cardholder-data)
 - [Advanced Fraud Detection Patterns](#advanced-fraud-detection-patterns)
-- [Persisting to Iceberg with Kafka Connect](#persisting-to-iceberg-with-kafka-connect)
-- [Validating and Querying with Spark SQL](#validating-and-querying-with-spark-sql)
-- [Curating Data with Spark](#curating-data-with-spark)
 - [Implementing the Pipeline with PyFlink and the Table API](#implementing-the-pipeline-with-pyflink-and-the-table-api)
+- [Implementing the Pipeline with PyFlink and the DataStream API (not yet working)](#implementing-the-pipeline-with-pyflink-and-the-datastream-api-not-yet-working)
 
 ## What you will learn
 
@@ -175,7 +173,7 @@ Use `jikkou diff` to see exactly what Jikkou would create or modify without touc
 docker compose run --rm jikkou diff --files=/jikkou/card-topic-specs.yml
 ```
 
-> **What you should see:** Five entries, each marked `CREATE`, because the topics do not exist yet. After the first apply, running `diff` again will show no changes — confirming that the cluster already matches the spec.
+> **What you should see:** Four entries, each marked `CREATE`, because the topics do not exist yet. After the first apply, running `diff` again will show no changes — confirming that the cluster already matches the spec.
 
 ### Apply the spec
 
@@ -185,7 +183,7 @@ docker compose run --rm jikkou apply --files=/jikkou/card-topic-specs.yml
 
 Jikkou reads the spec, compares it to the live cluster, creates the missing topics, and prints a summary of what was changed.
 
-> **Note:** Just rerunning `docker compose up -d` works as well, whenever you have changed the spec file. 
+> **Note:** To reapply after editing the spec file, run `docker compose run --rm jikkou apply --files=/jikkou/card-topic-specs.yml` again — Jikkou only changes what differs from the current cluster state.
 
 ### Verify the topics exist
 
@@ -243,14 +241,14 @@ Each transaction record contains:
   "transaction_id": "<uuid>",
   "card_number":    "<card number from an existing cardholder>",
   "merchant_id":    "<merchant-NNN, picked from existing merchants>",
-  "amount":         "<90% between 1–300, 10% between 1000–5000 (high-value outliers)>",
+  "amount":         "<95% between 1–300, 5% between 1000–5000 (high-value outliers)>",
   "currency":       "USD",
   "channel":        "<online | in-store | mobile>",
   "transaction_date": "<current timestamp>"
 }
 ```
 
-The amount distribution is intentionally skewed: 95 % of transactions fall in the 1–300 range and 5 % are high-value outliers (mean ~3 000). This means a simple high-amount threshold will produce a low false-positive rate — which makes the blacklist-based and cardholder-average-based flagging in Flink SQL more interesting to observe.
+The amount distribution is intentionally skewed: 95% of transactions fall in the 1–300 range and 5% are high-value outliers (mean ~3000). This means a simple high-amount threshold will produce a low false-positive rate — which makes the blacklist-based and cardholder-average-based flagging in Flink SQL more interesting to observe.
 
 All records are serialized as Avro and the schemas are registered automatically in the Confluent Schema Registry on first produce.
 
@@ -288,7 +286,7 @@ docker compose --profile test up -d
 docker logs shadowtraffic --tail 20
 ```
 
-You should see lines indicating that 4 streams of data are being generated.
+You should see lines indicating that 3 streams of data are being generated.
 
 ```bash
 ...
@@ -575,7 +573,7 @@ Flink SQL> SHOW CURRENT CATALOG;
 | current catalog name |
 +----------------------+
 |         hive_catalog |
-+--------------------
++----------------------+
 ```
 
 and to show the active database
@@ -741,10 +739,10 @@ But before registering the sink table, we have to create the backing topic by ad
         min.cleanable.dirty.ratio: 0.001
 ```
 
-and apply by restarting the `jikkou` service:
+and apply it:
 
 ```bash
-docker compose up -d jikkou
+docker compose run --rm jikkou apply --files=/jikkou/card-topic-specs.yml
 ```
 
 and check that the topic is in fact created:
@@ -756,7 +754,7 @@ docker exec -ti kcat kcat -b kafka-1:19092 -L | grep "priv\.\|pub\."
 Now create the sink table:
 
 ```sql
-CREATE TABLE IF NOT EXISTS pay_transaction_flagged_s (
+CREATE TABLE IF NOT EXISTS pay_transaction_flagged_t (
     transaction_id   STRING,
     card_number      STRING,
     currency         STRING,
@@ -781,7 +779,7 @@ CREATE TABLE IF NOT EXISTS pay_transaction_flagged_s (
 and then start the continuous insert:
 
 ```sql
-INSERT INTO pay_transaction_flagged_s
+INSERT INTO pay_transaction_flagged_t
 SELECT
     t.transaction_id
   , t.card_number
@@ -799,7 +797,7 @@ LEFT JOIN pay_blacklist_t bl ON t.merchant_id = bl.`key`;
 Verify flagged transactions are flowing:
 
 ```sql
-SELECT * FROM pay_transaction_flagged_s WHERE is_flagged = 1;
+SELECT * FROM pay_transaction_flagged_t WHERE is_flagged = 1;
 ```
 
 > **What just happened?** Flink submitted a persistent streaming job that runs on the cluster independently of the SQL client session. Every new record on `priv.pay.transaction.delta.v1` is joined against the current blacklist state and the result is written to `priv.pay.transaction-flagged.delta.v1`. Because `pay_blacklist_t` uses the upsert-kafka connector, Flink maintains an in-memory state of the latest value per merchant key — adding a merchant to the blacklist after the job starts immediately affects subsequent transactions.
@@ -834,7 +832,7 @@ SELECT t.*
      , m.country
      , m.city
      , m.category_name
-FROM pay_transaction_flagged_s t
+FROM pay_transaction_flagged_t t
 LEFT JOIN ref_merchant_t m ON t.merchant_id = m.merchant_id;
 ```
 
@@ -866,7 +864,7 @@ docker compose run --rm jikkou apply --files=/jikkou/card-topic-specs.yml
 Then register the enriched sink table and materialize as a second persistent job:
 
 ```sql
-CREATE TABLE IF NOT EXISTS pay_transaction_flagged_enriched_s (
+CREATE TABLE IF NOT EXISTS pay_transaction_flagged_enriched_t (
     transaction_id   STRING,
     card_number      STRING,
     currency         STRING,
@@ -891,7 +889,7 @@ CREATE TABLE IF NOT EXISTS pay_transaction_flagged_enriched_s (
     'value.avro-confluent.url'     = 'http://schema-registry-1:8081'
 );
 
-INSERT INTO pay_transaction_flagged_enriched_s
+INSERT INTO pay_transaction_flagged_enriched_t
 SELECT
     t.transaction_id
   , t.card_number
@@ -906,21 +904,21 @@ SELECT
   , m.country
   , m.city
   , m.category_name
-FROM pay_transaction_flagged_s t
+FROM pay_transaction_flagged_t t
 LEFT JOIN ref_merchant_t m ON t.merchant_id = m.merchant_id;
 ```
 
 Query the enriched flagged transactions:
 
 ```sql
-SELECT * FROM pay_transaction_flagged_enriched_s WHERE is_flagged = 1;
+SELECT * FROM pay_transaction_flagged_enriched_t WHERE is_flagged = 1;
 ```
 
 > **What just happened?** Two persistent streaming jobs now run on the Flink cluster in sequence. The first joins raw transactions against the blacklist; the second reads that output and joins with the merchant reference table. Each job writes to its own Kafka topic, forming a pipeline. New merchant records appearing in `pub.ref.merchant.state.v1` are automatically picked up by the upsert-kafka state and applied to subsequent joins.
 
 ## Enrich Transactions with Cardholder Data
 
-The blacklist join flags known-bad merchants. A complementary signal is **personalized amount scoring**: instead of a fixed dollar threshold, compare each transaction against that specific cardholder's own average spend. A transaction that is large relative to that card's own history is suspicious — regardless of the absolute amount. This requires joining the enriched flagged stream with cardholder data, held by the `lhbank-cardholder` Spring Boot service in its PostgreSQL database. But joining from Flink with the operational database is not a good idea, it's much better provide them as a Kafka topic, by which it can be efficiently dealt with in Flink. Thankfully the `lhbank-cardholder` service is build using the Transactional Outbox Pattern, so all we have to do is integrate the outbox with our solution. We have already seen the transactional outbox pattern in action in workshop [07 - Working with Kafka Connect and Change Data Capture (CDC)](../07-kafka-connect-and-cdc).
+The blacklist join flags known-bad merchants. A complementary signal is **personalized amount scoring**: instead of a fixed dollar threshold, compare each transaction against that specific cardholder's own average spend. A transaction that is large relative to that card's own history is suspicious — regardless of the absolute amount. This requires joining the enriched flagged stream with cardholder data, held by the `lhbank-cardholder` Spring Boot service in its PostgreSQL database. But joining from Flink with the operational database is not a good idea, it's much better provide them as a Kafka topic, by which it can be efficiently dealt with in Flink. Thankfully the `lhbank-cardholder` service is built using the Transactional Outbox Pattern, so all we have to do is integrate the outbox with our solution. We have already seen the transactional outbox pattern in action in workshop [07 - Working with Kafka Connect and Change Data Capture (CDC)](../07-kafka-connect-and-cdc).
 
 ### Enable Transactional Outbox in `lhbank-cardholder`
 
@@ -974,7 +972,7 @@ docker exec -ti kcat kcat -b kafka-1:19092  -t pub.cus.cardHolder.state.v1 -r ht
 
 > **What you should see:** A stream of JSON cardholder records printed to the terminal. If the topic is empty, wait a few seconds — Debezium reads the existing outbox rows and publishes them on first startup.
 
-### Why not sending directly to Kafka?
+### Why not send directly to Kafka?
 
 Writing to both the database and Kafka directly (dual write) is not safe: if the Kafka write succeeds but the database write fails (or vice versa), the two systems become inconsistent. The transactional outbox pattern avoids this by making the outbox write part of the same database transaction as the business write.
 
@@ -1036,7 +1034,7 @@ CREATE TABLE cus_cardholder_t (
             type         STRING,
             expiry_date  STRING
         >,
-        avg_transaction_amount  BIGINT,
+        avg_transaction_amount  DOUBLE,
         addresses               ARRAY<ROW<
             street    STRING,
             zip_code  STRING,
@@ -1069,7 +1067,7 @@ SELECT
   , t.amount
   , ch.card_holder.avg_transaction_amount
   , CASE WHEN t.amount > ch.card_holder.avg_transaction_amount THEN 1 ELSE 0 END AS above_avg
-FROM pay_transaction_flagged_enriched_s t
+FROM pay_transaction_flagged_enriched_t t
 LEFT JOIN cus_cardholder_t ch ON t.card_number = ch.card_holder.card.number;
 ```
 
@@ -1078,7 +1076,7 @@ LEFT JOIN cus_cardholder_t ch ON t.card_number = ch.card_holder.card.number;
 Register the sink table and start the continuous insert. The `is_flagged` counter is incremented and `flagged_reason` is appended when the amount exceeds the cardholder's average:
 
 ```sql
-CREATE TABLE IF NOT EXISTS pay_transaction_flagged2_enriched_s (
+CREATE TABLE IF NOT EXISTS pay_transaction_flagged2_enriched_t (
     transaction_id         STRING,
     card_number            STRING,
     currency               STRING,
@@ -1103,7 +1101,7 @@ CREATE TABLE IF NOT EXISTS pay_transaction_flagged2_enriched_s (
     'value.avro-confluent.url'     = 'http://schema-registry-1:8081'
 );
 
-INSERT INTO pay_transaction_flagged2_enriched_s
+INSERT INTO pay_transaction_flagged2_enriched_t
 SELECT
     t.transaction_id
   , t.card_number
@@ -1127,7 +1125,7 @@ SELECT
   , t.city
   , t.category_name
   , ch.card_holder.avg_transaction_amount
-FROM pay_transaction_flagged_enriched_s t
+FROM pay_transaction_flagged_enriched_t t
 LEFT JOIN cus_cardholder_t ch ON t.card_number = ch.card_holder.card.number;
 ```
 
@@ -1135,7 +1133,7 @@ Query transactions flagged for high amount relative to the cardholder's own aver
 
 ```sql
 SELECT transaction_id, card_number, amount, avg_transaction_amount, flagged_reason
-FROM pay_transaction_flagged2_enriched_s
+FROM pay_transaction_flagged2_enriched_t
 WHERE flagged_reason LIKE '%high-amount%';
 ```
 
@@ -1190,7 +1188,7 @@ You can tighten or relax the pattern by adjusting the thresholds in `DEFINE` or 
 
 ### Enrich the flagged transaction stream with the card-testing signal
 
-To propagate the card-testing flag into the unified enriched stream, add a third enrichment stage. `MATCH_RECOGNIZE` with `ONE ROW PER MATCH` emits one row per completed match. `MEASURES BIG.transaction_id` extracts the ID of the large follow-up transaction — which is the one that gets flagged. That matched ID is then joined against `pay_transaction_flagged2_enriched_s` to retrieve the full enriched record and write it back with `'card-testing'` appended to `flagged_reason`.
+To propagate the card-testing flag into the unified enriched stream, add a third enrichment stage. `MATCH_RECOGNIZE` with `ONE ROW PER MATCH` emits one row per completed match. `MEASURES BIG.transaction_id` extracts the ID of the large follow-up transaction — which is the one that gets flagged. That matched ID is then joined against `pay_transaction_flagged2_enriched_t` to retrieve the full enriched record and write it back with `'card-testing'` appended to `flagged_reason`.
 
 First add the new topic to the Jikkou spec and apply it:
 
@@ -1216,7 +1214,7 @@ docker compose run --rm jikkou apply --files=/jikkou/card-topic-specs.yml
 Register the sink table:
 
 ```sql
-CREATE TABLE IF NOT EXISTS pay_transaction_flagged3_enriched_s (
+CREATE TABLE IF NOT EXISTS pay_transaction_flagged3_enriched_t (
     transaction_id         STRING,
     card_number            STRING,
     currency               STRING,
@@ -1245,7 +1243,7 @@ CREATE TABLE IF NOT EXISTS pay_transaction_flagged3_enriched_s (
 Start the persistent enrichment job:
 
 ```sql
-INSERT INTO pay_transaction_flagged3_enriched_s
+INSERT INTO pay_transaction_flagged3_enriched_t
 SELECT
     f.transaction_id,
     f.card_number,
@@ -1279,7 +1277,7 @@ MATCH_RECOGNIZE (
         TEST AS amount < 5.0,
         BIG  AS amount > 200.0
 ) AS m
-INNER JOIN pay_transaction_flagged2_enriched_s f
+INNER JOIN pay_transaction_flagged2_enriched_t f
     ON f.transaction_id = m.large_tx_id;
 ```
 
@@ -1287,11 +1285,11 @@ Query the card-testing flagged transactions as they arrive:
 
 ```sql
 SELECT transaction_id, card_number, amount, is_flagged, flagged_reason
-FROM pay_transaction_flagged3_enriched_s
+FROM pay_transaction_flagged3_enriched_t
 WHERE flagged_reason LIKE '%card-testing%';
 ```
 
-> **What just happened?** When `MATCH_RECOGNIZE` detects a completed TEST→BIG pattern, it emits one row containing `BIG.transaction_id` as `large_tx_id`. That ID is joined against `pay_transaction_flagged2_enriched_s` to retrieve the full enriched record for the large transaction. The `is_flagged` counter is incremented and `'card-testing'` is appended to `flagged_reason` — which may already contain `'blacklist'` or `'high-amount'` from earlier stages, producing composite flags like `'high-amount,card-testing'`. Only the large follow-up transaction is flagged; the small probe is left as-is.
+> **What just happened?** When `MATCH_RECOGNIZE` detects a completed TEST→BIG pattern, it emits one row containing `BIG.transaction_id` as `large_tx_id`. That ID is joined against `pay_transaction_flagged2_enriched_t` to retrieve the full enriched record for the large transaction. The `is_flagged` counter is incremented and `'card-testing'` is appended to `flagged_reason` — which may already contain `'blacklist'` or `'high-amount'` from earlier stages, producing composite flags like `'high-amount,card-testing'`. Only the large follow-up transaction is flagged; the small probe is left as-is.
 
 > **`MATCH_RECOGNIZE` vs `OVER` window:** `OVER` aggregates a metric over a time range and emits one output per input row. `MATCH_RECOGNIZE` looks for a specific multi-row sequence of event types and emits one output per completed match. Use `OVER` when you want a continuously updated statistic; use `MATCH_RECOGNIZE` when you want to detect a specific temporal narrative.
 
@@ -1300,7 +1298,7 @@ To see all transactions that carry at least one fraud signal — from any stage:
 
 ```sql
 SELECT transaction_id, card_number, amount, is_flagged, flagged_reason
-FROM pay_transaction_flagged3_enriched_s
+FROM pay_transaction_flagged3_enriched_t
 WHERE is_flagged > 0;
 ```
 
@@ -1310,7 +1308,7 @@ WHERE is_flagged > 0;
 
 So far every step has been driven by Flink SQL statements issued interactively from the SQL Client. The same pipeline can also be expressed in Python using **PyFlink's Table API** — a programmatic DSL that lets you build streaming jobs as Python code, with IDE support, testability, and version control.
 
-This section reimplements the first enrichment stage (`pay_transaction_flagged_enriched_s` — blacklist flagging + merchant enrichment) as a self-contained Python script using the Table API.
+This section reimplements the first enrichment stage (`pay_transaction_flagged_enriched_t` — blacklist flagging + merchant enrichment) as a self-contained Python script using the Table API.
 
 ### What the Table API gives you vs. Flink SQL
 
@@ -1325,7 +1323,7 @@ The connectors (`upsert-kafka`, `avro-confluent`) are configured via `CREATE TAB
 
 ### The script
 
-The full script is [`cardholder_enrichment.py`](../00-environment/docker-2/data-transfer/cardholder_enrichment.py). The key sections are explained below.
+The full script is [`cardholder_enrichment.py`](./cardholder_enrichment.py). The key sections are explained below.
 
 #### Catalog setup
 
@@ -1447,16 +1445,21 @@ cp $DATAPLATFORM_HOME/../../08-stream-processing-and-analytics-with-flink/cardho
 
 Now submit it with `flink run -py`:
 
+```bash
 # Submit the job
 docker exec flink-sql-cli flink run \
-                        -py /data-transfer/cardholder_enrichment.py \
-                        -D python.client.executable=python3 \
-                        -D python.executable=python3
+  -py /data-transfer/cardholder_enrichment.py \
+  -D python.client.executable=python3 \
+  -D python.executable=python3
 ```
 
-> **What you should see:** Flink prints a job ID and the job appears in the Flink Web UI (`http://dataplatform:28237`) with status `RUNNING`. Records start appearing in the `priv.pay.transaction-flagged-enriched.delta.v1` topic — exactly the same output as the SQL `INSERT INTO` job from the earlier section.
+> **What you should see:** Flink prints a job ID and the job appears in the Flink Web UI (`http://dataplatform:28237`) with status `RUNNING`. Records start appearing in the `priv.pay.transaction-flagged-enriched-py.delta.v1` topic — exactly the same output as the SQL `INSERT INTO` job from the earlier section.
 
 Verify output from the SQL Client side:
+
+```bash
+docker exec -ti flink-sql-cli ./bin/sql-client.sh
+```
 
 ```sql
 USE CATALOG hive_catalog;
@@ -1472,3 +1475,193 @@ docker exec flink-sql-cli flink cancel <job-id>
 ```
 
 > **What just happened?** The PyFlink script registered the Hive catalog, declared the three source tables and the sink table (or reused existing definitions from the Metastore), then built the two-step join pipeline using the Table API DSL. Flink compiled the pipeline into a streaming DAG and submitted it to the cluster — the same execution path as a Flink SQL `INSERT INTO` job, but expressed entirely in Python.
+
+## Implementing the Pipeline with PyFlink and the DataStream API (not yet working)
+
+The Table API expresses joins as a high-level DSL — you describe *what* you want and Flink decides how to implement it. The **DataStream API** drops one level lower: you describe *how* state is structured and *how* it is updated with each arriving event. This gives you precise control over state lifetime, eviction, and processing logic, at the cost of more code.
+
+This section reimplements the same two-stage pipeline (blacklist flagging + merchant enrichment) using the **Broadcast State Pattern** from the DataStream API.
+
+### What the DataStream API gives you vs. the Table API
+
+| | Table API / SQL | DataStream API |
+|---|---|---|
+| Join logic | Declarative DSL / SQL strings | Explicit `BroadcastProcessFunction` |
+| State management | Managed by Flink internals | Full control — `MapState`, TTL, eviction |
+| Connector config | `CREATE TABLE` DDL (same in both) | `CREATE TABLE` DDL (reused via Table→DataStream bridge) |
+| Custom processing | Limited to built-in operators | Arbitrary Python logic per record |
+| Verbosity | Concise | More code, more explicit |
+
+### The Broadcast State Pattern
+
+A **broadcast state** is a piece of Flink operator state that is held in full on every parallel instance. It is the right tool when:
+
+- A *lookup table* (blacklist, reference data) must be accessible to every operator instance that processes the main stream
+- The lookup data arrives as a Kafka changelog (upsert topic) and must be kept current as updates arrive
+
+The pipeline uses two chained broadcast stages:
+
+```
+pay_transaction_t  ──────────────────────────────────────────────────────────► enriched_stream
+                                                                                      │
+pay_blacklist_t ──► broadcast(BLACKLIST_STATE) ──► BlacklistEnrichFunction ──► flagged_stream
+                                                                                      │
+ref_merchant_t  ──► broadcast(MERCHANT_STATE)  ──► MerchantEnrichFunction  ──► enriched_stream
+```
+
+Each `BroadcastProcessFunction` has two entry points:
+
+- `process_broadcast_element` — called for each record from the broadcast stream (the lookup table); updates the broadcast state
+- `process_element` — called for each record from the main stream; reads the broadcast state (read-only) and emits an enriched row
+
+### The script
+
+The full script is [`cardholder_enrichment_ds.py`](./cardholder_enrichment_ds.py). The key sections are explained below.
+
+#### Source table → DataStream conversion
+
+The Kafka connectors and Avro-Confluent format are declared via the same Table API DDL as before. The bridge from Table API to DataStream is a single call:
+
+```python
+# Append-only stream (no changelog metadata needed)
+tx_stream  = t_env.to_data_stream(t_env.from_path("pay_transaction_t"))
+
+# Changelog streams — rows carry RowKind (INSERT / UPDATE_AFTER / DELETE / UPDATE_BEFORE)
+bl_stream  = t_env.to_changelog_stream(t_env.from_path("pay_blacklist_t"))
+mer_stream = t_env.to_changelog_stream(t_env.from_path("ref_merchant_t"))
+```
+
+> **Why `to_changelog_stream` for the lookup tables?** The `upsert-kafka` connector produces a stream of changes (inserts, updates, deletes). `to_changelog_stream` preserves the `RowKind` on each row so the `BroadcastProcessFunction` can decide whether to add or remove an entry from the broadcast state.
+
+#### Stage 1 — `BlacklistEnrichFunction`
+
+```python
+class BlacklistEnrichFunction(BroadcastProcessFunction):
+
+    def process_element(self, value: Row, ctx, out):
+        merchant_id = value["merchant_id"]
+        state  = ctx.get_broadcast_state(BLACKLIST_STATE)
+        flagged = state.contains(merchant_id)
+        out.collect(Row(
+            value["transaction_id"], value["card_number"], value["currency"],
+            value["amount"], value["channel"], value["transaction_date"],
+            merchant_id,
+            1 if flagged else 0,
+            "blacklist" if flagged else "",
+        ))
+
+    def process_broadcast_element(self, value: Row, ctx, out):
+        state       = ctx.get_broadcast_state(BLACKLIST_STATE)
+        merchant_id = value["key"]
+        kind        = value.get_row_kind()
+        if kind in (RowKind.INSERT, RowKind.UPDATE_AFTER):
+            state.put(merchant_id, True)
+        elif kind in (RowKind.DELETE, RowKind.UPDATE_BEFORE):
+            if state.contains(merchant_id):
+                state.remove(merchant_id)
+```
+
+> **State descriptor:** `BLACKLIST_STATE = MapStateDescriptor("blacklist_state", Types.STRING(), Types.BOOLEAN())`. The value is always `True` — the presence of the key in the map is what signals "blacklisted". Adding or removing a merchant from the Kafka blacklist topic immediately changes the state seen by all parallel instances of the operator.
+
+#### Stage 2 — `MerchantEnrichFunction`
+
+```python
+class MerchantEnrichFunction(BroadcastProcessFunction):
+
+    def process_element(self, value: Row, ctx, out):
+        merchant_id = value["merchant_id"]
+        state    = ctx.get_broadcast_state(MERCHANT_STATE)
+        merchant = state.get(merchant_id)
+        out.collect(Row(
+            value["transaction_id"], value["card_number"], value["currency"],
+            value["amount"], value["channel"], value["transaction_date"],
+            value["is_flagged"], value["flagged_reason"], merchant_id,
+            merchant["merchant_name"] if merchant else None,
+            merchant["country"]       if merchant else None,
+            merchant["city"]          if merchant else None,
+            merchant["category_name"] if merchant else None,
+        ))
+
+    def process_broadcast_element(self, value: Row, ctx, out):
+        state = ctx.get_broadcast_state(MERCHANT_STATE)
+        merchant_id = value["merchant_id"]
+        kind = value.get_row_kind()
+        if kind in (RowKind.INSERT, RowKind.UPDATE_AFTER):
+            state.put(merchant_id, Row(
+                value["name"], value["country"],
+                value["city"], value["category_name"],
+            ))
+        elif kind in (RowKind.DELETE, RowKind.UPDATE_BEFORE):
+            if state.contains(merchant_id):
+                state.remove(merchant_id)
+```
+
+> **Null handling:** When a transaction's `merchant_id` is not yet in the broadcast state (the reference record has not arrived yet), all merchant attribute columns are emitted as `None`. This mirrors the behaviour of a `LEFT JOIN` in the Table API.
+
+#### DataStream → Table → sink
+
+After the two processing stages the enriched DataStream is converted back to a Table so the upsert-Kafka / Avro-Confluent sink connector can be reused unchanged:
+
+```python
+enriched_table = t_env.from_data_stream(
+    enriched_stream,
+    Schema.new_builder()
+        .column("transaction_id",   DataTypes.STRING())
+        .column("card_number",      DataTypes.STRING())
+        # ... remaining columns ...
+        .column("category_name",    DataTypes.STRING())
+        .build()
+)
+
+enriched_table.execute_insert("pay_transaction_flagged_enriched_ds_py_t").wait()
+```
+
+### Running the script
+
+Create the backing Kafka topic for the sink:
+
+```bash
+docker exec -it kafka-1 kafka-topics \
+  --bootstrap-server kafka-1:19092 \
+  --create --topic priv.pay.transaction-flagged-enriched-ds-py.delta.v1 \
+  --partitions 3 --replication-factor 3
+```
+
+Copy the script into the `data-transfer` folder so that it is available inside the container:
+
+```bash
+cp $DATAPLATFORM_HOME/../../08-stream-processing-and-analytics-with-flink/cardholder_enrichment_ds.py \
+   $DATAPLATFORM_HOME/data-transfer
+```
+
+Submit the job:
+
+```bash
+docker exec flink-sql-cli flink run \
+  -py /data-transfer/cardholder_enrichment_ds.py \
+  -D python.client.executable=python3 \
+  -D python.executable=python3
+```
+
+> **What you should see:** Flink prints a job ID and the job appears in the Flink Web UI (`http://dataplatform:28237`) with status `RUNNING`. Records start flowing into `priv.pay.transaction-flagged-enriched-ds-py.delta.v1`.
+
+Verify output from the SQL Client:
+
+```bash
+docker exec -ti flink-sql-cli ./bin/sql-client.sh
+```
+
+```sql
+USE CATALOG hive_catalog;
+USE fraud_detection;
+SELECT * FROM pay_transaction_flagged_enriched_ds_py_t WHERE is_flagged = 1;
+```
+
+To stop the job:
+
+```bash
+docker exec flink-sql-cli flink list
+docker exec flink-sql-cli flink cancel <job-id>
+```
+
+> **What just happened?** Instead of Flink's internal join operators, two `BroadcastProcessFunction` stages maintain the lookup data explicitly in operator state. Each parallel instance holds a full copy of the broadcast state — every blacklist update and every merchant upsert is applied to all instances via `process_broadcast_element`. Transaction rows arriving on the main input are enriched locally without network shuffles. The result is semantically identical to the Table API pipeline: the same two left-join stages, the same `is_flagged` / `flagged_reason` logic, written as explicit Python state machines instead of a declarative DSL.
