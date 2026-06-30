@@ -31,7 +31,7 @@ In this workshop you will build a real-time energy grid monitoring system for 20
 
 ## Prerequisites
 
-- The **Data Platform** (`docker-2`) described in [00-environment](../00-environment) is running and accessible, with Kafka (KRaft, 3 brokers), Schema Registry, Flink (JobManager + TaskManager + SQL Client), Kafka Connect, Spark, Hive Metastore, and S3-compatible object storage (RustFS/MinIO) all healthy
+- The **Data Platform** (`docker-3`) described in [00-environment](../00-environment) is running and accessible, with Kafka (KRaft, 3 brokers), Schema Registry, Flink (JobManager + TaskManager + SQL Client), Kafka Connect, Spark, Hive Metastore, and S3-compatible object storage (RustFS/MinIO) all healthy
 - Basic familiarity with SQL
 
 ## Architecture Overview

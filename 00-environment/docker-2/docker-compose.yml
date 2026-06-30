@@ -231,66 +231,6 @@ services:
       timeout: 10s
       retries: 20
       start_period: 60s
-  #  ================================== RisingWave ========================================== #
-  risingwave:
-    image: risingwavelabs/risingwave:v2.8.4
-    hostname: risingwave
-    container_name: risingwave
-    labels:
-      com.platys.name: risingwave
-      com.platys.description: Risingwave Streaming DB
-      com.platys.webui.title: Risingwave UI
-      com.platys.webui.url: http://dataplatform:5691
-      com.platys.password.envvars: PLATYS_RISINGWAVE_DATABASE_PASSWORD
-    depends_on:
-      - rustfs-1
-    expose:
-      - '6660'
-      - '4566'
-      - '5688'
-      - '5690'
-      - '1250'
-      - '5691'
-    ports:
-      - 4566:4566
-      - 5690:5690
-      - 5691:5691
-      - 1250:1250
-    environment:
-      - RUST_BACKTRACE="1"
-      # If ENABLE_TELEMETRY is not set, telemetry will start by default
-      - ENABLE_TELEMETRY=False
-      - RW_TELEMETRY_TYPE="docker-compose"
-      - RW_SECRET_STORE_PRIVATE_KEY_HEX=0123456789abcdef0123456789abcdef
-      - RW_LICENSE_KEY=
-      - RW_S3_ENDPOINT=http://rustfs-1:9000
-      - RW_IS_FORCE_PATH_STYLE=true
-      - AWS_REGION=us-east-1
-      - AWS_ACCESS_KEY_ID=${PLATYS_AWS_ACCESS_KEY:-admin}
-      - AWS_SECRET_ACCESS_KEY=${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}
-    volumes:
-      - ./data-transfer:/data-transfer
-      - ./conf/risingwave/risingwave.toml:/risingwave.toml
-    command: "standalone --meta-opts=\" --listen-addr 0.0.0.0:5690 --advertise-addr 0.0.0.0:5690 --dashboard-host 0.0.0.0:5691 --prometheus-host 0.0.0.0:1250 \n--backend sql                       --sql-endpoint sqlite:///tmp/metadata.db?mode=rwc                       --state-store hummock+s3://risingwave-bucket   --data-directory risingwave-state --config-path /risingwave.toml\" --compute-opts=\" --config-path /risingwave.toml --listen-addr 0.0.0.0:5688 --prometheus-listener-addr 0.0.0.0:1250 --advertise-addr 0.0.0.0:5688 --async-stack-trace verbose --parallelism 8 --total-memory-bytes 16808173568 --role both --meta-address http://0.0.0.0:5690 --memory-manager-target-bytes 22333829939 \" --frontend-opts=\" --config-path /risingwave.toml --listen-addr 0.0.0.0:4566 --advertise-addr 0.0.0.0:4566 --prometheus-listener-addr 0.0.0.0:1250 --health-check-listener-addr 0.0.0.0:6786 --meta-addr http://0.0.0.0:5690 --frontend-total-memory-bytes=4294967296\" --compactor-opts=\" --listen-addr 0.0.0.0:6660
-      --prometheus-listener-addr 0.0.0.0:1250 --advertise-addr 0.0.0.0:6660 --meta-address http://0.0.0.0:5690   --compactor-total-memory-bytes=4294967296\""
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 28G
-        reservations:
-          memory: 28G
-    healthcheck:
-      test:
-        - CMD-SHELL
-        - bash -c 'printf \"GET / HTTP/1.1\n\n\" > /dev/tcp/127.0.0.1/6660; exit $$?;'
-        - bash -c 'printf \"GET / HTTP/1.1\n\n\" > /dev/tcp/127.0.0.1/5688; exit $$?;'
-        - bash -c '> /dev/tcp/127.0.0.1/4566; exit $$?;'
-        - bash -c 'printf \"GET / HTTP/1.1\n\n\" > /dev/tcp/127.0.0.1/5690; exit $$?;'
-      interval: 5s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
   #  ================================== Confluent Schema Registry ========================================== #
   schema-registry-1:
     image: confluentinc/cp-schema-registry:8.1.3
@@ -907,46 +847,6 @@ services:
         #
         while [ 1 -eq 1 ];do sleep 60;done
     restart: unless-stopped
-  #  ================================== Grafana ========================================== #
-  grafana:
-    image: grafana/grafana:12.4.0-20977568970-ubuntu
-    hostname: grafana
-    container_name: grafana
-    labels:
-      com.platys.name: grafana
-      com.platys.description: Data visualization and dashboarding
-      com.platys.webui.title: Grafana UI
-      com.platys.webui.url: http://dataplatform:3000
-      com.platys.restapi.title: Grafana API
-      com.platys.restapi.url: http://dataplatform:3000/api/org
-    expose:
-      - 3000
-    ports:
-      - 3000:3000
-    environment:
-      - GF_SERVER_HTTP_ADDR=0.0.0.0
-      - GF_SERVER_HTTP_PORT=3000
-      - GF_AUTH_ANONYMOUS_ENABLED=False
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=abc123!
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - RISINGWAVE_USER=root
-      - RISINGWAVE_PASSWORD=
-      - RISINGWAVE_DB=dev
-    volumes:
-      - ./data-transfer:/data-transfer
-      - ./scripts/grafana/dashboards/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml
-      - ./scripts/grafana/dashboards/docker/monitor_services.json:/etc/grafana/provisioning/dashboards/docker/monitor_services.json
-      - ./scripts/grafana/datasources/risingwave.yml:/etc/grafana/provisioning/datasources/risingwave.yml
-#        restart: unless-stopped
-    healthcheck:
-      test:
-        - CMD-SHELL
-        - bash -c 'printf \"GET / HTTP/1.1\n\n\" > /dev/tcp/127.0.0.1/3000; exit $$?;'
-      interval: 1s
-      timeout: 5s
-      retries: 5
   #  ================================== Wetty ========================================== #
   wetty:
     image: wettyoss/wetty:2
