@@ -1,6 +1,8 @@
 # Stream Processing and Analytics with Flink SQL
 
-In this workshop you will build a streaming fraud detection pipeline for credit card transactions. Synthetic transaction and cardholder data flows through Apache Kafka, where Apache Flink SQL performs real-time stream processing — joining against a merchant blacklist, enriching with reference data, and flagging suspicious transactions. The flagged records are then persisted as Apache Iceberg tables in S3-compatible object storage via Kafka Connect, and the resulting tables are curated and queried analytically using Apache Spark SQL.
+In this workshop you will build a real-time credit card fraud detection pipeline. Synthetic transaction and cardholder data flows through Apache Kafka, where Apache Flink SQL performs continuous stream processing — joining transactions against a merchant blacklist, enriching them with merchant and cardholder reference data, and flagging suspicious activity using both rule-based joins and temporal pattern matching. You will then implement the same enrichment pipeline programmatically in Python using PyFlink's Table API.
+
+![Architecture](./images/architecture.png)
 
 ## Table of Contents
 
