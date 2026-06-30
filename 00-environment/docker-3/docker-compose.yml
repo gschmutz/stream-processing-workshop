@@ -1,0 +1,709 @@
+# =======================================================================
+# Platform Name            streaming-data-platform
+# Platform Stack:          trivadis/platys-modern-data-platform
+# Platform Stack Version:  develop
+# =======================================================================
+networks:
+  default:
+    name: streaming-data-platform
+services:
+#  ================================== Kafka ========================================== #
+  kafka-1:
+    image: confluentinc/cp-kafka:8.1.3
+    container_name: kafka-1
+    hostname: kafka-1
+    labels:
+      com.platys.name: kafka
+      com.platys.description: Kafka Broker 1
+    ports:
+      - 9092:9092
+      - 19092:19092
+      - 29092:29092
+      - 39092:39092
+      - 9992:9992
+      - 1234:1234
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_BROKER_RACK: rack1
+      KAFKA_INTER_BROKER_LISTENER_NAME: BROKER
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:49092,2@kafka-2:49093,3@kafka-3:49094
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_NODE_ID: 1
+      CLUSTER_ID: y4vRIwfDT0SkZ65tD7Ey2A
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,BROKER:PLAINTEXT,LOCAL:PLAINTEXT,DOCKERHOST:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_LISTENERS: CONTROLLER://kafka-1:49092,BROKER://kafka-1:19092,LOCAL://kafka-1:39092,DOCKERHOST://kafka-1:29092,EXTERNAL://kafka-1:9092
+      KAFKA_ADVERTISED_LISTENERS: BROKER://kafka-1:19092,LOCAL://localhost:39092,DOCKERHOST://${DOCKER_HOST_IP:-127.0.0.1}:29092,EXTERNAL://${PUBLIC_IP:-127.0.0.1}:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_MESSAGE_TIMESTAMP_TYPE: CreateTime
+      KAFKA_MIN_INSYNC_REPLICAS: 1
+      KAFKA_DELETE_TOPIC_ENABLE: 'True'
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'False'
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 100
+      KAFKA_JMX_PORT: 9992
+      KAFKA_JMX_OPTS: -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.rmi.port=9992
+      KAFKA_JMX_HOSTNAME: kafka-1 #'${PUBLIC_IP:-127.0.0.1}'
+      KAFKA_LOG4J_ROOT_LOGLEVEL: INFO
+      KAFKA_TOOLS_LOG4J_LOGLEVEL: WARN
+    volumes:
+      - ./data-transfer:/data-transfer
+    restart: unless-stopped
+    healthcheck:
+      test: kafka-topics --bootstrap-server kafka-1:19092 --list
+      interval: 30s
+      timeout: 10s
+      retries: 40
+      start_period: 20s
+  kafka-2:
+    image: confluentinc/cp-kafka:8.1.3
+    container_name: kafka-2
+    hostname: kafka-2
+    labels:
+      com.platys.name: kafka
+      com.platys.description: Kafka Broker 2
+    ports:
+      - 9093:9093
+      - 19093:19093
+      - 29093:29093
+      - 39093:39093
+      - 9993:9992
+      - 1235:1234
+    environment:
+      KAFKA_BROKER_ID: 2
+      KAFKA_BROKER_RACK: rack1
+      KAFKA_INTER_BROKER_LISTENER_NAME: BROKER
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:49092,2@kafka-2:49093,3@kafka-3:49094
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_NODE_ID: 2
+      CLUSTER_ID: y4vRIwfDT0SkZ65tD7Ey2A
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,BROKER:PLAINTEXT,LOCAL:PLAINTEXT,DOCKERHOST:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_LISTENERS: CONTROLLER://kafka-2:49093,BROKER://kafka-2:19093,LOCAL://kafka-2:39093,DOCKERHOST://kafka-2:29093,EXTERNAL://kafka-2:9093
+      KAFKA_ADVERTISED_LISTENERS: BROKER://kafka-2:19093,LOCAL://localhost:39093,DOCKERHOST://${DOCKER_HOST_IP:-127.0.0.1}:29093,EXTERNAL://${PUBLIC_IP:-127.0.0.1}:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_MESSAGE_TIMESTAMP_TYPE: CreateTime
+      KAFKA_MIN_INSYNC_REPLICAS: 1
+      KAFKA_DELETE_TOPIC_ENABLE: 'True'
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'False'
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 100
+      KAFKA_JMX_PORT: 9992
+      KAFKA_JMX_OPTS: -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.rmi.port=9992
+      KAFKA_JMX_HOSTNAME: kafka-2 #'${PUBLIC_IP:-127.0.0.1}'
+      KAFKA_LOG4J_ROOT_LOGLEVEL: INFO
+      KAFKA_TOOLS_LOG4J_LOGLEVEL: WARN
+    volumes:
+      - ./data-transfer:/data-transfer
+    restart: unless-stopped
+    healthcheck:
+      test: kafka-topics --bootstrap-server kafka-1:19092 --list
+      interval: 30s
+      timeout: 10s
+      retries: 40
+      start_period: 20s
+  kafka-3:
+    image: confluentinc/cp-kafka:8.1.3
+    container_name: kafka-3
+    hostname: kafka-3
+    labels:
+      com.platys.name: kafka
+      com.platys.description: Kafka Broker 3
+    ports:
+      - 9094:9094
+      - 19094:19094
+      - 29094:29094
+      - 39094:39094
+      - 9994:9992
+      - 1236:1234
+    environment:
+      KAFKA_BROKER_ID: 3
+      KAFKA_BROKER_RACK: rack1
+      KAFKA_INTER_BROKER_LISTENER_NAME: BROKER
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:49092,2@kafka-2:49093,3@kafka-3:49094
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_NODE_ID: 3
+      CLUSTER_ID: y4vRIwfDT0SkZ65tD7Ey2A
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,BROKER:PLAINTEXT,LOCAL:PLAINTEXT,DOCKERHOST:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_LISTENERS: CONTROLLER://kafka-3:49094,BROKER://kafka-3:19094,LOCAL://kafka-3:39094,DOCKERHOST://kafka-3:29094,EXTERNAL://kafka-3:9094
+      KAFKA_ADVERTISED_LISTENERS: BROKER://kafka-3:19094,LOCAL://localhost:39094,DOCKERHOST://${DOCKER_HOST_IP:-127.0.0.1}:29094,EXTERNAL://${PUBLIC_IP:-127.0.0.1}:9094
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_MESSAGE_TIMESTAMP_TYPE: CreateTime
+      KAFKA_MIN_INSYNC_REPLICAS: 1
+      KAFKA_DELETE_TOPIC_ENABLE: 'True'
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'False'
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 100
+      KAFKA_JMX_PORT: 9992
+      KAFKA_JMX_OPTS: -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.rmi.port=9992
+      KAFKA_JMX_HOSTNAME: kafka-3 #'${PUBLIC_IP:-127.0.0.1}'
+      KAFKA_LOG4J_ROOT_LOGLEVEL: INFO
+      KAFKA_TOOLS_LOG4J_LOGLEVEL: WARN
+    volumes:
+      - ./data-transfer:/data-transfer
+    restart: unless-stopped
+    healthcheck:
+      test: kafka-topics --bootstrap-server kafka-1:19092 --list
+      interval: 30s
+      timeout: 10s
+      retries: 40
+      start_period: 20s
+  #  ================================== RisingWave ========================================== #
+  risingwave:
+    image: risingwavelabs/risingwave:v2.8.4
+    hostname: risingwave
+    container_name: risingwave
+    labels:
+      com.platys.name: risingwave
+      com.platys.description: Risingwave Streaming DB
+      com.platys.webui.title: Risingwave UI
+      com.platys.webui.url: http://dataplatform:5691
+      com.platys.password.envvars: PLATYS_RISINGWAVE_DATABASE_PASSWORD
+    depends_on:
+      - rustfs-1
+    expose:
+      - '6660'
+      - '4566'
+      - '5688'
+      - '5690'
+      - '1250'
+      - '5691'
+    ports:
+      - 4566:4566
+      - 5690:5690
+      - 5691:5691
+      - 1250:1250
+    environment:
+      - RUST_BACKTRACE="1"
+      # If ENABLE_TELEMETRY is not set, telemetry will start by default
+      - ENABLE_TELEMETRY=False
+      - RW_TELEMETRY_TYPE="docker-compose"
+      - RW_SECRET_STORE_PRIVATE_KEY_HEX=0123456789abcdef0123456789abcdef
+      - RW_LICENSE_KEY=
+      - RW_S3_ENDPOINT=http://rustfs-1:9000
+      - RW_IS_FORCE_PATH_STYLE=true
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=${PLATYS_AWS_ACCESS_KEY:-admin}
+      - AWS_SECRET_ACCESS_KEY=${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}
+    volumes:
+      - ./data-transfer:/data-transfer
+      - ./conf/risingwave/risingwave.toml:/risingwave.toml
+    command: "standalone --meta-opts=\" --listen-addr 0.0.0.0:5690 --advertise-addr 0.0.0.0:5690 --dashboard-host 0.0.0.0:5691 --prometheus-host 0.0.0.0:1250 \n--backend sql                       --sql-endpoint sqlite:///tmp/metadata.db?mode=rwc                       --state-store hummock+s3://risingwave-bucket   --data-directory risingwave-state --config-path /risingwave.toml\" --compute-opts=\" --config-path /risingwave.toml --listen-addr 0.0.0.0:5688 --prometheus-listener-addr 0.0.0.0:1250 --advertise-addr 0.0.0.0:5688 --async-stack-trace verbose --parallelism 8 --total-memory-bytes 16808173568 --role both --meta-address http://0.0.0.0:5690 --memory-manager-target-bytes 22333829939 \" --frontend-opts=\" --config-path /risingwave.toml --listen-addr 0.0.0.0:4566 --advertise-addr 0.0.0.0:4566 --prometheus-listener-addr 0.0.0.0:1250 --health-check-listener-addr 0.0.0.0:6786 --meta-addr http://0.0.0.0:5690 --frontend-total-memory-bytes=4294967296\" --compactor-opts=\" --listen-addr 0.0.0.0:6660
+      --prometheus-listener-addr 0.0.0.0:1250 --advertise-addr 0.0.0.0:6660 --meta-address http://0.0.0.0:5690   --compactor-total-memory-bytes=4294967296\""
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 28G
+        reservations:
+          memory: 28G
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - bash -c 'printf \"GET / HTTP/1.1\n\n\" > /dev/tcp/127.0.0.1/6660; exit $$?;'
+        - bash -c 'printf \"GET / HTTP/1.1\n\n\" > /dev/tcp/127.0.0.1/5688; exit $$?;'
+        - bash -c '> /dev/tcp/127.0.0.1/4566; exit $$?;'
+        - bash -c 'printf \"GET / HTTP/1.1\n\n\" > /dev/tcp/127.0.0.1/5690; exit $$?;'
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+  #  ================================== Confluent Schema Registry ========================================== #
+  schema-registry-1:
+    image: confluentinc/cp-schema-registry:8.1.3
+    hostname: schema-registry-1
+    container_name: schema-registry-1
+    labels:
+      com.platys.name: schema-registry
+      com.platys.description: Confluent Schema Registry
+      com.platys.restapi.title: Schema Registry REST API
+      com.platys.restapi.url: http://dataplatform:8081
+    ports:
+      - 8081:8081
+    depends_on:
+      kafka-1:
+        condition: service_healthy
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry-1
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka-1:19092,kafka-2:19093,kafka-3:19094
+      SCHEMA_REGISTRY_GROUP_ID: schema-registry
+      SCHEMA_REGISTRY_LEADER_ELIGIBILITY: 'True'
+      SCHEMA_REGISTRY_MODE_MUTABILITY: 'True'
+      SCHEMA_REGISTRY_SCHEMA_COMPATIBILITY_LEVEL: backward
+      SCHEMA_REGISTRY_KAFKASTORE_TOPIC_REPLICATION_FACTOR: 1
+      SCHEMA_REGISTRY_ACCESS_CONTROL_ALLOW_ORIGIN: '*'
+      SCHEMA_REGISTRY_ACCESS_CONTROL_ALLOW_METHODS: GET,POST,PUT,OPTIONS
+      SCHEMA_REGISTRY_LOG4J_ROOT_LOGLEVEL: info
+      SCHEMA_REGISTRY_DEBUG: 'False'
+      SCHEMA_REGISTRY_KAFKASTORE_SECURITY_PROTOCOL: PLAINTEXT
+    volumes:
+      - ./data-transfer:/data-transfer
+      - ./plugins/opentelemetry/agents:/otel
+    restart: unless-stopped
+    healthcheck:
+      start_period: 10s
+      interval: 15s
+      retries: 25
+      test: curl --fail --silent --insecure http://schema-registry-1:8081/subjects --output /dev/null || exit 1
+  #  ================================== Schema Registry UI ========================================== #
+  schema-registry-ui:
+    image: landoop/schema-registry-ui:latest
+    container_name: schema-registry-ui
+    hostname: schema-registry-ui
+    labels:
+      com.platys.name: schema-registry-ui
+      com.platys.description: Schema Registry UI
+      com.platys.webui.title: Confluent Schema Registry UI
+      com.platys.webui.url: http://dataplatform:28102
+    ports:
+      - 28102:8000
+    environment:
+      SCHEMAREGISTRY_URL: http://${PUBLIC_IP:-127.0.0.1}:8081
+    volumes:
+      - ./data-transfer:/data-transfer
+      - ./conf/schema-registry-ui/resolv.conf:/etc/resolv.conf:ro
+    restart: unless-stopped
+  #  ================================== kcat (used to be kafkacat)  ========================================== #
+  kcat:
+    image: edenhill/kcat:1.7.1
+    container_name: kcat
+    hostname: kcat
+    labels:
+      com.platys.name: kcat
+      com.platys.description: Generic non-JVM Kafka consumer and producer
+    volumes:
+      - ./data-transfer:/data-transfer
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        apk add jq;
+        while [ 1 -eq 1 ];do sleep 60;done
+    restart: unless-stopped
+  #  ================================== Apache Kafka HQ (AKHQ) ========================================== #
+  akhq:
+    image: tchiotludo/akhq:latest
+    container_name: akhq
+    hostname: akhq
+    labels:
+      com.platys.name: akhq
+      com.platys.description: Kafka GUI
+      com.platys.webui.title: AKHQ UI
+      com.platys.webui.url: http://dataplatform:28107
+      com.platys.restapi.title: AKHQ API
+      com.platys.restapi.url: http://dataplatform:28107/api
+      com.platys.password.envvars: PLATYS_AKHQ_ADMIN_PASSWORD,PLATYS_AKHQ_READER_PASSWORD
+    ports:
+      - 28107:8080
+      - 28320:28081
+    environment:
+      AKHQ_CONFIGURATION: |
+        akhq:
+          pagination.page-size: 25
+          topic-data:
+            size: 50
+            poll-timeout: 1000
+            kafka-max-message-length: 1000000
+          ui-options:
+            topic:
+              default-view: HIDE_INTERNAL
+              skip-consumer-groups: false
+              skip-last-record: true
+              show-all-consumer-groups: true
+            topic-data:
+              sort: OLDEST
+          connections:
+            docker-kafka-server:
+              properties:
+                bootstrap.servers: 'kafka-1:19092,kafka-2:19093,kafka-3:19094'
+              schema-registry:
+                url: "http://schema-registry-1:8081"
+                type: "confluent"
+    volumes:
+      - ./data-transfer:/data-transfer
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, curl, -f, http://akhq:28081/health]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+  #  ================================== Kafbat UI ========================================== #
+  kafbat-ui:
+    image: ghcr.io/kafbat/kafka-ui:latest
+    container_name: kafbat-ui
+    hostname: kafbat-ui
+    labels:
+      com.platys.name: kafbat-ui
+      com.platys.description: Kafbat UI - Kafka GUI
+      com.platys.webui.title: Kafbat UI
+      com.platys.webui.url: http://dataplatform:28183
+      com.platys.restapi.title: Kafbat UI Swagger UI
+      com.platys.restapi.url: http://dataplatform:28183/swagger-ui.html
+      com.platys.mcp.title: Kafbat UI
+      com.platys.mcp.url: http://dataplatform:28183/mcp/sse
+    ports:
+      - 28183:28183
+    environment:
+      SERVER_PORT: 28183
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka-1:19092,kafka-2:19093,kafka-3:19094
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry-1:8081
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRYSHOWNULLVALUES: 'true'
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRYUSEFULLYQUALIFIEDNAMES: 'true'
+      KAFKA_CLUSTERS_0_PROPERTIES_CLIENT_DNS_LOOKUP: use_all_dns_ips
+      KAFKA_CLUSTERS_0_DISABLELOGDIRSCOLLECTION: 'true'
+      KAFKA_CLUSTERS_0_METRICS_PORT: 9992
+      KAFKA_CLUSTERS_0_METRICS_TYPE: jmx
+      KAFKA_CLUSTERS_0_READONLY: 'false'
+      KAFKA_CLUSTERS_0_AUDIT_TOPICAUDITENABLED: true
+      KAFKA_CLUSTERS_0_AUDIT_CONSOLEAUDITENABLED: false
+      KAFKA_CLUSTERS_0_AUDIT_TOPIC: __kafbat-ui-audit-log
+      KAFKA_CLUSTERS_0_AUDIT_AUDITTOPICPROPERTIES_RETENTION_MS: 43200000
+      KAFKA_CLUSTERS_0_AUDIT_AUDITTOPICSPARTITIONS: 1
+      KAFKA_CLUSTERS_0_AUDIT_LEVEL: all
+      KAFKA_CONFIG_SANITIZER_ENABLED: true
+      DYNAMIC_CONFIG_ENABLED: 'true'
+      LOGGING_LEVEL_ROOT: info
+      LOGGING_LEVEL_IO_KAFBAT_UI: info
+      SWAGGER_UI_ENABLED: 'True'
+      MCP_ENABLED: 'True'
+    volumes:
+      - ./data-transfer:/data-transfer
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, wget, -qO-, http://localhost:28183/actuator/health]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+  #  ================================== Apache Hive Metastore ========================================== #
+  hive-metastore:
+    image: trivadis/apache-hive:4.2.0-postgresql-standalone-metastore-s3
+    container_name: hive-metastore
+    hostname: hive-metastore
+    labels:
+      com.platys.name: hive-metastore
+      com.platys.description: Hive Metastore
+      com.platys.restapi.title: Hive Metastore Iceberg REST API
+      com.platys.restapi.url: http://dataplatform:9084/iceberg/v1/namespaces
+    depends_on:
+      hive-metastore-db:
+        condition: service_healthy
+    ports:
+      - 9083:9083
+      - 9084:9084
+    environment:
+      HIVE_VER: 4.2.0
+      JAVA_TOOL_OPTIONS: -Dhive.log.level=INFO
+      # configure iceberg catalog service (if HMS >= 4.1.0)
+      HIVE_SITE_CONF_metastore_catalog_servlet_port: 9084
+      HIVE_SITE_CONF_metastore_catalog_servlet_auth: none
+      HIVE_SITE_CONF_metastore_warehouse_tenant_colocation: false
+      CORE_CONF_fs_defaultFS: file:///tmp
+      HIVE_SITE_CONF_fs_defaultFS: file:///tmp
+      HIVE_SITE_CONF_fs_s3a_endpoint: http://rustfs-1:9000
+      HIVE_SITE_CONF_fs_s3a_access_key: ${PLATYS_AWS_ACCESS_KEY:-admin}
+      HIVE_SITE_CONF_fs_s3a_secret_key: ${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}
+      HIVE_SITE_CONF_fs_s3a_path_style_access: 'true'
+      HIVE_SITE_CONF_fs_s3a_impl: org.apache.hadoop.fs.s3a.S3AFileSystem
+      HIVE_SITE_CONF_hive_metastore_uris: thrift://hive-metastore:9083
+      HIVE_SITE_CONF_hive_metastore_warehouse_dir: s3a://admin-bucket/warehouse
+      HIVE_SITE_CONF_hive_metastore_warehouse_external_dir: s3a://admin-bucket/warehouse/external
+      HIVE_SITE_CONF_javax_jdo_option_ConnectionURL: jdbc:postgresql://hive-metastore-db/metastore_db
+      HIVE_SITE_CONF_javax_jdo_option_ConnectionDriverName: org.postgresql.Driver
+      HIVE_SITE_CONF_javax_jdo_option_ConnectionUserName: hive
+      HIVE_SITE_CONF_javax_jdo_option_ConnectionPassword: ${PLATYS_HMS_POSTGRESQL_PASSWORD:-abc123!}
+      HIVE_SITE_CONF_datanucleus_autoCreateSchema: false
+      HIVE_SITE_CONF_hive_metastore_event_db_notification_api_auth: false
+      # necessary for Trino to be able to read from Avro
+      HIVE_SITE_CONF_metastore_storage_schema_reader_impl: org.apache.hadoop.hive.metastore.SerDeStorageSchemaReader
+      SERVICE_PRECONDITION: hive-metastore-db:5432
+      DB_DRIVER: postgres
+      SERVICE_NAME: standalone-metastore
+      SERVICE_OPTS: -Xmx1G -Djavax.jdo.option.ConnectionDriverName=org.postgresql.Driver -Djavax.jdo.option.ConnectionURL=jdbc:postgresql://hive-metastore-db/metastore_db -Djavax.jdo.option.ConnectionUserName=hive -Djavax.jdo.option.ConnectionPassword=${PLATYS_HMS_POSTGRESQL_PASSWORD:-abc123!}
+    volumes:
+      - ./data-transfer:/data-transfer
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, nc, -z, hive-metastore, '9083']
+      interval: 30s
+      timeout: 10s
+      retries: 10
+  hive-metastore-db:
+    image: postgres
+    container_name: hive-metastore-db
+    hostname: hive-metastore-db
+    labels:
+      com.platys.name: hive-metastore
+      com.platys.description: Hive Metastore DB
+      com.platys.password.envvars: PLATYS_HMS_POSTGRESQL_PASSWORD
+    ports:
+      - 5442:5432
+    environment:
+      POSTGRES_DB: metastore_db
+      POSTGRES_USER: hive
+      POSTGRES_PASSWORD: ${PLATYS_HMS_POSTGRESQL_PASSWORD:-abc123!}
+    volumes:
+      - ./data-transfer:/data-transfer
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, psql, -U, hive, metastore_db]
+  #  ================================== PostgreSQL ========================================== #
+  postgresql:
+    image: postgres:17
+    container_name: postgresql
+    hostname: postgresql
+    labels:
+      com.platys.name: postgresql
+      com.platys.description: Open-Source object-relational database system
+      com.platys.password.envvars: PLATYS_POSTGRESQL_PASSWORD,PLATYS_POSTGRESQL_MULTIPLE_PASSWORD
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_PASSWORD=${PLATYS_POSTGRESQL_PASSWORD:-abc123!}
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=postgres
+#      - POSTGRES_INITDB_ARGS=--encoding=UTF8 --data-checksums      
+      - POSTGRES_MULTIPLE_DATABASES=customer_db
+      - POSTGRES_MULTIPLE_USERS=customer
+      - POSTGRES_MULTIPLE_PASSWORDS=${PLATYS_POSTGRESQL_MULTIPLE_PASSWORD:-abc123!}
+      - POSTGRES_MULTIPLE_ADDL_ROLES=
+      - PGDATA=/var/lib/postgresql/data/pgdata
+      - DB_SCHEMA=demo
+    volumes:
+      - ./data-transfer:/data-transfer
+      - ./init/postgresql:/docker-entrypoint-initdb.d/
+    command:
+      - postgres
+      - -c
+      - wal_level=logical
+      - -c
+      - max_replication_slots=10
+      - -c
+      - max_wal_senders=10
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U postgres]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  #  ================================== RustFS (S3 Storage) ========================================== #
+  rustfs-1:
+    image: rustfs/rustfs:latest
+    container_name: rustfs-1
+    hostname: rustfs-1
+    security_opt:
+      - no-new-privileges:true
+    labels:
+      com.platys.name: rustfs
+      com.platys.description: Software-defined Object Storage
+      com.platys.webui.title: RustFS Console
+      com.platys.webui.url: http://dataplatform:9014
+      com.platys.password.envvars: PLATYS_AWS_SECRET_ACCESS_KEY
+    ports:
+      - 9005:9000   # S3 API port
+      - 9014:9010   # Console port    
+    environment:
+      - RUSTFS_VOLUMES=/data/rustfs{0..3} # Define 4 storage volumes
+      - RUSTFS_ADDRESS=0.0.0.0:9000
+      - RUSTFS_CONSOLE_ADDRESS=0.0.0.0:9010
+      - RUSTFS_CONSOLE_ENABLE=true
+      - RUSTFS_CORS_ALLOWED_ORIGINS=*
+      - RUSTFS_CONSOLE_CORS_ALLOWED_ORIGINS=*
+      - RUSTFS_ACCESS_KEY=${PLATYS_AWS_ACCESS_KEY:-admin}
+      - RUSTFS_SECRET_KEY=${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}
+      - RUSTFS_OBS_LOGGER_LEVEL=info
+      # Keep strict disk topology checks enabled by default.
+      # For local testing only, set `RUSTFS_UNSAFE_BYPASS_DISK_CHECK=true` explicitly.      
+      - RUSTFS_UNSAFE_BYPASS_DISK_CHECK=true
+#      - RUSTFS_TLS_PATH=/opt/tls
+    volumes:
+      - ./data-transfer:/data-transfer
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, sh, -c, curl -f http://127.0.0.1:9000/health && curl -f http://127.0.0.1:9010/rustfs/console/health]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+  #  ================================== RustFS MC ========================================== #
+  rustfs-mc:
+    image: minio/mc:latest
+    container_name: rustfs-mc
+    hostname: rustfs-mc
+    labels:
+      com.platys.name: rustfs
+      com.platys.description: RustFS CLI
+    environment:
+      # these two env variables are also needed for the s3-credentials.properties file gen to work! 
+      AWS_ACCESS_KEY: ${PLATYS_AWS_ACCESS_KEY:-admin}
+      AWS_SECRET_ACCESS_KEY: ${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}
+      MC_HOST_rustfs-1: http://${PLATYS_AWS_ACCESS_KEY:-admin}:${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}@rustfs-1:9000
+    volumes:
+      - ./data-transfer:/data-transfer
+      - ./scripts/docker/wait-for-it.sh:/usr/src/app/wait-for-it.sh
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        /usr/src/app/wait-for-it.sh -t 180 rustfs-1:9000
+        mc mb --ignore-existing rustfs-1/admin-bucket
+              for bucket in $$(tr ',' '\n' <<< "risingwave-bucket")
+        do
+          mc mb --ignore-existing rustfs-1/$$bucket
+        done
+        #
+        while [ 1 -eq 1 ];do sleep 60;done
+    restart: unless-stopped
+  #  ================================== Grafana ========================================== #
+  grafana:
+    image: grafana/grafana:12.4.0-20977568970-ubuntu
+    hostname: grafana
+    container_name: grafana
+    labels:
+      com.platys.name: grafana
+      com.platys.description: Data visualization and dashboarding
+      com.platys.webui.title: Grafana UI
+      com.platys.webui.url: http://dataplatform:3000
+      com.platys.restapi.title: Grafana API
+      com.platys.restapi.url: http://dataplatform:3000/api/org
+    expose:
+      - 3000
+    ports:
+      - 3000:3000
+    environment:
+      - GF_SERVER_HTTP_ADDR=0.0.0.0
+      - GF_SERVER_HTTP_PORT=3000
+      - GF_AUTH_ANONYMOUS_ENABLED=False
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=abc123!
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - RISINGWAVE_USER=root
+      - RISINGWAVE_PASSWORD=
+      - RISINGWAVE_DB=dev
+    volumes:
+      - ./data-transfer:/data-transfer
+      - ./scripts/grafana/dashboards/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml
+      - ./scripts/grafana/dashboards/docker/monitor_services.json:/etc/grafana/provisioning/dashboards/docker/monitor_services.json
+      - ./scripts/grafana/datasources/risingwave.yml:/etc/grafana/provisioning/datasources/risingwave.yml
+#        restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - bash -c 'printf \"GET / HTTP/1.1\n\n\" > /dev/tcp/127.0.0.1/3000; exit $$?;'
+      interval: 1s
+      timeout: 5s
+      retries: 5
+  #  ================================== Wetty ========================================== #
+  wetty:
+    image: wettyoss/wetty:2
+    container_name: wetty
+    hostname: wetty
+    labels:
+      com.platys.name: wetty
+      com.platys.description: A terminal window in Web-Browser
+      com.platys.webui.title: WeTTY UI
+      com.platys.webui.url: http://dataplatform:3001
+    ports:
+      - 3001:3000
+    environment:
+      - SSHHOST=${DOCKER_HOST_IP:-localhost}
+      - SSHPORT=22
+      - SSHUSER=
+      - SSHAUTH=password
+      - PORT=3000
+      - BASE=/
+    volumes:
+      - ./data-transfer:/data-transfer
+    restart: unless-stopped
+  #  ================================== markdown-viewer ========================================== #
+  markdown-viewer:
+    image: dannyben/madness:1.2.5
+    container_name: markdown-viewer
+    hostname: markdown-viewer
+    labels:
+      com.platys.name: markdown-viewer
+      com.platys.description: Platys Platform homepage viewer
+      com.platys.webui.title: Markdown Viewer UI
+      com.platys.webui.url: http://dataplatform:80
+    ports:
+      - 80:3000
+    volumes:
+      - ./artefacts:/docs
+      - ./conf/markdown-viewer/markdown-madness.yml:/docs/.madness.yml
+      - ./data-transfer:/data-transfer
+    command: server
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD-SHELL, curl -f http://markdown-viewer:3000 || exit 1]
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
+      start_period: 1m
+  markdown-renderer:
+    image: trivadis/jinja2-renderer:0.8.1
+    container_name: markdown-renderer
+    hostname: markdown-renderer
+    labels:
+      com.platys.name: markdown-renderer
+      com.platys.description: Platys Platform homepage rendering
+    environment:
+      USE_PUBLIC_IP: 'True'
+      PUBLIC_IP: ${PUBLIC_IP:-127.0.0.1}
+      DOCKER_HOST_IP: ${DOCKER_HOST_IP:-localhost}
+      DATAPLATFORM_HOME: ${DATAPLATFORM_HOME}
+      PLATYS_PLATFORM_NAME: streaming-data-platform
+      PLATYS_PLATFORM_STACK: trivadis/platys-modern-data-platform
+      PLATYS_PLATFORM_STACK_VERSION: develop
+      PLATYS_COPY_COOKBOOK_DATA: 'True'
+      PLATYS_DATACENTER:
+      SERVICE_LIST_VERSION: 2
+    volumes:
+      - ./artefacts/templates:/templates
+      - ./artefacts/templates:/scripts
+      - .:/variables
+      - ./artefacts:/output
+      - ./data-transfer:/data-transfer
+    init: true
+  #  ================================== Platys Modern Data Platform Init Service ========================================== #
+  platys-mdp-init:
+    image: trivadis/platys-mdp-init:latest
+    container_name: platys-mdp-init
+    hostname: platys-mdp-init
+    labels:
+      com.platys.name: platys-mdp-init
+      com.platys.description: Platys MDP Init Service
+    environment:
+      AWS_ACCESS_KEY: ${PLATYS_AWS_ACCESS_KEY:-admin}
+      AWS_SECRET_ACCESS_KEY: ${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}
+      S3_ENDPOINT: http://rustfs-1:9000
+      S3_PATH_STYLE_ACCESS: 'true'
+      MC_HOST_rustfs-1: http://${PLATYS_AWS_ACCESS_KEY:-admin}:${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}@rustfs-1:9000
+      RUSTFS_ACCESS_KEY_ID: ${PLATYS_AWS_ACCESS_KEY:-admin}
+      RUSTFS_SECRET_ACCESS_KEY: ${PLATYS_AWS_SECRET_ACCESS_KEY:-abc123abc123!}
+      RUSTFS_URL: http://rustfs-1:9000
+    volumes:
+      - ./data-transfer:/data-transfer
+      - ./init/platys-mdp-init:/docker-entrypoint-init.d/
+      - ./security/platys-mdp-init/credentials:/tmp/credentials.templ
+      - aws-credentials-vol:/tmp/.aws:RO
+    init: true
+    command:
+      - /bin/sh
+      - -c
+      - |
+        mkdir -p /tmp/.aws
+        eval "echo \"$$(cat /tmp/credentials.templ)\"" >> /tmp/.aws/credentials
+        sleep 30
+    restart: no
+volumes:
+  data-transfer-vol:
+    name: data_transfer_vol
+  aws-credentials-vol:
