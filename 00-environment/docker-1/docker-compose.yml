@@ -482,9 +482,11 @@ services:
       - 9084:9084
     environment:
       HIVE_VER: 4.2.0
+      JAVA_TOOL_OPTIONS: -Dhive.log.level=INFO
       # configure iceberg catalog service (if HMS >= 4.1.0)
       HIVE_SITE_CONF_metastore_catalog_servlet_port: 9084
       HIVE_SITE_CONF_metastore_catalog_servlet_auth: none
+      HIVE_SITE_CONF_metastore_warehouse_tenant_colocation: false
       CORE_CONF_fs_defaultFS: file:///tmp
       HIVE_SITE_CONF_fs_defaultFS: file:///tmp
       HIVE_SITE_CONF_fs_s3a_endpoint: http://rustfs-1:9000
@@ -1027,6 +1029,7 @@ services:
     environment:
       - GF_SERVER_HTTP_ADDR=0.0.0.0
       - GF_SERVER_HTTP_PORT=3000
+      - GF_PLUGINS_PREINSTALL=hamedkarbasi93-kafka-datasource
       - GF_AUTH_ANONYMOUS_ENABLED=False
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
       - GF_SECURITY_ADMIN_USER=admin
@@ -1040,6 +1043,7 @@ services:
       - ./scripts/grafana/dashboards/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml
       - ./scripts/grafana/dashboards/docker/monitor_services.json:/etc/grafana/provisioning/dashboards/docker/monitor_services.json
       - ./scripts/grafana/datasources/timescaledb.yml:/etc/grafana/provisioning/datasources/timescaledb.yml
+#    #      - ./plugins/grafana/plugins:/var/lib/grafana/plugins
 #        restart: unless-stopped
     healthcheck:
       test:
